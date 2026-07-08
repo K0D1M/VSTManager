@@ -1,0 +1,171 @@
+<Window x:Class="VstManager.App.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        mc:Ignorable="d"
+        Title="Settings" Height="640" Width="520"
+        MinHeight="420" MinWidth="420"
+        SizeToContent="Manual"
+        Background="{DynamicResource WindowBackgroundBrush}"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Settings" FontSize="20" FontWeight="Bold"
+                   Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,16" />
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <Border Style="{StaticResource CardBorder}" Margin="8,8,8,8" HorizontalAlignment="Stretch">
+                    <DockPanel LastChildFill="True">
+                        <TextBlock DockPanel.Dock="Left" Text="Appearance" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                        <ToggleButton DockPanel.Dock="Right" HorizontalAlignment="Right"
+                                      IsChecked="{Binding IsDarkTheme}" Style="{StaticResource GhostToggleButton}"
+                                      Padding="12,7"
+                                      Content="{Binding IsDarkTheme, Converter={StaticResource ThemeLabelConverter}}" />
+                    </DockPanel>
+                </Border>
+
+                <Border Style="{StaticResource CardBorder}" Margin="8,0,8,8" HorizontalAlignment="Stretch">
+                    <StackPanel>
+                        <TextBlock Text="Accent Color" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,10" />
+
+                        <ItemsControl ItemsSource="{Binding AccentSwatches}" Margin="0,0,0,10">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Width="28" Height="28" Margin="4" Padding="0"
+                                            Background="{Binding Converter={StaticResource ColorToBrushConverter}}"
+                                            Command="{Binding DataContext.SelectAccentColorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Ellipse Fill="{TemplateBinding Background}"
+                                                         Stroke="{DynamicResource BorderBrush2}" StrokeThickness="1" />
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <DockPanel LastChildFill="True">
+                            <TextBlock DockPanel.Dock="Left" Text="Hex:" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
+                            <Border Width="28" Height="28" DockPanel.Dock="Right" Margin="8,0,0,0" CornerRadius="6"
+                                    Background="{Binding AccentColor, Converter={StaticResource ColorToBrushConverter}}"
+                                    BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="1" />
+                            <TextBox Style="{StaticResource SearchBox}"
+                                     Text="{Binding AccentHexInput, UpdateSourceTrigger=PropertyChanged}" />
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Text="Scan Folders" FontWeight="SemiBold" Margin="8,0,8,8"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
+
+                <Border Style="{StaticResource CardBorder}" Margin="8,0,8,8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                            <TextBlock Text="Default paths (always scanned)" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                            <ItemsControl ItemsSource="{Binding DefaultVst3Paths}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <ItemsControl ItemsSource="{Binding DefaultVst2Paths}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1">
+                            <TextBlock Text="Custom folders" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                            <ItemsControl ItemsSource="{Binding CustomScanFolders}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <DockPanel Margin="0,3" LastChildFill="True">
+                                            <Button DockPanel.Dock="Right" Content="Remove" Style="{StaticResource GhostButton}"
+                                                    Padding="8,3" FontSize="11"
+                                                    Command="{Binding DataContext.RemoveScanFolderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}" />
+                                            <TextBlock Text="{Binding}" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                       TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Button Content="Add Folder..." Style="{StaticResource AccentButton}"
+                        HorizontalAlignment="Left" Margin="8,0,8,8" Click="AddFolder_Click" />
+
+                <TextBlock Text="System" FontWeight="SemiBold" Margin="8,0,8,8"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
+
+                <Border Style="{StaticResource CardBorder}" Margin="8,0,8,8" HorizontalAlignment="Stretch">
+                    <StackPanel>
+                        <DockPanel LastChildFill="True" Margin="0,0,0,14">
+                            <ToggleButton DockPanel.Dock="Right" HorizontalAlignment="Right"
+                                          IsChecked="{Binding AutostartEnabled}" Style="{StaticResource GhostToggleButton}"
+                                          Padding="12,7" Content="{Binding AutostartEnabled, Converter={StaticResource BoolToOnOffConverter}}" />
+                            <TextBlock DockPanel.Dock="Left" Text="Autostart on Windows startup" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                        </DockPanel>
+
+                        <Separator Background="{DynamicResource BorderBrush2}" Margin="0,0,0,14" />
+
+                        <DockPanel LastChildFill="True" Margin="0,0,0,6">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="10,6"
+                                    Command="{Binding CheckForUpdatesCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#x21BB;" FontSize="13" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Check for Updates" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <TextBlock DockPanel.Dock="Left" Text="{Binding CurrentVersion, StringFormat='Version {0}'}"
+                                       VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        </DockPanel>
+
+                        <TextBlock Text="{Binding LastUpdateCheck, Converter={StaticResource LastCheckedConverter}}"
+                                   FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                        <TextBlock Text="{Binding UpdateStatusText}" FontSize="11"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   Visibility="{Binding UpdateStatusText, Converter={StaticResource StringToVisibilityConverter}}" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Button Grid.Row="2" Content="Close" Style="{StaticResource GhostButton}"
+                HorizontalAlignment="Right" Margin="0,12,0,0" Click="Close_Click" />
+    </Grid>
+</Window>

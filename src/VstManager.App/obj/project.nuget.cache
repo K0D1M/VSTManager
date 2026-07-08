@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "fJbtZQULG2Y=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\VstManager.App.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Konstantinos D\\.nuget\\packages\\communitytoolkit.mvvm\\8.4.2\\communitytoolkit.mvvm.8.4.2.nupkg.sha512"
+  ],
+  "logs": []
+}

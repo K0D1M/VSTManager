@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/VstManager.App/VstManager.App.csproj" />
+    <Project Path="src/VstManager.Core/VstManager.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/VstManager.Core.Tests/VstManager.Core.Tests.csproj" />
+  </Folder>
+</Solution>
