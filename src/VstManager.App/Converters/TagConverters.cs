@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
@@ -7,14 +8,60 @@ using VstManager.Core.Models;
 
 namespace VstManager.App.Converters;
 
+public class ScanningLabelConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? "Scanning..." : "Rescan";
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+public class AnyTrueToVisibilityConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture) =>
+        values.Any(v => v is true) ? Visibility.Visible : Visibility.Collapsed;
+
+    public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+public class FavoriteStarGlyphConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? "★" : "☆";
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+public class InverseBooleanToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? Visibility.Collapsed : Visibility.Visible;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+public class InverseBooleanConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        !(value is true);
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        !(value is true);
+}
+
 public class TagToBrushConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         var key = value switch
         {
-            PluginTag.Legit => "LegitBrush",
-            PluginTag.Cracked => "CrackedBrush",
+            PluginTag.Legit or PluginTagSummary.Legit => "LegitBrush",
+            PluginTag.Cracked or PluginTagSummary.Cracked => "CrackedBrush",
+            PluginTagSummary.Both => "TealAccentBrush",
             _ => "UnclassifiedBrush"
         };
 
@@ -30,8 +77,9 @@ public class TagToTextConverter : IValueConverter
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         value switch
         {
-            PluginTag.Legit => "Legit",
-            PluginTag.Cracked => "Cracked",
+            PluginTag.Legit or PluginTagSummary.Legit => "Legit",
+            PluginTag.Cracked or PluginTagSummary.Cracked => "Cracked",
+            PluginTagSummary.Both => "Legit + Cracked",
             _ => "Unclassified"
         };
 
@@ -43,6 +91,24 @@ public class BoolToThemeLabelConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         value is true ? "Dark" : "Light";
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+public class HideMenuTextConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? "Unhide" : "Hide";
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+public class HiddenToOpacityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? 0.5 : 1.0;
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
         throw new NotSupportedException();
@@ -73,6 +139,24 @@ public class EnumEqualsConverter : IValueConverter
 
     public object? ConvertBack(object value, Type targetType, object? parameter, CultureInfo culture) =>
         value is true ? parameter : Binding.DoNothing;
+}
+
+public class CountToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is int count && count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+public class EnumEqualsToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        (value?.Equals(parameter) ?? false) ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
 }
 
 public class ColorToBrushConverter : IValueConverter
@@ -115,8 +199,37 @@ public class LastCheckedConverter : IValueConverter
 
 public class StringToVisibilityConverter : IValueConverter
 {
-    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        string.IsNullOrEmpty(value as string) ? Visibility.Collapsed : Visibility.Visible;
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var isEmpty = string.IsNullOrEmpty(value as string);
+        var inverse = string.Equals(parameter as string, "Inverse", StringComparison.OrdinalIgnoreCase);
+
+        var isVisible = inverse ? isEmpty : !isEmpty;
+        return isVisible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+public class InstalledFilterToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not InstalledFilterOption filter || parameter is not string section)
+        {
+            return Visibility.Visible;
+        }
+
+        var isHidden = section switch
+        {
+            "Installed" => filter == InstalledFilterOption.NotInstalledOnly,
+            "NotInstalled" => filter == InstalledFilterOption.InstalledOnly,
+            _ => false
+        };
+
+        return isHidden ? Visibility.Collapsed : Visibility.Visible;
+    }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
         throw new NotSupportedException();

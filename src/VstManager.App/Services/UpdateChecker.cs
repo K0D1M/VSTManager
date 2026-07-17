@@ -9,9 +9,8 @@ public record UpdateCheckResult(bool UpdateAvailable, string? LatestVersion, str
 
 public class UpdateChecker
 {
-    // TODO: replace with the real "owner/repo" once the GitHub repo hosting releases is created.
-    private const string RepoOwner = "yourname";
-    private const string RepoName = "vst-manager";
+    private const string RepoOwner = "K0D1M";
+    private const string RepoName = "VSTManager";
 
     private readonly HttpClient _httpClient;
 

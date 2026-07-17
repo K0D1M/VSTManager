@@ -52,6 +52,11 @@ public class LibraryStore
             if (existingByPath.TryGetValue(found.Path, out var existingEntry))
             {
                 found.Tag = existingEntry.Tag;
+                found.Kind = existingEntry.Kind;
+                found.CurrentVersion = existingEntry.CurrentVersion;
+                found.LatestVersion = existingEntry.LatestVersion;
+                found.IsFavorite = existingEntry.IsFavorite;
+                found.IsHidden = existingEntry.IsHidden;
             }
             merged.Add(found);
         }

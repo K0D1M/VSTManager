@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="catalog.json" />
+    <EmbeddedResource Include="excluded-files.json" />
   </ItemGroup>
 
 </Project>

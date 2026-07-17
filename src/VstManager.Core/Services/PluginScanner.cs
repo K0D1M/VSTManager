@@ -4,6 +4,13 @@ namespace VstManager.Core.Services;
 
 public class PluginScanner
 {
+    private readonly ExclusionListService _exclusionList;
+
+    public PluginScanner(ExclusionListService? exclusionList = null)
+    {
+        _exclusionList = exclusionList ?? new ExclusionListService();
+    }
+
     public List<PluginInfo> Scan(IEnumerable<string> vst3Folders, IEnumerable<string> vst2Folders)
     {
         var results = new List<PluginInfo>();
@@ -21,7 +28,7 @@ public class PluginScanner
         return results;
     }
 
-    private static IEnumerable<PluginInfo> ScanFolder(string folder, string searchPattern, PluginFormat format)
+    private IEnumerable<PluginInfo> ScanFolder(string folder, string searchPattern, PluginFormat format)
     {
         if (!Directory.Exists(folder))
         {
@@ -42,8 +49,13 @@ public class PluginScanner
             yield break;
         }
 
-        foreach (var path in entries)
+        foreach (var path in DeduplicateBundles(entries))
         {
+            if (_exclusionList.IsExcluded(path))
+            {
+                continue;
+            }
+
             var name = Path.GetFileNameWithoutExtension(path);
             yield return new PluginInfo
             {
@@ -52,5 +64,13 @@ public class PluginScanner
                 Format = format
             };
         }
+    }
+
+    private static IEnumerable<string> DeduplicateBundles(IEnumerable<string> entries)
+    {
+        // VST3 bundle folders (e.g. "Serum.vst3\") share the same extension as the binary
+        // inside them (".vst3\Contents\<arch>\Serum.vst3"). Folders never count as plugins -
+        // only the actual binary file does.
+        return entries.Where(path => !Directory.Exists(path));
     }
 }

@@ -17,25 +17,41 @@ public class LogoPathToBitmapConverter : IMultiValueConverter
 
         var isInstalled = values[1] is true;
 
-        var source = new BitmapImage();
-        source.BeginInit();
-        source.CacheOption = BitmapCacheOption.OnLoad;
-        source.UriSource = new Uri(path, UriKind.Absolute);
-        source.EndInit();
-        source.Freeze();
+        BitmapImage source;
+        try
+        {
+            source = new BitmapImage();
+            source.BeginInit();
+            source.CacheOption = BitmapCacheOption.OnLoad;
+            source.UriSource = new Uri(path, UriKind.Absolute);
+            source.EndInit();
+            source.Freeze();
+        }
+        catch (NotSupportedException)
+        {
+            // The cached file's format (e.g. WebP) isn't decodable by WPF's imaging pipeline.
+            return null;
+        }
 
         if (isInstalled)
         {
             return source;
         }
 
-        var grayscale = new FormatConvertedBitmap();
-        grayscale.BeginInit();
-        grayscale.Source = source;
-        grayscale.DestinationFormat = PixelFormats.Gray8;
-        grayscale.EndInit();
-        grayscale.Freeze();
-        return grayscale;
+        try
+        {
+            var grayscale = new FormatConvertedBitmap();
+            grayscale.BeginInit();
+            grayscale.Source = source;
+            grayscale.DestinationFormat = PixelFormats.Gray8;
+            grayscale.EndInit();
+            grayscale.Freeze();
+            return grayscale;
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
     }
 
     public object[] ConvertBack(object? value, Type[] targetTypes, object? parameter, CultureInfo culture) =>

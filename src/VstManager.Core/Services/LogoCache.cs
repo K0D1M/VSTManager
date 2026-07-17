@@ -64,16 +64,46 @@ public class LogoCache
             File.Delete(cachedPath);
         }
 
-        return await DownloadAsync(entry, cachedPath, cancellationToken);
+        return await DownloadFromUrlAsync(entry.LogoUrl, cachedPath, cancellationToken, slug);
     }
 
-    private async Task<string?> DownloadAsync(CatalogEntry entry, string cachedPath, CancellationToken cancellationToken)
+    public static string GetSlugForName(string name)
     {
-        var slug = GetSlug(entry);
+        using var sha = SHA256.Create();
+        var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(name.Trim().ToLowerInvariant()));
+        return Convert.ToHexString(hash)[..16].ToLowerInvariant() + "-manual";
+    }
 
+    public async Task<string?> GetManualLogoPathAsync(string name, string sourceUrl, CancellationToken cancellationToken = default)
+    {
+        Directory.CreateDirectory(_cacheDirectory);
+        var slug = GetSlugForName(name);
+        var extension = GetExtensionFromUrl(sourceUrl);
+        var cachedPath = Path.Combine(_cacheDirectory, slug + extension);
+
+        if (File.Exists(cachedPath))
+        {
+            return cachedPath;
+        }
+
+        return await DownloadFromUrlAsync(sourceUrl, cachedPath, cancellationToken);
+    }
+
+    public async Task<string?> DownloadPreviewAsync(string sourceUrl, CancellationToken cancellationToken = default)
+    {
+        Directory.CreateDirectory(_cacheDirectory);
+        var tempPath = Path.Combine(_cacheDirectory, "preview-" + Guid.NewGuid().ToString("N") + GetExtensionFromUrl(sourceUrl));
+        return await DownloadFromUrlAsync(sourceUrl, tempPath, cancellationToken);
+    }
+
+    private async Task<string?> DownloadAsync(CatalogEntry entry, string cachedPath, CancellationToken cancellationToken) =>
+        await DownloadFromUrlAsync(entry.LogoUrl, cachedPath, cancellationToken, GetSlug(entry));
+
+    private async Task<string?> DownloadFromUrlAsync(string url, string cachedPath, CancellationToken cancellationToken, string? failureTrackingSlug = null)
+    {
         try
         {
-            using var response = await _httpClient.GetAsync(entry.LogoUrl, cancellationToken);
+            using var response = await _httpClient.GetAsync(url, cancellationToken);
             response.EnsureSuccessStatusCode();
             await using var fileStream = File.Create(cachedPath);
             await response.Content.CopyToAsync(fileStream, cancellationToken);
@@ -81,7 +111,11 @@ public class LogoCache
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
-            _failedThisSession.Add(slug);
+            if (failureTrackingSlug is not null)
+            {
+                _failedThisSession.Add(failureTrackingSlug);
+            }
+
             return null;
         }
     }

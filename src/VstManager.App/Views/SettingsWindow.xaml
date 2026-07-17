@@ -18,7 +18,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Settings" FontSize="20" FontWeight="Bold"
+        <TextBlock Grid.Row="0" Text="Settings" FontSize="21" FontWeight="Bold"
                    Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,16" />
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -85,33 +85,33 @@
                         </Grid.RowDefinitions>
 
                         <StackPanel Grid.Row="0" Margin="0,0,0,10">
-                            <TextBlock Text="Default paths (always scanned)" FontSize="11"
+                            <TextBlock Text="Default paths (always scanned)" FontSize="12"
                                        Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4" />
                             <ItemsControl ItemsSource="{Binding DefaultVst3Paths}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        <TextBlock Text="{Binding}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                             <ItemsControl ItemsSource="{Binding DefaultVst2Paths}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        <TextBlock Text="{Binding}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </StackPanel>
 
                         <StackPanel Grid.Row="1">
-                            <TextBlock Text="Custom folders" FontSize="11"
+                            <TextBlock Text="Custom folders" FontSize="12"
                                        Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4" />
                             <ItemsControl ItemsSource="{Binding CustomScanFolders}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <DockPanel Margin="0,3" LastChildFill="True">
                                             <Button DockPanel.Dock="Right" Content="Remove" Style="{StaticResource GhostButton}"
-                                                    Padding="8,3" FontSize="11"
+                                                    Padding="8,3" FontSize="12"
                                                     Command="{Binding DataContext.RemoveScanFolderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}" />
                                             <TextBlock Text="{Binding}" VerticalAlignment="Center"
@@ -147,7 +147,7 @@
                             <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="10,6"
                                     Command="{Binding CheckForUpdatesCommand}">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#x21BB;" FontSize="13" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#x21BB;" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
                                     <TextBlock Text="Check for Updates" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
@@ -156,10 +156,37 @@
                         </DockPanel>
 
                         <TextBlock Text="{Binding LastUpdateCheck, Converter={StaticResource LastCheckedConverter}}"
-                                   FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4" />
-                        <TextBlock Text="{Binding UpdateStatusText}" FontSize="11"
+                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                        <TextBlock Text="{Binding UpdateStatusText}" FontSize="12"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Visibility="{Binding UpdateStatusText, Converter={StaticResource StringToVisibilityConverter}}" />
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Text="Data" FontWeight="SemiBold" Margin="8,0,8,8"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
+
+                <Border Style="{StaticResource CardBorder}" Margin="8,0,8,8" HorizontalAlignment="Stretch">
+                    <StackPanel>
+                        <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,12"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   Text="Save your plugin tags, scan folders, and preferences to a file, or restore them after reinstalling the app or moving to a new PC." />
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource GhostButton}" Padding="10,6" Margin="0,0,10,0"
+                                    Click="ExportData_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#x2B07;" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Export Data..." VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource GhostButton}" Padding="10,6"
+                                    Click="ImportData_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#x2B06;" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Import Data..." VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
             </StackPanel>

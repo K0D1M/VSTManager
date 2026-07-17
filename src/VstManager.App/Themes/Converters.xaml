@@ -12,8 +12,19 @@
     <conv:ModeToBoolConverter x:Key="ModeToBoolConverter" />
     <conv:ColorToBrushConverter x:Key="ColorToBrushConverter" />
     <conv:EnumEqualsConverter x:Key="EnumEqualsConverter" />
+    <conv:EnumEqualsToVisibilityConverter x:Key="EnumEqualsToVisibilityConverter" />
+    <conv:CountToVisibilityConverter x:Key="CountToVisibilityConverter" />
     <conv:BoolToOnOffConverter x:Key="BoolToOnOffConverter" />
     <conv:LastCheckedConverter x:Key="LastCheckedConverter" />
     <conv:StringToVisibilityConverter x:Key="StringToVisibilityConverter" />
+    <conv:InstalledFilterToVisibilityConverter x:Key="InstalledFilterToVisibilityConverter" />
+    <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    <conv:InverseBooleanConverter x:Key="InverseBoolConverter" />
+    <conv:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
+    <conv:ScanningLabelConverter x:Key="ScanningLabelConverter" />
+    <conv:AnyTrueToVisibilityConverter x:Key="AnyTrueToVisibilityConverter" />
+    <conv:FavoriteStarGlyphConverter x:Key="FavoriteStarGlyphConverter" />
+    <conv:HideMenuTextConverter x:Key="HideMenuTextConverter" />
+    <conv:HiddenToOpacityConverter x:Key="HiddenToOpacityConverter" />
 
 </ResourceDictionary>

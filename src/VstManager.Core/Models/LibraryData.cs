@@ -8,4 +8,6 @@ public class LibraryData
     public string AccentColor { get; set; } = "#FF8A5CF6";
     public bool AutostartEnabled { get; set; }
     public DateTime? LastUpdateCheck { get; set; }
+    public string LayoutMode { get; set; } = "Grid";
+    public bool HasSeenLogoInstructions { get; set; }
 }
