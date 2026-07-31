@@ -10,4 +10,12 @@ public class LibraryData
     public DateTime? LastUpdateCheck { get; set; }
     public string LayoutMode { get; set; } = "Grid";
     public bool HasSeenLogoInstructions { get; set; }
+
+    /// <summary>
+    /// Whether to look plugins up online (KVR) automatically on launch to find newer versions.
+    /// On by default to preserve existing behaviour; users on metered/offline connections — or
+    /// anyone who finds the startup lookup slow across a large library — can turn it off and
+    /// still run it on demand via "Refresh All Metadata".
+    /// </summary>
+    public bool CheckForPluginUpdatesOnStartup { get; set; } = true;
 }

@@ -143,8 +143,14 @@ public class EnumEqualsConverter : IValueConverter
 
 public class CountToVisibilityConverter : IValueConverter
 {
-    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value is int count && count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    /// <summary>Pass "Inverse" to show only when the count is zero (e.g. empty-state hints).</summary>
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var hasItems = value is int count && count > 0;
+        var inverse = string.Equals(parameter as string, "Inverse", StringComparison.OrdinalIgnoreCase);
+
+        return hasItems != inverse ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
         throw new NotSupportedException();
@@ -207,6 +213,25 @@ public class StringToVisibilityConverter : IValueConverter
         var isVisible = inverse ? isEmpty : !isEmpty;
         return isVisible ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>
+/// PluginFormat is inferred purely from the file extension at scan time (.vst3 → Vst3,
+/// .dll → Vst2), so this label doubles as an explanation of that distinction wherever a
+/// per-copy row is shown (e.g. the detail window's install path list).
+/// </summary>
+public class FormatToLabelConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value switch
+        {
+            PluginFormat.Vst3 => "VST3",
+            PluginFormat.Vst2 => "VST2",
+            _ => string.Empty
+        };
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
         throw new NotSupportedException();

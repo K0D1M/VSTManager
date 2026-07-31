@@ -13,6 +13,7 @@
     <Color x:Key="LegitColor">#FF34D399</Color>
     <Color x:Key="CrackedColor">#FFF87171</Color>
     <Color x:Key="UnclassifiedColor">#FF64748B</Color>
+    <Color x:Key="OutdatedColor">#FFF59E0B</Color>
 
     <SolidColorBrush x:Key="WindowBackgroundBrush" Color="{StaticResource WindowBackgroundColor}" />
     <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
@@ -26,5 +27,6 @@
     <SolidColorBrush x:Key="LegitBrush" Color="{StaticResource LegitColor}" />
     <SolidColorBrush x:Key="CrackedBrush" Color="{StaticResource CrackedColor}" />
     <SolidColorBrush x:Key="UnclassifiedBrush" Color="{StaticResource UnclassifiedColor}" />
+    <SolidColorBrush x:Key="OutdatedBrush" Color="{StaticResource OutdatedColor}" />
 
 </ResourceDictionary>

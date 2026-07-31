@@ -3,8 +3,10 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
+using VstManager.App.Services;
 using VstManager.App.ViewModels;
 using VstManager.Core.Models;
+using VstManager.Core.Services;
 
 namespace VstManager.App.Views;
 
@@ -84,7 +86,17 @@ public partial class PluginDetailWindow : Window
         Close();
     }
 
+    private void Window_Loaded(object sender, RoutedEventArgs e) => WindowSizing.FitToScreen(this);
+
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void ShowInFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: string path })
+        {
+            _mainViewModel.ShowPathInFolderCommand.Execute(path);
+        }
+    }
 
     private async void MarkAsNotAPlugin_Click(object sender, RoutedEventArgs e)
     {
@@ -141,23 +153,48 @@ public partial class PluginDetailWindow : Window
             {
                 messages.Add("Already matched to the right catalog entry.");
             }
-            else if (result.WebLookupResult is not null)
-            {
-                var web = result.WebLookupResult;
-                Form.Name = web.ProductName;
-                Form.Vendor = web.Vendor;
-                messages.Add($"Not in the local catalog, but found online: {web.ProductName} ({web.Vendor}).");
 
-                if (web.LogoUrl is not null)
+            // When the online search wasn't sure — weak top hit, or two near-equal hits — put
+            // the choice to the user rather than silently applying a guess.
+            var chosen = result.WebLookupResult;
+            if (result.NeedsUserChoice && result.WebCandidates.Count > 0)
+            {
+                var picker = new MatchPickerWindow(_plugin.Name, result.WebCandidates) { Owner = this };
+                picker.ShowDialog();
+                chosen = picker.SelectedInfo;
+
+                messages.Add(chosen is null
+                    ? "Online search wasn't conclusive and no match was chosen."
+                    : $"Using your pick: {chosen.ProductName}.");
+            }
+
+            if (chosen is not null)
+            {
+                // A curated catalog entry wins on identity; the web only supplies the version
+                // (and artwork) for plugins the catalog already knows.
+                if (result.MatchedCatalogEntry is null)
                 {
-                    Form.LogoUrl = web.LogoUrl;
-                    await LoadLogoPreviewAsync(web.LogoUrl);
-                    messages.Add("Logo loaded below — review it, then Save.");
+                    await ApplyFetchedInfoAsync(chosen, "the online match");
+                }
+                else if (!string.IsNullOrWhiteSpace(chosen.LatestVersion))
+                {
+                    Form.LatestVersion = chosen.LatestVersion;
+                }
+
+                if (!string.IsNullOrWhiteSpace(chosen.LatestVersion))
+                {
+                    messages.Add($"Latest version online: {chosen.LatestVersion}.");
+                }
+
+                if (chosen.SourceUrl is not null)
+                {
+                    Form.InfoUrl = chosen.SourceUrl;
                 }
             }
-            else
+            else if (result.MatchedCatalogEntry is null && result.WebCandidates.Count == 0)
             {
-                messages.Add("No catalog match found, and an online KVR Audio search didn't find a confident match either — set Name/Vendor manually above.");
+                messages.Add("No catalog match, and nothing convincing found online — set Name/Vendor manually above, "
+                             + "or paste the plugin's product page address below.");
             }
 
             Form.AutoDetectStatusText = string.Join(" ", messages);
@@ -168,57 +205,88 @@ public partial class PluginDetailWindow : Window
         }
     }
 
-    private void SearchKvr_Click(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Reads plugin details straight off a product page the user pasted. Replaces the old
+    /// "search the web, then copy an image address" flow: the page yields name, vendor,
+    /// version and artwork in one step, and works for KVR or any other plugin database.
+    /// </summary>
+    private async void FetchInfo_Click(object sender, RoutedEventArgs e)
     {
-        var query = string.IsNullOrWhiteSpace(_plugin.Vendor)
-            ? _plugin.Name
-            : $"{_plugin.Name} {_plugin.Vendor}";
-
-        // KVR's own site search ("Quick Search") requires being logged into a KVR account just
-        // to view results — without that it shows a login prompt instead of anything useful.
-        // Searching via DuckDuckGo restricted to kvraudio.com/product pages works without any
-        // login and reliably lands on the right product page.
-        var searchUrl = "https://duckduckgo.com/?q=" + Uri.EscapeDataString($"site:kvraudio.com/product {query}");
-        Process.Start(new ProcessStartInfo(searchUrl) { UseShellExecute = true });
-        Form.LogoStatusText = "Open the matching product page on KVR, right-click its box art, choose \"Copy image address\", then paste it below.";
-    }
-
-    private void SearchWeb_Click(object sender, RoutedEventArgs e)
-    {
-        var query = string.IsNullOrWhiteSpace(_plugin.Vendor)
-            ? $"{_plugin.Name} vst plugin logo"
-            : $"{_plugin.Name} {_plugin.Vendor} vst plugin logo";
-
-        var searchUrl = "https://www.google.com/search?tbm=isch&q=" + Uri.EscapeDataString(query);
-        Process.Start(new ProcessStartInfo(searchUrl) { UseShellExecute = true });
-        Form.LogoStatusText = "Find an image in your browser, right-click it, choose \"Copy image address\", then paste it below.";
-    }
-
-    private void LogoUrlTextBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        Form.IsLogoPreviewValid = false;
-        LogoPreviewImage.Visibility = Visibility.Collapsed;
-        LogoPlaceholderText.Visibility = Visibility.Visible;
-        LogoPlaceholderText.Text = "Paste an image URL below and click Preview";
-        Form.LogoStatusText = string.Empty;
-        CleanupLogoPreviewFile();
-    }
-
-    private async void PreviewLogo_Click(object sender, RoutedEventArgs e)
-    {
-        var url = (Form.LogoUrl ?? string.Empty).Trim();
+        var url = (Form.InfoUrl ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out _))
         {
-            Form.LogoStatusText = "Enter a valid image URL first.";
+            Form.LogoStatusText = "Paste a full web address first (starting with https://).";
             return;
         }
 
-        await LoadLogoPreviewAsync(url);
+        Form.IsFetchingInfo = true;
+        Form.LogoStatusText = "Reading that page...";
+
+        try
+        {
+            var info = await _mainViewModel.FetchInfoFromUrlAsync(url);
+            if (info is null)
+            {
+                Form.LogoStatusText = "Couldn't read plugin details from that page. Check the address, "
+                                      + "or try the plugin's page on kvraudio.com.";
+                return;
+            }
+
+            await ApplyFetchedInfoAsync(info, "that page");
+        }
+        finally
+        {
+            Form.IsFetchingInfo = false;
+        }
     }
 
+    /// <summary>
+    /// Fills the form from a fetched/chosen result. Only overwrites fields the source actually
+    /// supplied, so a page missing (say) a version never blanks out a good existing value.
+    /// </summary>
+    private async Task ApplyFetchedInfoAsync(KvrLookupResult info, string sourceLabel)
+    {
+        var applied = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(info.ProductName))
+        {
+            Form.Name = info.ProductName;
+            applied.Add("name");
+        }
+
+        if (!string.IsNullOrWhiteSpace(info.Vendor))
+        {
+            Form.Vendor = info.Vendor;
+            applied.Add("vendor");
+        }
+
+        if (!string.IsNullOrWhiteSpace(info.LatestVersion))
+        {
+            Form.LatestVersion = info.LatestVersion;
+            applied.Add("latest version");
+        }
+
+        if (!string.IsNullOrWhiteSpace(info.LogoUrl))
+        {
+            Form.LogoUrl = info.LogoUrl;
+            await LoadLogoPreviewAsync(info.LogoUrl!);
+            if (Form.IsLogoPreviewValid)
+            {
+                applied.Add("artwork");
+            }
+        }
+
+        Form.LogoStatusText = applied.Count == 0
+            ? $"Nothing usable found on {sourceLabel}."
+            : $"Filled in {string.Join(", ", applied)} from {sourceLabel}. Review above, then click Save.";
+    }
+
+    /// <summary>
+    /// Downloads the artwork found on a fetched page and shows it, so the user sees what will
+    /// be saved. Failures are non-fatal — the rest of the fetched details still apply.
+    /// </summary>
     private async Task LoadLogoPreviewAsync(string url)
     {
-        Form.LogoStatusText = "Loading preview...";
         Form.IsLogoPreviewValid = false;
 
         var localPath = await _mainViewModel.PreviewLogoAsync(url);
@@ -227,7 +295,6 @@ public partial class PluginDetailWindow : Window
 
         if (localPath is null)
         {
-            Form.LogoStatusText = "Couldn't download an image from that URL.";
             return;
         }
 
@@ -241,14 +308,11 @@ public partial class PluginDetailWindow : Window
             bitmap.Freeze();
 
             LogoPreviewImage.Source = bitmap;
-            LogoPreviewImage.Visibility = Visibility.Visible;
-            LogoPlaceholderText.Visibility = Visibility.Collapsed;
-            Form.LogoStatusText = "Looks good? Click Save to keep it.";
             Form.IsLogoPreviewValid = true;
         }
         catch (NotSupportedException)
         {
-            Form.LogoStatusText = "That image format isn't supported. Try a different image (JPG or PNG work best).";
+            // Unsupported image format — leave the preview hidden; other details still applied.
         }
     }
 

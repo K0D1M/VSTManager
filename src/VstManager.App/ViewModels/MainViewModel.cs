@@ -97,6 +97,20 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private int _selectedCount;
 
+    /// <summary>
+    /// Library-wide totals of plugins actually installed on this machine. Deliberately
+    /// independent of the search box and filter popup (unlike the per-tab counts, which
+    /// reflect the filtered views) so the header always reports the real size of the library.
+    /// </summary>
+    [ObservableProperty]
+    private int _installedTotalCount;
+
+    [ObservableProperty]
+    private int _installedInstrumentCount;
+
+    [ObservableProperty]
+    private int _installedEffectCount;
+
     [ObservableProperty]
     private ManagementMode _mode = ManagementMode.Legit;
 
@@ -104,7 +118,10 @@ public partial class MainViewModel : ObservableObject
     private string _searchText = string.Empty;
 
     [ObservableProperty]
-    private InstalledFilterOption _installedFilter = InstalledFilterOption.All;
+    // Defaults to showing only what's on disk: uninstalled plugins are remembered but kept out
+    // of the way, as are catalog entries that were never installed. Both remain reachable via
+    // the "Not Installed" / "All" pills in the Filters popup.
+    private InstalledFilterOption _installedFilter = InstalledFilterOption.InstalledOnly;
 
     [ObservableProperty]
     private FormatFilterOption _formatFilter = FormatFilterOption.All;
@@ -130,6 +147,10 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _autostartEnabled;
 
+    /// <summary>Whether the launch-time online lookup for newer plugin versions runs.</summary>
+    [ObservableProperty]
+    private bool _checkForPluginUpdatesOnStartup = true;
+
     [ObservableProperty]
     private DateTime? _lastUpdateCheck;
 
@@ -147,6 +168,22 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private string? _latestReleaseUrl;
+
+    [ObservableProperty]
+    private string? _updateAssetDownloadUrl;
+
+    [ObservableProperty]
+    private string _updateButtonText = "A new update is available";
+
+    [ObservableProperty]
+    private bool _isInstallingUpdate;
+
+    [ObservableProperty]
+    private string? _refreshProgressText;
+
+    /// <summary>Dismissible banner text summarizing the results of the startup version check.</summary>
+    [ObservableProperty]
+    private string? _startupUpdateSummaryText;
 
     [ObservableProperty]
     private LayoutMode _layoutMode = LayoutMode.Grid;
@@ -211,6 +248,17 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void SelectAccentColor(Color color) => AccentColor = color;
 
+    partial void OnCheckForPluginUpdatesOnStartupChanged(bool value)
+    {
+        if (_isInitializing)
+        {
+            return;
+        }
+
+        _library.CheckForPluginUpdatesOnStartup = value;
+        _libraryStore.Save(_library);
+    }
+
     partial void OnAutostartEnabledChanged(bool value)
     {
         if (_isInitializing)
@@ -244,18 +292,20 @@ public partial class MainViewModel : ObservableObject
 
         IsUpdateAvailable = result.UpdateAvailable;
         LatestReleaseUrl = result.ReleaseUrl;
+        UpdateAssetDownloadUrl = result.AssetDownloadUrl;
+        UpdateButtonText = UpdateAssetDownloadUrl is not null ? "Update Now" : "A new update is available";
 
-        if (result.UpdateAvailable && result.ReleaseUrl is not null)
+        if (result.UpdateAvailable)
         {
-            var openResult = MessageBox.Show(
-                $"A new version (v{result.LatestVersion}) is available. Open the release page?",
-                "Update Available",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Information);
+            var message = UpdateAssetDownloadUrl is not null
+                ? $"A new version (v{result.LatestVersion}) is ready to install. VST Manager will close and the installer will open. Continue?"
+                : $"A new version (v{result.LatestVersion}) is available. Open the release page?";
 
-            if (openResult == MessageBoxResult.Yes)
+            var confirmResult = MessageBox.Show(message, "Update Available", MessageBoxButton.YesNo, MessageBoxImage.Information);
+
+            if (confirmResult == MessageBoxResult.Yes)
             {
-                Process.Start(new ProcessStartInfo(result.ReleaseUrl) { UseShellExecute = true });
+                await InstallOrOpenRelease();
             }
         }
 
@@ -263,11 +313,40 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenLatestRelease()
+    private async Task InstallOrOpenRelease()
     {
-        if (LatestReleaseUrl is not null)
+        if (UpdateAssetDownloadUrl is not null)
+        {
+            await InstallUpdateAsync(UpdateAssetDownloadUrl);
+        }
+        else if (LatestReleaseUrl is not null)
         {
             Process.Start(new ProcessStartInfo(LatestReleaseUrl) { UseShellExecute = true });
+        }
+    }
+
+    private async Task InstallUpdateAsync(string downloadUrl)
+    {
+        IsInstallingUpdate = true;
+        try
+        {
+            var destinationPath = Path.Combine(Path.GetTempPath(), UpdateChecker.InstallerAssetName);
+            var success = await _updateChecker.DownloadInstallerAsync(downloadUrl, destinationPath);
+
+            if (!success)
+            {
+                MessageBox.Show(
+                    "Couldn't download the update. Try again later, or use the button again to open the release page instead.",
+                    "Update Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo(destinationPath) { UseShellExecute = true });
+            Application.Current.Shutdown();
+        }
+        finally
+        {
+            IsInstallingUpdate = false;
         }
     }
 
@@ -323,6 +402,7 @@ public partial class MainViewModel : ObservableObject
         ThemeManager.ApplyAccent(_accentColor);
 
         _autostartEnabled = _autostartService.IsEnabled();
+        _checkForPluginUpdatesOnStartup = settings.CheckForPluginUpdatesOnStartup;
         _lastUpdateCheck = settings.LastUpdateCheck;
         _layoutMode = Enum.TryParse<LayoutMode>(settings.LayoutMode, out var layoutMode) ? layoutMode : LayoutMode.Grid;
         _isInitializing = false;
@@ -343,7 +423,56 @@ public partial class MainViewModel : ObservableObject
         {
             await LoadAndScanAsync();
         }
+
+        // The scan(s) above already set IsNew on any plugin whose install path wasn't in the
+        // library before this launch (LoadAndScanAsync, same signal that paints the "NEW"
+        // badge) — capture that count before the KVR check below runs, since it doesn't
+        // touch IsNew.
+        var newlyFoundCount = Plugins.Count(p => p.IsInstalled && p.IsNew);
+
+        // Check every installed plugin against KVR for a newer release, same as "Refresh All
+        // Metadata" but without the catalog-rematch step or its confirm dialog — this only
+        // needs to light up OUTDATED badges and report a summary, not touch identity/logo for
+        // catalogued plugins. Runs after the UI is already populated so launch isn't blocked.
+        await CheckForOutdatedPluginsOnStartupAsync(newlyFoundCount);
     }
+
+    private async Task CheckForOutdatedPluginsOnStartupAsync(int newlyFoundCount)
+    {
+        // Only the online lookup is optional. Newly-found plugins and any already-known
+        // outdated versions are local facts, so they're still summarised either way.
+        if (CheckForPluginUpdatesOnStartup)
+        {
+            await EnrichAllFromWebAsync();
+        }
+
+        var outdated = Plugins.Where(p => p.IsInstalled && p.IsOutdated).ToList();
+
+        var newPart = newlyFoundCount switch
+        {
+            0 => null,
+            1 => "1 new plugin was found",
+            _ => $"{newlyFoundCount} new plugins were found"
+        };
+
+        var outdatedPart = outdated.Count switch
+        {
+            0 => null,
+            1 => $"{outdated[0].Name} has a newer version available",
+            _ => $"{outdated.Count} plugins have newer versions available"
+        };
+
+        StartupUpdateSummaryText = (newPart, outdatedPart) switch
+        {
+            (null, null) => null,
+            (not null, null) => $"{newPart}.",
+            (null, not null) => $"{outdatedPart}.",
+            _ => $"{newPart}, and {outdatedPart}."
+        };
+    }
+
+    [RelayCommand]
+    private void DismissStartupUpdateSummary() => StartupUpdateSummaryText = null;
 
     partial void OnModeChanged(ManagementMode value) => RefreshViews();
     partial void OnSearchTextChanged(string value) => RefreshViews();
@@ -354,7 +483,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ResetFilters()
     {
-        InstalledFilter = InstalledFilterOption.All;
+        InstalledFilter = InstalledFilterOption.InstalledOnly;
         FormatFilter = FormatFilterOption.All;
         ShowHidden = false;
         SearchText = string.Empty;
@@ -373,6 +502,21 @@ public partial class MainViewModel : ObservableObject
         InstrumentsCount = InstrumentsView.Cast<object>().Count();
         EffectsCount = EffectsView.Cast<object>().Count();
         UnclassifiedCount = UnclassifiedView.Cast<object>().Count();
+
+        RefreshInstalledTotals();
+    }
+
+    /// <summary>
+    /// Recomputes the header's library totals from the full plugin list, bypassing the
+    /// filtered views so search terms and filters never change the reported numbers.
+    /// </summary>
+    private void RefreshInstalledTotals()
+    {
+        var installed = Plugins.Where(p => p.IsInstalled).ToList();
+
+        InstalledTotalCount = installed.Count;
+        InstalledInstrumentCount = installed.Count(p => p.Kind == PluginKind.Instrument);
+        InstalledEffectCount = installed.Count(p => p.Kind == PluginKind.Effect);
     }
 
     private bool MatchesFilters(object obj)
@@ -556,7 +700,7 @@ public partial class MainViewModel : ObservableObject
 
     public async Task<bool> FixLogoAsync(PluginDisplayViewModel vm, string url)
     {
-        var path = await _logoCache.GetManualLogoPathAsync(vm.BaseName, url);
+        var path = await _logoCache.GetManualLogoPathAsync(vm.BaseName, url, forceRefresh: true);
         if (path is null)
         {
             return false;
@@ -592,7 +736,12 @@ public partial class MainViewModel : ObservableObject
         bool VersionAlreadySet,
         CatalogEntry? MatchedCatalogEntry,
         bool CatalogMatchIsNew,
-        KvrLookupResult? WebLookupResult);
+        KvrLookupResult? WebLookupResult,
+        IReadOnlyList<PluginInfoCandidate> WebCandidates,
+        bool NeedsUserChoice);
+
+    /// <summary>Fetches plugin details from a product page URL the user supplied (KVR or any plugin database).</summary>
+    public async Task<KvrLookupResult?> FetchInfoFromUrlAsync(string url) => await _kvrLookup.FetchFromUrlAsync(url);
 
     /// <summary>
     /// Non-mutating preview of what an automated refresh would find for one plugin — used by
@@ -620,14 +769,33 @@ public partial class MainViewModel : ObservableObject
         CatalogEntry? matchedEntry = null;
         var catalogMatchIsNew = false;
         KvrLookupResult? webResult = null;
+        IReadOnlyList<PluginInfoCandidate> candidates = Array.Empty<PluginInfoCandidate>();
+        var needsUserChoice = false;
+
         if (vm.Installed is not null)
         {
             matchedEntry = _nameMatcher.FindMatch(vm.Installed.Name, _catalog.Entries);
             catalogMatchIsNew = matchedEntry is not null && !string.Equals(matchedEntry.Name, vm.Catalog?.Name, StringComparison.Ordinal);
 
-            if (matchedEntry is null)
+            // Always look online, even for catalogued plugins — the web result carries the
+            // latest released version, which the local catalog doesn't know about. (For
+            // catalogued plugins only the version is applied; identity stays curated.)
+            // Unlike the bulk refresh, this interactive path gathers several scored candidates
+            // so an unclear result can be put to the user instead of guessed at.
+            var query = matchedEntry?.Name ?? vm.Catalog?.Name ?? vm.Installed.Name;
+            var queryVendor = matchedEntry?.Vendor ?? vm.Catalog?.Vendor ?? vm.Vendor;
+            candidates = await _kvrLookup.SearchCandidatesAsync(query, queryVendor);
+
+            var best = candidates.FirstOrDefault();
+            if (best is not null)
             {
-                webResult = await _kvrLookup.SearchAsync(vm.Installed.Name);
+                // Ask the user when the top hit isn't clearly right, or when a runner-up is
+                // close enough behind it that picking automatically would be a coin flip.
+                var runnerUp = candidates.Skip(1).FirstOrDefault();
+                var isAmbiguous = runnerUp is not null && best.Confidence - runnerUp.Confidence < 0.15;
+
+                needsUserChoice = best.Confidence < NameSimilarity.ConfidentThreshold || isAmbiguous;
+                webResult = needsUserChoice ? null : best.Info;
             }
         }
 
@@ -636,7 +804,9 @@ public partial class MainViewModel : ObservableObject
             VersionAlreadySet: !string.IsNullOrWhiteSpace(vm.CurrentVersion),
             MatchedCatalogEntry: matchedEntry,
             CatalogMatchIsNew: catalogMatchIsNew,
-            WebLookupResult: webResult);
+            WebLookupResult: webResult,
+            WebCandidates: candidates,
+            NeedsUserChoice: needsUserChoice);
     }
 
     public event EventHandler<PluginDisplayViewModel>? FixMetadataRequested;
@@ -855,9 +1025,10 @@ public partial class MainViewModel : ObservableObject
 
     private async Task RefreshMetadataCoreAsync(IReadOnlyList<PluginDisplayViewModel> targets)
     {
-        // 1. Fill in blank Current Version from the file's embedded version, falling back
-        // to the Windows Uninstall registry's DisplayVersion (enumerated once per batch,
-        // not once per plugin). Never overwrites a version the user already typed in.
+        // 1. Re-detect Current Version from the file's embedded version, falling back to the
+        // Windows Uninstall registry's DisplayVersion (enumerated once per batch, not once
+        // per plugin). Freshly detected values replace whatever was stored (a full refresh
+        // means updated info wins); existing values are kept only when detection finds nothing.
         var anyVersionChanged = await Task.Run(() =>
         {
             var installedPrograms = _uninstallerLookup.EnumerateInstalledPrograms().ToList();
@@ -865,17 +1036,15 @@ public partial class MainViewModel : ObservableObject
 
             foreach (var vm in targets)
             {
-                foreach (var copy in vm.Installs)
+                // Active copies only: reading a remembered copy's path would just be failed
+                // disk I/O for a file that's been uninstalled.
+                foreach (var copy in vm.ActiveInstalls)
                 {
-                    if (!string.IsNullOrWhiteSpace(copy.CurrentVersion))
-                    {
-                        continue;
-                    }
-
                     var detected = _versionDetector.DetectFromFile(copy.Path)
                         ?? UninstallerLookup.FindUninstaller(installedPrograms, vm.Name, vm.Vendor)?.DisplayVersion;
 
-                    if (string.IsNullOrWhiteSpace(detected))
+                    if (string.IsNullOrWhiteSpace(detected)
+                        || string.Equals(detected, copy.CurrentVersion, StringComparison.OrdinalIgnoreCase))
                     {
                         continue;
                     }
@@ -972,6 +1141,84 @@ public partial class MainViewModel : ObservableObject
             var path = await _logoCache.RefreshLogoAsync(vm.Catalog!);
             vm.LogoPath = path;
         }
+
+        // 4. Web enrichment: look up every installed plugin on KVR to fetch its latest
+        // released version (and, for uncatalogued plugins, name/vendor/logo too). Iterates
+        // the fresh Plugins list since the rebuild above may have replaced every vm.
+        await EnrichAllFromWebAsync();
+    }
+
+    /// <summary>
+    /// Fetches KVR info for every installed plugin: LatestVersion for all, plus Name/Vendor/
+    /// logo for uncatalogued ones (catalogued plugins keep their curated identity — the web
+    /// only supplies the version for them). Sequential with a small delay per lookup to stay
+    /// polite to the search endpoint; failures skip quietly per-plugin.
+    /// </summary>
+    private async Task EnrichAllFromWebAsync()
+    {
+        var webTargets = Plugins.Where(p => p.IsInstalled).ToList();
+        var resultsByBaseName = new Dictionary<string, KvrLookupResult?>(StringComparer.OrdinalIgnoreCase);
+        var anyChanged = false;
+
+        try
+        {
+            for (var i = 0; i < webTargets.Count; i++)
+            {
+                var vm = webTargets[i];
+                RefreshProgressText = $"Checking online {i + 1}/{webTargets.Count}: {vm.Name}";
+
+                if (!resultsByBaseName.TryGetValue(vm.BaseName, out var result))
+                {
+                    var query = vm.Catalog?.Name ?? vm.Installed!.Name;
+                    result = await _kvrLookup.SearchAsync(query, vm.Catalog?.Vendor ?? vm.Vendor);
+                    resultsByBaseName[vm.BaseName] = result;
+
+                    await Task.Delay(400);
+                }
+
+                if (result is null)
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(result.LatestVersion))
+                {
+                    foreach (var copy in vm.Installs)
+                    {
+                        copy.LatestVersion = result.LatestVersion;
+
+                        var stored = _library.Plugins.FirstOrDefault(p => string.Equals(p.Path, copy.Path, StringComparison.OrdinalIgnoreCase));
+                        if (stored is not null)
+                        {
+                            stored.LatestVersion = result.LatestVersion;
+                        }
+                    }
+
+                    anyChanged = true;
+                }
+
+                if (vm.Catalog is null)
+                {
+                    ApplyMetadataOverride(vm, result.ProductName, result.Vendor);
+
+                    if (result.LogoUrl is not null && vm.LogoPath is null)
+                    {
+                        await FixLogoAsync(vm, result.LogoUrl);
+                    }
+                }
+
+                vm.RefreshInstallInfo();
+            }
+
+            if (anyChanged)
+            {
+                _libraryStore.Save(_library);
+            }
+        }
+        finally
+        {
+            RefreshProgressText = null;
+        }
     }
 
     public void SetVersions(PluginDisplayViewModel? vm, string? currentVersion, string? latestVersion)
@@ -1026,9 +1273,16 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ShowInFolder(PluginDisplayViewModel? vm)
+    private void ShowInFolder(PluginDisplayViewModel? vm) => ShowPathInFolder(vm?.Installed?.Path);
+
+    /// <summary>
+    /// Used by the detail window's per-copy folder icon, since a plugin can have several
+    /// install copies (VST2 + VST3, or multiple DAW-specific folders) and the context-menu
+    /// command above only ever targets the first one.
+    /// </summary>
+    [RelayCommand]
+    private void ShowPathInFolder(string? path)
     {
-        var path = vm?.Installed?.Path;
         if (path is null || !File.Exists(path) && !Directory.Exists(path))
         {
             return;
@@ -1037,17 +1291,65 @@ public partial class MainViewModel : ObservableObject
         Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
     }
 
+    /// <summary>
+    /// Permanently discards the library's memory of an uninstalled plugin, so the remembered
+    /// list can't grow without bound. Only valid for remembered plugins: an installed one
+    /// would simply be rediscovered by the next scan.
+    /// </summary>
+    [RelayCommand]
+    private void ForgetPlugin(PluginDisplayViewModel? vm)
+    {
+        if (vm is null || !vm.IsRemembered)
+        {
+            return;
+        }
+
+        var result = MessageBox.Show(
+            $"Forget \"{vm.Name}\"?\n\nVST Manager will stop remembering that this plugin was ever installed, "
+            + "along with its tag, type, versions and favourite status. If you install it again later it "
+            + "will be treated as a brand-new plugin.",
+            "Forget Plugin",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question,
+            MessageBoxResult.No);
+
+        if (result != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        foreach (var copy in vm.Installs)
+        {
+            _library.Plugins.RemoveAll(p => string.Equals(p.Path, copy.Path, StringComparison.OrdinalIgnoreCase));
+        }
+
+        _libraryStore.Save(_library);
+
+        // Removing the item directly rather than rescanning: a full rescan would cost a disk
+        // sweep the user didn't ask for, and for a catalogued plugin would re-add it anyway as
+        // a never-installed catalog entry.
+        vm.PropertyChanged -= OnPluginPropertyChanged;
+        Plugins.Remove(vm);
+        RefreshViews();
+
+        // Manual name/logo overrides are deliberately left alone: they're keyed by BaseName,
+        // which several display items can share, so clearing here could strip a rename or logo
+        // from an unrelated plugin that is still installed.
+    }
+
     [RelayCommand]
     private async Task MarkAsNotAPlugin(PluginDisplayViewModel? vm) => await MarkAsNotAPluginAsync(vm);
 
     public async Task<bool> MarkAsNotAPluginAsync(PluginDisplayViewModel? vm)
     {
-        if (vm is null || vm.Installs.Count == 0)
+        // Requires a real file: excluding a remembered plugin would do nothing useful, since
+        // there is nothing on disk for future scans to skip.
+        if (vm is null || !vm.IsInstalled)
         {
             return false;
         }
 
-        var fileNames = string.Join("\n", vm.Installs.Select(i => Path.GetFileName(i.Path)));
+        var fileNames = string.Join("\n", vm.ActiveInstalls.Select(i => Path.GetFileName(i.Path)));
         var result = MessageBox.Show(
             $"Mark the following as not a plugin?\n\n{fileNames}\n\nThey will be excluded from all future scans on this and any other machine running this app.",
             "Mark as Not a Plugin",
@@ -1072,9 +1374,10 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void Uninstall(PluginDisplayViewModel? vm)
+    private async Task Uninstall(PluginDisplayViewModel? vm)
     {
-        if (vm is null || vm.Installs.Count == 0)
+        // Nothing to uninstall for a remembered plugin — its files are already gone.
+        if (vm is null || !vm.IsInstalled)
         {
             return;
         }
@@ -1095,7 +1398,18 @@ public partial class MainViewModel : ObservableObject
 
             try
             {
-                Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{uninstaller.UninstallCommand}\"") { UseShellExecute = true });
+                var process = Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{uninstaller.UninstallCommand}\"") { UseShellExecute = true });
+
+                // Wait for the vendor uninstaller to finish, then rescan so the removed
+                // plugin disappears from the list without a manual Rescan. Best-effort: if
+                // the launched process hands off to another and exits early, the rescan
+                // simply finds nothing changed and the user can rescan again later.
+                if (process is not null)
+                {
+                    await process.WaitForExitAsync();
+                }
+
+                await LoadAndScanAsync();
             }
             catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException)
             {
@@ -1123,7 +1437,8 @@ public partial class MainViewModel : ObservableObject
         var failures = new List<string>();
         var anyDeleted = false;
 
-        foreach (var copy in vm.Installs)
+        // Active copies only — remembered ones have no file left to delete.
+        foreach (var copy in vm.ActiveInstalls)
         {
             if (DeletePluginFile(copy.Path))
             {

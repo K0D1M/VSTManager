@@ -10,12 +10,17 @@ C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\
 C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\Themes\Dark.baml
 C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\Themes\Light.baml
 C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\Themes\Styles.baml
+C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\Views\ClassifyPluginsWindow.baml
 C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\Views\PluginDetailWindow.baml
 C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\Views\SettingsWindow.baml
+C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\Views\WelcomeWindow.baml
 C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\MainWindow.g.cs
+C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\Views\ClassifyPluginsWindow.g.cs
 C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\Views\PluginDetailWindow.g.cs
 C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\Views\SettingsWindow.g.cs
+C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\Views\WelcomeWindow.g.cs
 C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\App.g.cs
+C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\VstManager.App_Content.g.cs
 C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\GeneratedInternalTypeHelper.g.cs
 C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\VstManager.App_MarkupCompile.cache
 C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\VstManager.App_MarkupCompile.lref
@@ -33,7 +38,5 @@ C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\
 C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\VstManager.App.pdb
 C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\VstManager.App.genruntimeconfig.cache
 C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\ref\VstManager.App.dll
-C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\Views\ClassifyPluginsWindow.baml
-C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\Views\ClassifyPluginsWindow.g.cs
-C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\Views\WelcomeWindow.baml
-C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\Views\WelcomeWindow.g.cs
+C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\Views\MatchPickerWindow.baml
+C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Debug\net10.0-windows\Views\MatchPickerWindow.g.cs

@@ -12,6 +12,7 @@
         Title="VST Manager" Height="680" Width="1100"
         MinHeight="480" MinWidth="720"
         ResizeMode="CanResize" WindowStartupLocation="CenterScreen"
+        Loaded="Window_Loaded"
         UseLayoutRounding="True" SnapsToDevicePixels="True">
     <Window.Resources>
         <DataTemplate x:Key="PluginCardTemplate" DataType="{x:Type vm:PluginDisplayViewModel}">
@@ -22,7 +23,35 @@
                 <Border.RenderTransform>
                     <ScaleTransform ScaleX="1" ScaleY="1" />
                 </Border.RenderTransform>
+                <Border.Effect>
+                    <DropShadowEffect x:Name="CardShadow" Color="#000000" BlurRadius="0" ShadowDepth="0"
+                                      Opacity="0" Direction="270" />
+                </Border.Effect>
                 <Border.Triggers>
+                    <EventTrigger RoutedEvent="Border.MouseEnter">
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="Effect.BlurRadius"
+                                                 To="20" Duration="0:0:0.16" />
+                                <DoubleAnimation Storyboard.TargetProperty="Effect.ShadowDepth"
+                                                 To="5" Duration="0:0:0.16" />
+                                <DoubleAnimation Storyboard.TargetProperty="Effect.Opacity"
+                                                 To="0.32" Duration="0:0:0.16" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </EventTrigger>
+                    <EventTrigger RoutedEvent="Border.MouseLeave">
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="Effect.BlurRadius"
+                                                 To="0" Duration="0:0:0.22" />
+                                <DoubleAnimation Storyboard.TargetProperty="Effect.ShadowDepth"
+                                                 To="0" Duration="0:0:0.22" />
+                                <DoubleAnimation Storyboard.TargetProperty="Effect.Opacity"
+                                                 To="0" Duration="0:0:0.22" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </EventTrigger>
                     <EventTrigger RoutedEvent="Border.PreviewMouseLeftButtonDown">
                         <BeginStoryboard>
                             <Storyboard>
@@ -93,11 +122,30 @@
                                    TextAlignment="Center" Margin="0,0,0,10"
                                    Visibility="{Binding InstalledSummaryText, Converter={StaticResource StringToVisibilityConverter}}" />
 
-                        <Border Style="{StaticResource TagBadge}" HorizontalAlignment="Center"
-                                Background="{Binding Tag, Converter={StaticResource TagBrushConverter}}">
-                            <TextBlock Text="{Binding Tag, Converter={StaticResource TagTextConverter}}"
-                                       FontSize="13" FontWeight="SemiBold" Foreground="White" />
-                        </Border>
+                        <!-- Status badges share one centred, wrapping row. They used to be
+                             absolutely-positioned overlays pinned to the card's bottom corners,
+                             which collided with this tag (and each other) on a 190px card. -->
+                        <WrapPanel HorizontalAlignment="Center" Orientation="Horizontal"
+                                   ItemWidth="Auto" ItemHeight="Auto">
+                            <Border Style="{StaticResource TagBadge}" Margin="2,2"
+                                    Background="{Binding Tag, Converter={StaticResource TagBrushConverter}}">
+                                <TextBlock Text="{Binding Tag, Converter={StaticResource TagTextConverter}}"
+                                           FontSize="13" FontWeight="SemiBold" Foreground="White" />
+                            </Border>
+
+                            <Border Style="{StaticResource TagBadge}" Margin="2,2" Padding="8,3"
+                                    Background="{DynamicResource LegitBrush}" IsHitTestVisible="False"
+                                    Visibility="{Binding IsNew, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <TextBlock Text="NEW" FontSize="11" FontWeight="Bold" Foreground="White" />
+                            </Border>
+
+                            <Border Style="{StaticResource TagBadge}" Margin="2,2" Padding="8,3"
+                                    Background="{DynamicResource OutdatedBrush}"
+                                    ToolTip="{Binding LatestVersion, StringFormat='A newer version (v{0}) is available'}"
+                                    Visibility="{Binding IsOutdated, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <TextBlock Text="OUTDATED" FontSize="11" FontWeight="Bold" Foreground="White" />
+                            </Border>
+                        </WrapPanel>
                     </StackPanel>
 
                     <Ellipse Width="12" Height="12" HorizontalAlignment="Right" VerticalAlignment="Top"
@@ -127,11 +175,6 @@
                                    Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibilityConverter}}" />
                     </Border>
 
-                    <Border Style="{StaticResource TagBadge}" HorizontalAlignment="Left" VerticalAlignment="Bottom"
-                            Margin="6" Background="{DynamicResource LegitBrush}" IsHitTestVisible="False"
-                            Visibility="{Binding IsNew, Converter={StaticResource BoolToVisibilityConverter}}">
-                        <TextBlock Text="NEW" FontSize="11" FontWeight="Bold" Foreground="White" />
-                    </Border>
                 </Grid>
             </Border>
         </DataTemplate>
@@ -186,17 +229,36 @@
                     </Border>
 
                     <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="15"
-                                       Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding Vendor}" FontSize="13" Margin="8,0,0,0"
-                                       Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                            <Border Style="{StaticResource TagBadge}" Margin="8,0,0,0" Padding="7,1"
+                        <!-- Grid rather than a horizontal StackPanel: the badges must keep their
+                             place, and a long name must trim instead of pushing them out of view. -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <!-- Star-sized so a long name trims instead of pushing the badges
+                                     past the right edge; the badges themselves stay Auto. -->
+                                <ColumnDefinition Width="3*" MinWidth="60" />
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold" FontSize="15"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Vendor}" FontSize="13" Margin="8,0,8,0"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" />
+                            <Border Grid.Column="2" Style="{StaticResource TagBadge}" Margin="0,0,8,0" Padding="7,1"
                                     Background="{DynamicResource LegitBrush}" VerticalAlignment="Center"
                                     Visibility="{Binding IsNew, Converter={StaticResource BoolToVisibilityConverter}}">
                                 <TextBlock Text="NEW" FontSize="10" FontWeight="Bold" Foreground="White" />
                             </Border>
-                        </StackPanel>
+                            <Border Grid.Column="3" Style="{StaticResource TagBadge}" Padding="7,1"
+                                    Background="{DynamicResource OutdatedBrush}" VerticalAlignment="Center"
+                                    ToolTip="{Binding LatestVersion, StringFormat='A newer version (v{0}) is available'}"
+                                    Visibility="{Binding IsOutdated, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <TextBlock Text="OUTDATED" FontSize="10" FontWeight="Bold" Foreground="White" />
+                            </Border>
+                        </Grid>
                         <TextBlock Text="{Binding InstalledSummaryText}" FontSize="12"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Visibility="{Binding InstalledSummaryText, Converter={StaticResource StringToVisibilityConverter}}" />
@@ -229,6 +291,13 @@
 
         <Style x:Key="PluginCardContainerStyle">
             <Setter Property="FrameworkElement.Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
+            <Setter Property="UIElement.RenderTransformOrigin" Value="0.5,0.5" />
+            <Setter Property="UIElement.RenderTransform">
+                <Setter.Value>
+                    <TranslateTransform Y="10" />
+                </Setter.Value>
+            </Setter>
+            <Setter Property="UIElement.Opacity" Value="0" />
             <Setter Property="FrameworkElement.ContextMenu">
                 <Setter.Value>
                     <ContextMenu>
@@ -317,9 +386,37 @@
                                 <TextBlock Text="&#x2716;" Foreground="{DynamicResource CrackedBrush}" FontSize="14" />
                             </MenuItem.Icon>
                         </MenuItem>
+
+                        <!-- Enabled only for remembered (uninstalled) plugins — the inverse of
+                             every other item here, which require the plugin to be installed. -->
+                        <MenuItem Header="Forget This Plugin"
+                                  IsEnabled="{Binding PlacementTarget.DataContext.IsRemembered, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  Command="{Binding PlacementTarget.Tag.ForgetPluginCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  ToolTip="Stop remembering this uninstalled plugin's tag, type and versions">
+                            <MenuItem.Icon>
+                                <TextBlock Text="&#x1F5D1;" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14" />
+                            </MenuItem.Icon>
+                        </MenuItem>
                     </ContextMenu>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <!-- Each container fades and rises into place as it is generated (initial
+                     population and when the filtered result set changes). -->
+                <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.26" />
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Y" From="10" To="0" Duration="0:0:0.28">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut" />
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </Style.Triggers>
         </Style>
     </Window.Resources>
 
@@ -333,22 +430,41 @@
         </Grid.RowDefinitions>
 
         <DockPanel Grid.Row="0" Margin="0,0,0,16" LastChildFill="False">
-            <TextBlock DockPanel.Dock="Left" Text="VST Manager" FontSize="25" FontWeight="Bold"
-                       Foreground="{DynamicResource TextPrimaryBrush}" />
+            <StackPanel DockPanel.Dock="Left">
+                <TextBlock Text="VST Manager" FontSize="25" FontWeight="Bold"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
+
+                <!-- Library totals: always the whole library, never affected by the search
+                     box or filters (unlike the per-tab counts on the toolbar). -->
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0"
+                            ToolTip="Plugins installed on this machine. Plugins you haven't classified yet aren't counted as instruments or effects.">
+                    <TextBlock Text="VST Installed:" FontSize="13"
+                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding InstalledTotalCount}" FontSize="13" FontWeight="SemiBold" Margin="5,0,0,0"
+                               Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                    <TextBlock FontSize="13" Margin="6,0,0,0" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondaryBrush}">
+                        <Run Text="(" />
+                        <Run Text="{Binding InstalledInstrumentCount, Mode=OneWay}" /><Run Text=" instruments, " />
+                        <Run Text="{Binding InstalledEffectCount, Mode=OneWay}" /><Run Text=" effects)" />
+                    </TextBlock>
+                </StackPanel>
+            </StackPanel>
 
             <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right">
                 <TextBlock Text="{Binding CurrentVersion, StringFormat='Version {0}'}" FontSize="13"
                            HorizontalAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <Button Content="A new update is available" Style="{StaticResource GhostButton}"
+                <Button Content="{Binding UpdateButtonText}" Style="{StaticResource GhostButton}"
                         HorizontalAlignment="Right" Padding="8,3" FontSize="12" Margin="0,4,0,0"
                         Foreground="{DynamicResource AccentBrush}"
-                        Command="{Binding OpenLatestReleaseCommand}"
+                        Command="{Binding InstallOrOpenReleaseCommand}"
+                        IsEnabled="{Binding IsInstallingUpdate, Converter={StaticResource InverseBoolConverter}}"
                         Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BoolToVisibilityConverter}}"
-                        ToolTip="Click to open the latest release page" />
+                        ToolTip="{Binding UpdateButtonText}" />
             </StackPanel>
         </DockPanel>
 
-        <WrapPanel Grid.Row="1" Margin="0,0,0,10" Orientation="Horizontal">
+        <WrapPanel x:Name="ToolbarPanel" Grid.Row="1" Margin="0,0,0,10" Orientation="Horizontal">
             <!-- Group: Legit / Cracked management mode -->
             <Border Margin="0,0,14,10" CornerRadius="17"
                     Background="{DynamicResource SurfaceAltBrush}"
@@ -598,12 +714,62 @@
             </DockPanel>
         </Border>
 
-        <StackPanel Grid.Row="3" Margin="0,0,0,14"
-                    Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibilityConverter}}">
-            <ProgressBar IsIndeterminate="True" Height="4" Background="{DynamicResource SurfaceAltBrush}"
-                         Foreground="{DynamicResource AccentBrush}" BorderThickness="0" />
-            <TextBlock Text="Scanning for installed plugins..." FontSize="13" Margin="0,6,0,0"
-                       Foreground="{DynamicResource TextSecondaryBrush}" />
+        <StackPanel Grid.Row="3">
+            <StackPanel Margin="0,0,0,14"
+                        Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibilityConverter}}">
+                <ProgressBar IsIndeterminate="True" Height="4" Background="{DynamicResource SurfaceAltBrush}"
+                             Foreground="{DynamicResource AccentBrush}" BorderThickness="0" />
+                <TextBlock Text="Scanning for installed plugins..." FontSize="13" Margin="0,6,0,0"
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
+            </StackPanel>
+
+            <StackPanel Margin="0,0,0,14"
+                        Visibility="{Binding RefreshProgressText, Converter={StaticResource StringToVisibilityConverter}}">
+                <ProgressBar IsIndeterminate="True" Height="4" Background="{DynamicResource SurfaceAltBrush}"
+                             Foreground="{DynamicResource OutdatedBrush}" BorderThickness="0" />
+                <TextBlock Text="{Binding RefreshProgressText}" FontSize="13" Margin="0,6,0,0"
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
+            </StackPanel>
+
+            <Border Margin="0,0,0,14" Padding="12,9" CornerRadius="8"
+                    Background="{DynamicResource SurfaceAltBrush}"
+                    BorderBrush="{DynamicResource OutdatedBrush}" BorderThickness="1"
+                    RenderTransformOrigin="0.5,0.5"
+                    Visibility="{Binding StartupUpdateSummaryText, Converter={StaticResource StringToVisibilityConverter}}">
+                <Border.RenderTransform>
+                    <TranslateTransform Y="0" />
+                </Border.RenderTransform>
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Style.Triggers>
+                            <Trigger Property="IsVisible" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.3" />
+                                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Y" From="-10" To="0" Duration="0:0:0.32">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <BackEase EasingMode="EaseOut" Amplitude="0.4" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <DockPanel LastChildFill="True">
+                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="6,2" Margin="10,0,0,0"
+                            Command="{Binding DismissStartupUpdateSummaryCommand}" ToolTip="Dismiss">
+                        <TextBlock Text="&#x2715;" FontSize="11" />
+                    </Button>
+                    <TextBlock VerticalAlignment="Center" FontSize="13">
+                        <Run Text="&#x21BB; " Foreground="{DynamicResource OutdatedBrush}" FontWeight="Bold" />
+                        <Run Text="{Binding StartupUpdateSummaryText, Mode=OneWay}" />
+                    </TextBlock>
+                </DockPanel>
+            </Border>
         </StackPanel>
 
         <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">

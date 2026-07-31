@@ -1,0 +1,20 @@
+﻿VstManager.App
+
+
+winexe
+C#
+.cs
+C:\Users\Konstantinos D\VstManager\src\VstManager.App\obj\Release\net10.0-windows\
+VstManager.App
+none
+false
+TRACE;RELEASE;NET;NET10_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR_GREATER;NET7_0_OR_GREATER;NET8_0_OR_GREATER;NET9_0_OR_GREATER;NET10_0_OR_GREATER;NETCOREAPP3_0_OR_GREATER;NETCOREAPP3_1_OR_GREATER;WINDOWS7_0_OR_GREATER
+C:\Users\Konstantinos D\VstManager\src\VstManager.App\App.xaml
+10-555664325
+1663472097
+23-1647342359
+208-1551364620
+MainWindow.xaml;Themes\Converters.xaml;Themes\Dark.xaml;Themes\Light.xaml;Themes\Styles.xaml;Views\ClassifyPluginsWindow.xaml;Views\MatchPickerWindow.xaml;Views\PluginDetailWindow.xaml;Views\SettingsWindow.xaml;Views\WelcomeWindow.xaml;
+
+False
+

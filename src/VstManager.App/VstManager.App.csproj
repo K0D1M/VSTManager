@@ -1,6 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <Content Include="a_clean_modern_app_icon_logo_design_on_a_dark_b.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\Downloads\logo_package\a_clean_modern_app_icon_logo_design_on_a_dark_b.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\VstManager.Core\VstManager.Core.csproj" />
   </ItemGroup>
 
@@ -16,6 +27,14 @@
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Version>1.0.0</Version>
+    <ApplicationIcon>a_clean_modern_app_icon_logo_design_on_a_dark_b.ico</ApplicationIcon>
+    <SignAssembly>False</SignAssembly>
+    <Company>$(K0D1M)</Company>
+    <Product>$(KD Manager for VST)</Product>
+    <PackageIcon>a_clean_modern_app_icon_logo_design_on_a_dark_b.png</PackageIcon>
+    <PlatformTarget>x64</PlatformTarget>
+    <Authors>$(VSTManager)</Authors>
+    <PackageId>$(KDManagerForVST)</PackageId>
   </PropertyGroup>
 
 </Project>

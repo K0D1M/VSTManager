@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Windows;
 using Microsoft.Win32;
+using VstManager.App.Services;
 using VstManager.App.ViewModels;
 
 namespace VstManager.App.Views;
@@ -11,6 +13,8 @@ public partial class SettingsWindow : Window
         InitializeComponent();
         DataContext = viewModel;
     }
+
+    private void Window_Loaded(object sender, RoutedEventArgs e) => WindowSizing.FitToScreen(this);
 
     private void AddFolder_Click(object sender, RoutedEventArgs e)
     {
@@ -80,6 +84,9 @@ public partial class SettingsWindow : Window
         MessageBox.Show(this, message, "Import Data", MessageBoxButton.OK,
             success ? MessageBoxImage.Information : MessageBoxImage.Error);
     }
+
+    private void GitHubLink_Click(object sender, RoutedEventArgs e) =>
+        Process.Start(new ProcessStartInfo("https://github.com/K0D1M") { UseShellExecute = true });
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
 }

@@ -61,4 +61,38 @@ public class PluginScannerTests : IDisposable
 
         Assert.Empty(results);
     }
+
+    [Fact]
+    public void Scan_Vst3Bundle_CountsOnlyTheInnerBinaryNotTheFolder()
+    {
+        var vst3Folder = Path.Combine(_tempRoot, "vst3");
+        var bundleFolder = Path.Combine(vst3Folder, "Serum.vst3");
+        var innerArchFolder = Path.Combine(bundleFolder, "Contents", "x86_64-win");
+        Directory.CreateDirectory(innerArchFolder);
+
+        var innerBinaryPath = Path.Combine(innerArchFolder, "Serum.vst3");
+        File.WriteAllText(innerBinaryPath, "dummy-binary");
+
+        var scanner = new PluginScanner();
+        var results = scanner.Scan(new[] { vst3Folder }, Array.Empty<string>());
+
+        Assert.Single(results);
+        Assert.Equal(innerBinaryPath, results[0].Path);
+        Assert.Equal("Serum", results[0].Name);
+    }
+
+    [Fact]
+    public void Scan_LooseVst3File_NotTreatedAsBundle()
+    {
+        var vst3Folder = Path.Combine(_tempRoot, "vst3");
+        Directory.CreateDirectory(vst3Folder);
+        var filePath = Path.Combine(vst3Folder, "Standalone.vst3");
+        File.WriteAllText(filePath, "dummy");
+
+        var scanner = new PluginScanner();
+        var results = scanner.Scan(new[] { vst3Folder }, Array.Empty<string>());
+
+        Assert.Single(results);
+        Assert.Equal(filePath, results[0].Path);
+    }
 }

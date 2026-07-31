@@ -1,5 +1,6 @@
 using System.Windows;
 using Microsoft.Win32;
+using VstManager.App.Services;
 using VstManager.App.ViewModels;
 
 namespace VstManager.App.Views;
@@ -13,6 +14,8 @@ public partial class WelcomeWindow : Window
         InitializeComponent();
         DataContext = _viewModel;
     }
+
+    private void Window_Loaded(object sender, RoutedEventArgs e) => WindowSizing.FitToScreen(this);
 
     private void AddFolder_Click(object sender, RoutedEventArgs e)
     {

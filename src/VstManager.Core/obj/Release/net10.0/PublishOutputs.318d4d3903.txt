@@ -1,0 +1,4 @@
+C:\Users\Konstantinos D\VstManager\src\VstManager.Core\bin\Release\net10.0\publish\VstManager.Core.dll
+C:\Users\Konstantinos D\VstManager\src\VstManager.Core\bin\Release\net10.0\publish\VstManager.Core.deps.json
+C:\Users\Konstantinos D\VstManager\src\VstManager.Core\bin\Release\net10.0\publish\VstManager.Core.pdb
+C:\Users\Konstantinos D\VstManager\src\VstManager.Core\bin\Release\net10.0\publish\CommunityToolkit.Mvvm.dll

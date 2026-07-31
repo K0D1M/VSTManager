@@ -1,10 +1,13 @@
 using System.Collections;
+using System.Runtime.InteropServices;
 using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
+using VstManager.App.Services;
 using VstManager.App.ViewModels;
 using VstManager.App.Views;
 using VstManager.Core.Services;
@@ -35,6 +38,89 @@ public partial class MainWindow : Window
             });
         };
         DataContext = vm;
+    }
+
+    /// <summary>Natural width that fits the toolbar on one row; the locked restored width.</summary>
+    private double _lockedWidth;
+
+    private void Window_Loaded(object sender, RoutedEventArgs e)
+    {
+        // Lock the restored width to exactly where the toolbar's buttons end: measure the
+        // toolbar unconstrained to get its natural single-row width, then add back the root
+        // Grid's margins and the window chrome.
+        if (Content is not FrameworkElement root)
+        {
+            return;
+        }
+
+        ToolbarPanel.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var nonContentWidth = ActualWidth - root.ActualWidth;
+        var target = Math.Ceiling(ToolbarPanel.DesiredSize.Width + nonContentWidth);
+
+        // Never demand more width than the monitor actually has — otherwise the window opens
+        // partly offscreen and can't be dragged back to a usable size.
+        var work = WindowSizing.GetWorkArea(this);
+        _lockedWidth = Math.Min(target, work.Width - 16);
+        Width = _lockedWidth;
+
+        // The width lock is enforced by intercepting the live drag-resize message rather than
+        // by setting MaxWidth. MaxWidth also constrains the *maximized* window, and clearing
+        // it from OnStateChanged is too late — Win32 has already committed the size by then,
+        // which left "maximize" stuck at the toolbar width. Blocking the drag instead leaves
+        // maximizing completely unconstrained.
+        if (PresentationSource.FromVisual(this) is HwndSource source)
+        {
+            source.AddHook(WndProc);
+        }
+
+        WindowSizing.FitToScreen(this);
+    }
+
+    private const int WmSizing = 0x0214;
+    private const int WmszLeft = 1;
+    private const int WmszTopLeft = 4;
+    private const int WmszBottomLeft = 7;
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        // Only interferes with interactive edge-dragging; maximize/restore/minimize are
+        // untouched because Windows doesn't send WM_SIZING for them.
+        if (msg != WmSizing || _lockedWidth <= 0 || WindowState != WindowState.Normal)
+        {
+            return IntPtr.Zero;
+        }
+
+        var rect = Marshal.PtrToStructure<Win32Rect>(lParam);
+        var scaleX = PresentationSource.FromVisual(this)?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+        var lockedPixels = (int)Math.Round(_lockedWidth * scaleX);
+
+        // Hold the edge *opposite* the one being dragged still. Always pinning Right would
+        // make a left-edge drag slide the whole window sideways instead of doing nothing.
+        var edge = wParam.ToInt32();
+        var draggingLeftEdge = edge is WmszLeft or WmszTopLeft or WmszBottomLeft;
+
+        if (draggingLeftEdge)
+        {
+            rect.Left = rect.Right - lockedPixels;
+        }
+        else
+        {
+            rect.Right = rect.Left + lockedPixels;
+        }
+
+        Marshal.StructureToPtr(rect, lParam, fDeleteOld: false);
+
+        handled = true;
+        return new IntPtr(1);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Win32Rect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
     }
 
     private void OpenDetailWindow(MainViewModel vm, PluginDisplayViewModel plugin)

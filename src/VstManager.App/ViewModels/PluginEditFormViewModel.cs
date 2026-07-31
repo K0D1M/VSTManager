@@ -34,6 +34,17 @@ public partial class PluginEditFormViewModel : ObservableObject
     [ObservableProperty]
     private string? _logoUrl;
 
+    /// <summary>
+    /// A product-page URL the user pasted (KVR or any plugin database/vendor page). The app
+    /// reads name, vendor, version and artwork straight off that page — replacing the old
+    /// flow where the user had to hunt down a raw image address by hand.
+    /// </summary>
+    [ObservableProperty]
+    private string? _infoUrl;
+
+    [ObservableProperty]
+    private bool _isFetchingInfo;
+
     [ObservableProperty]
     private string? _logoPreviewLocalPath;
 

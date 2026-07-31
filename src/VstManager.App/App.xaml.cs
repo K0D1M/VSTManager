@@ -2,6 +2,7 @@
 using System.Data;
 using System.Windows;
 using System.Windows.Threading;
+using VstManager.App.Services;
 
 namespace VstManager.App;
 
@@ -14,6 +15,10 @@ public partial class App : Application
     {
         base.OnStartup(e);
         DispatcherUnhandledException += OnDispatcherUnhandledException;
+
+        // Registered as a class handler so every ScrollViewer gets smooth wheel scrolling,
+        // including ones generated inside control templates.
+        SmoothScroll.EnableGlobally();
     }
 
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)

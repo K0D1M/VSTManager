@@ -26,5 +26,6 @@
     <conv:FavoriteStarGlyphConverter x:Key="FavoriteStarGlyphConverter" />
     <conv:HideMenuTextConverter x:Key="HideMenuTextConverter" />
     <conv:HiddenToOpacityConverter x:Key="HiddenToOpacityConverter" />
+    <conv:FormatToLabelConverter x:Key="FormatToLabelConverter" />
 
 </ResourceDictionary>

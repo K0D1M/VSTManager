@@ -14,7 +14,24 @@ public class PluginDisplayItem
     /// </summary>
     public string BaseName { get; set; } = string.Empty;
 
-    public bool IsInstalled => Installs.Count > 0;
+    /// <summary>Copies whose file is actually present on disk right now.</summary>
+    public IEnumerable<PluginInfo> ActiveInstalls => Installs.Where(i => !i.IsUninstalled);
+
+    /// <summary>Copies kept only to remember their metadata after the files were removed.</summary>
+    public IEnumerable<PluginInfo> RememberedInstalls => Installs.Where(i => i.IsUninstalled);
+
+    /// <summary>
+    /// True when at least one copy is present on disk. Deliberately not "Installs.Count > 0":
+    /// uninstalled copies stay in Installs so the summaries below keep reporting the user's
+    /// tag/kind/favourite/hidden choices, but they must not make the plugin read as installed.
+    /// </summary>
+    public bool IsInstalled => Installs.Any(i => !i.IsUninstalled);
+
+    /// <summary>
+    /// True for a plugin that isn't installed but that the library still has a record of —
+    /// distinguishing "you uninstalled this" from "a catalog entry you never installed".
+    /// </summary>
+    public bool IsRemembered => !IsInstalled && Installs.Count > 0;
 
     public PluginTagSummary TagSummary
     {

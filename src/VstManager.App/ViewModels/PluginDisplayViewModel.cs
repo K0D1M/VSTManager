@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using VstManager.Core.Models;
+using VstManager.Core.Services;
 
 namespace VstManager.App.ViewModels;
 
@@ -17,15 +18,31 @@ public partial class PluginDisplayViewModel : ObservableObject
     public string? Vendor => _item.Vendor;
     public string BaseName => _item.BaseName;
     public bool IsInstalled => _item.IsInstalled;
+
+    /// <summary>True when this plugin was uninstalled but its details are still remembered.</summary>
+    public bool IsRemembered => _item.IsRemembered;
+
     public IReadOnlyList<PluginInfo> Installs => _item.Installs;
-    public PluginInfo? Installed => _item.Installs.FirstOrDefault();
+
+    /// <summary>Only the copies actually on disk — used anywhere a real file is needed.</summary>
+    public IReadOnlyList<PluginInfo> ActiveInstalls => _item.ActiveInstalls.ToList();
+
+    /// <summary>
+    /// Prefers a copy that exists on disk (this feeds Show in Folder and version detection),
+    /// falling back to a remembered one so the detail window can still show last-known info.
+    /// </summary>
+    public PluginInfo? Installed => _item.ActiveInstalls.FirstOrDefault() ?? _item.Installs.FirstOrDefault();
     public CatalogEntry? Catalog => _item.Catalog;
 
     public PluginFormat? Format => Installed?.Format;
 
-    public string? Path => _item.Installs.Count == 0
+    /// <summary>
+    /// Paths of the copies present on disk. Remembered copies are excluded so that search
+    /// and the uninstall dialog never surface a file that no longer exists.
+    /// </summary>
+    public string? Path => !_item.IsInstalled
         ? null
-        : string.Join(Environment.NewLine, _item.Installs.Select(i => i.Path));
+        : string.Join(Environment.NewLine, _item.ActiveInstalls.Select(i => i.Path));
 
     [ObservableProperty]
     private string? _logoPath;
@@ -64,6 +81,10 @@ public partial class PluginDisplayViewModel : ObservableObject
     [ObservableProperty]
     private bool _isNew;
 
+    /// <summary>True when a known LatestVersion is strictly newer than the installed CurrentVersion.</summary>
+    [ObservableProperty]
+    private bool _isOutdated;
+
     public bool HasFormat(PluginFormat format) => _item.Installs.Any(i => i.Format == format);
 
     public void ApplyMetadataOverride(string? name, string? vendor)
@@ -89,15 +110,24 @@ public partial class PluginDisplayViewModel : ObservableObject
         IsHidden = _item.IsHiddenSummary;
         CurrentVersion = _item.Installs.Select(i => i.CurrentVersion).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
         LatestVersion = _item.Installs.Select(i => i.LatestVersion).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+        IsOutdated = VersionComparer.IsNewer(LatestVersion, CurrentVersion);
 
-        if (_item.Installs.Count == 0)
+        OnPropertyChanged(nameof(IsInstalled));
+        OnPropertyChanged(nameof(IsRemembered));
+        OnPropertyChanged(nameof(ActiveInstalls));
+        OnPropertyChanged(nameof(Path));
+
+        // Format/summary text describes what's on disk, so it comes from the active copies
+        // only — unlike the tag/kind/version values above, which intentionally still reflect
+        // remembered copies.
+        if (!_item.IsInstalled)
         {
             InstalledFormatsText = null;
             InstalledSummaryText = null;
             return;
         }
 
-        var formats = _item.Installs
+        var formats = _item.ActiveInstalls
             .Select(i => i.Format)
             .Distinct()
             .OrderBy(f => f)

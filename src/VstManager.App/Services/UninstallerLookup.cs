@@ -13,6 +13,12 @@ public class UninstallerLookup
         @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
     };
 
+    // Many plugin installers register per-user rather than machine-wide.
+    private static readonly (RegistryKey Root, string Path)[] RegistryLocations =
+        RegistryPaths.Select(p => (Registry.LocalMachine, p))
+            .Append((Registry.CurrentUser, RegistryPaths[0]))
+            .ToArray();
+
     public UninstallEntry? FindUninstaller(string pluginName, string? vendor) =>
         FindUninstaller(EnumerateInstalledPrograms().ToList(), pluginName, vendor);
 
@@ -43,9 +49,9 @@ public class UninstallerLookup
 
     public IEnumerable<UninstallEntry> EnumerateInstalledPrograms()
     {
-        foreach (var basePath in RegistryPaths)
+        foreach (var (root, basePath) in RegistryLocations)
         {
-            using var baseKey = Registry.LocalMachine.OpenSubKey(basePath);
+            using var baseKey = root.OpenSubKey(basePath);
             if (baseKey is null)
             {
                 continue;
