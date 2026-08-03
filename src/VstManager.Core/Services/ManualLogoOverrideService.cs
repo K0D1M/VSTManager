@@ -20,12 +20,29 @@ public class ManualLogoOverrideService
         return Path.Combine(appData, "VstManager", "manual-logos.json");
     }
 
+    private const string LocalFileMarker = "local:";
+
     public string? GetOverrideUrl(string name) =>
-        _overrides.TryGetValue(NormalizeKey(name), out var url) ? url : null;
+        _overrides.TryGetValue(NormalizeKey(name), out var url) && !url.StartsWith(LocalFileMarker, StringComparison.Ordinal)
+            ? url
+            : null;
+
+    /// <summary>True when the plugin's override was set from a local file, not a URL — there's
+    /// nothing to re-download, the cached copy saved at the time is the only copy.</summary>
+    public bool IsLocalFileOverride(string name) =>
+        _overrides.TryGetValue(NormalizeKey(name), out var url) && url.StartsWith(LocalFileMarker, StringComparison.Ordinal);
 
     public void SetOverride(string name, string url)
     {
         _overrides[NormalizeKey(name)] = url;
+        Save();
+    }
+
+    /// <summary>Records that this plugin's logo came from a local file rather than a URL, so a
+    /// future load reuses the cached copy instead of attempting an HTTP re-download.</summary>
+    public void SetLocalFileOverride(string name)
+    {
+        _overrides[NormalizeKey(name)] = LocalFileMarker;
         Save();
     }
 

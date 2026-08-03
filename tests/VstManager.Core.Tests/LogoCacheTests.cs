@@ -108,6 +108,53 @@ public class LogoCacheTests : IDisposable
         Assert.False(File.Exists(pngPath));
     }
 
+    [Fact]
+    public async Task SaveLocalLogo_PngBytes_SavedWithPngExtension()
+    {
+        var cache = new LogoCache(new HttpClient(new StubHandler(Array.Empty<byte>(), null)), _cacheDir);
+        var sourceFile = Path.Combine(_cacheDir, "source-image.tmp");
+        Directory.CreateDirectory(_cacheDir);
+        await File.WriteAllBytesAsync(sourceFile, PngBytes());
+
+        var path = await cache.SaveLocalLogoAsync("Serum", sourceFile);
+
+        Assert.NotNull(path);
+        Assert.Equal(".png", Path.GetExtension(path));
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
+    public async Task SaveLocalLogo_ThenFindManualCachedFile_ReturnsSamePath()
+    {
+        var cache = new LogoCache(new HttpClient(new StubHandler(Array.Empty<byte>(), null)), _cacheDir);
+        var sourceFile = Path.Combine(_cacheDir, "source-image.tmp");
+        Directory.CreateDirectory(_cacheDir);
+        await File.WriteAllBytesAsync(sourceFile, WebpBytes());
+
+        var saved = await cache.SaveLocalLogoAsync("Massive", sourceFile);
+        var found = cache.FindManualCachedFile("Massive");
+
+        Assert.Equal(saved, found);
+        Assert.Equal(".webp", Path.GetExtension(found));
+    }
+
+    [Fact]
+    public async Task SaveLocalLogo_ReplacesPreviouslyCachedFile()
+    {
+        var cache = new LogoCache(new HttpClient(new StubHandler(Array.Empty<byte>(), null)), _cacheDir);
+        var pngSource = Path.Combine(_cacheDir, "a.tmp");
+        var webpSource = Path.Combine(_cacheDir, "b.tmp");
+        Directory.CreateDirectory(_cacheDir);
+        await File.WriteAllBytesAsync(pngSource, PngBytes());
+        await File.WriteAllBytesAsync(webpSource, WebpBytes());
+
+        var firstPath = await cache.SaveLocalLogoAsync("Pigments", pngSource);
+        var secondPath = await cache.SaveLocalLogoAsync("Pigments", webpSource);
+
+        Assert.Equal(".webp", Path.GetExtension(secondPath));
+        Assert.False(File.Exists(firstPath));
+    }
+
     private sealed class StubHandler(byte[] payload, string? contentType) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)

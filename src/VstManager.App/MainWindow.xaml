@@ -7,17 +7,20 @@
         xmlns:vm="clr-namespace:VstManager.App.ViewModels"
         xmlns:conv="clr-namespace:VstManager.App.Converters"
         xmlns:core="clr-namespace:VstManager.Core.Models;assembly=VstManager.Core"
+        xmlns:ctrl="clr-namespace:VstManager.App.Controls"
         mc:Ignorable="d"
         Background="{DynamicResource WindowBackgroundBrush}"
         Title="VST Manager" Height="680" Width="1100"
         MinHeight="480" MinWidth="720"
         ResizeMode="CanResize" WindowStartupLocation="CenterScreen"
+        Style="{StaticResource ChromedWindow}"
         Loaded="Window_Loaded"
         UseLayoutRounding="True" SnapsToDevicePixels="True">
     <Window.Resources>
         <DataTemplate x:Key="PluginCardTemplate" DataType="{x:Type vm:PluginDisplayViewModel}">
             <Border x:Name="CardRoot" Style="{StaticResource CardBorder}" Width="190" Cursor="Hand"
                     PreviewMouseLeftButtonUp="PluginCard_PreviewMouseLeftButtonUp"
+                    PreviewMouseRightButtonDown="PluginCard_PreviewMouseRightButtonDown"
                     Opacity="{Binding IsHidden, Converter={StaticResource HiddenToOpacityConverter}}"
                     RenderTransformOrigin="0.5,0.5">
                 <Border.RenderTransform>
@@ -182,6 +185,7 @@
         <DataTemplate x:Key="PluginRowTemplate" DataType="{x:Type vm:PluginDisplayViewModel}">
             <Border x:Name="RowRoot" Style="{StaticResource CardBorder}" Margin="0,4" Padding="10,8" Cursor="Hand"
                     PreviewMouseLeftButtonUp="PluginCard_PreviewMouseLeftButtonUp"
+                    PreviewMouseRightButtonDown="PluginCard_PreviewMouseRightButtonDown"
                     Opacity="{Binding IsHidden, Converter={StaticResource HiddenToOpacityConverter}}">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -420,7 +424,17 @@
         </Style>
     </Window.Resources>
 
-    <Grid Margin="18">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <ctrl:CustomTitleBar Grid.Row="0" ShowMaximize="True"
+                             TitleText="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Title}"
+                             TitleIcon="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Icon}" />
+
+        <Grid Grid.Row="1" Margin="18">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -469,8 +483,10 @@
             <Border Margin="0,0,14,10" CornerRadius="17"
                     Background="{DynamicResource SurfaceAltBrush}"
                     BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="1"
-                    ToolTip="Choose whether to manage your Legit or Cracked plugins">
+                    ToolTip="Choose whether to manage your Legit, Cracked, or all plugins">
                 <StackPanel Orientation="Horizontal">
+                    <RadioButton GroupName="Mode" Content="All" Style="{StaticResource ModeSegment}"
+                                 IsChecked="{Binding Mode, Converter={StaticResource EnumEqualsConverter}, ConverterParameter={x:Static vm:ManagementMode.All}}" />
                     <RadioButton GroupName="Mode" Content="Legit" Tag="&#x2714;" Style="{StaticResource ModeSegment}"
                                  IsChecked="{Binding Mode, Converter={StaticResource EnumEqualsConverter}, ConverterParameter={x:Static vm:ManagementMode.Legit}}" />
                     <RadioButton GroupName="Mode" Content="Cracked" Tag="&#x2620;" Style="{StaticResource ModeSegment}"
@@ -886,5 +902,6 @@
                 </Expander>
             </StackPanel>
         </ScrollViewer>
+        </Grid>
     </Grid>
 </Window>

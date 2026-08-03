@@ -15,6 +15,7 @@ namespace VstManager.App.ViewModels;
 
 public enum ManagementMode
 {
+    All,
     Legit,
     Cracked
 }
@@ -57,6 +58,8 @@ public partial class MainViewModel : ObservableObject
     private readonly PluginVersionDetector _versionDetector = new();
     private readonly PluginNameMatcher _nameMatcher = new();
     private readonly DataPortabilityService _dataPortability = new();
+    private readonly NotificationService _notificationService = new(
+        Path.Combine(AppContext.BaseDirectory, "a_clean_modern_app_icon_logo_design_on_a_dark_b.ico"));
 
     private LibraryData _library = new();
 
@@ -150,6 +153,14 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Whether the launch-time online lookup for newer plugin versions runs.</summary>
     [ObservableProperty]
     private bool _checkForPluginUpdatesOnStartup = true;
+
+    /// <summary>Whether the main window opens minimized instead of normal-sized.</summary>
+    [ObservableProperty]
+    private bool _startMinimized;
+
+    /// <summary>Whether Windows notifications fire for new plugins, outdated versions, and completed scans/refreshes.</summary>
+    [ObservableProperty]
+    private bool _showNotifications = true;
 
     [ObservableProperty]
     private DateTime? _lastUpdateCheck;
@@ -256,6 +267,28 @@ public partial class MainViewModel : ObservableObject
         }
 
         _library.CheckForPluginUpdatesOnStartup = value;
+        _libraryStore.Save(_library);
+    }
+
+    partial void OnStartMinimizedChanged(bool value)
+    {
+        if (_isInitializing)
+        {
+            return;
+        }
+
+        _library.StartMinimized = value;
+        _libraryStore.Save(_library);
+    }
+
+    partial void OnShowNotificationsChanged(bool value)
+    {
+        if (_isInitializing)
+        {
+            return;
+        }
+
+        _library.ShowNotifications = value;
         _libraryStore.Save(_library);
     }
 
@@ -403,6 +436,8 @@ public partial class MainViewModel : ObservableObject
 
         _autostartEnabled = _autostartService.IsEnabled();
         _checkForPluginUpdatesOnStartup = settings.CheckForPluginUpdatesOnStartup;
+        _startMinimized = settings.StartMinimized;
+        _showNotifications = settings.ShowNotifications;
         _lastUpdateCheck = settings.LastUpdateCheck;
         _layoutMode = Enum.TryParse<LayoutMode>(settings.LayoutMode, out var layoutMode) ? layoutMode : LayoutMode.Grid;
         _isInitializing = false;
@@ -469,6 +504,11 @@ public partial class MainViewModel : ObservableObject
             (null, not null) => $"{outdatedPart}.",
             _ => $"{newPart}, and {outdatedPart}."
         };
+
+        if (ShowNotifications && StartupUpdateSummaryText is not null)
+        {
+            _notificationService.Show("VST Manager", StartupUpdateSummaryText);
+        }
     }
 
     [RelayCommand]
@@ -580,7 +620,15 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task Rescan() => await LoadAndScanAsync();
+    private async Task Rescan()
+    {
+        await LoadAndScanAsync();
+
+        if (ShowNotifications)
+        {
+            _notificationService.Show("VST Manager", "Plugin scan complete.");
+        }
+    }
 
     public event EventHandler<IReadOnlyList<PluginDisplayViewModel>>? NewMultiCopyPluginsFound;
 
@@ -676,6 +724,16 @@ public partial class MainViewModel : ObservableObject
 
     private async Task LoadLogoAsync(PluginDisplayViewModel vm, PluginDisplayItem item)
     {
+        if (_manualLogoOverrides.IsLocalFileOverride(item.BaseName))
+        {
+            var cachedLocalPath = _logoCache.FindManualCachedFile(item.BaseName);
+            if (cachedLocalPath is not null)
+            {
+                vm.LogoPath = cachedLocalPath;
+                return;
+            }
+        }
+
         var overrideUrl = _manualLogoOverrides.GetOverrideUrl(item.BaseName);
         if (overrideUrl is not null)
         {
@@ -716,6 +774,29 @@ public partial class MainViewModel : ObservableObject
         return true;
     }
 
+    /// <summary>
+    /// Sets a plugin's artwork from a local image file — used by the "Browse..." picker when the
+    /// plugin's normal (URL-based) artwork fails to display. Unlike <see cref="FixLogoAsync"/>
+    /// this never hits the network; the chosen file is copied straight into the logo cache.
+    /// </summary>
+    public async Task<bool> SetLogoFromLocalFileAsync(PluginDisplayViewModel vm, string filePath)
+    {
+        var path = await _logoCache.SaveLocalLogoAsync(vm.BaseName, filePath);
+        if (path is null)
+        {
+            return false;
+        }
+
+        _manualLogoOverrides.SetLocalFileOverride(vm.BaseName);
+
+        foreach (var plugin in Plugins.Where(p => string.Equals(p.BaseName, vm.BaseName, StringComparison.OrdinalIgnoreCase)))
+        {
+            plugin.LogoPath = path;
+        }
+
+        return true;
+    }
+
     public void ApplyMetadataOverride(PluginDisplayViewModel vm, string? name, string? vendor)
     {
         var normalizedName = string.IsNullOrWhiteSpace(name) ? null : name.Trim();
@@ -742,6 +823,58 @@ public partial class MainViewModel : ObservableObject
 
     /// <summary>Fetches plugin details from a product page URL the user supplied (KVR or any plugin database).</summary>
     public async Task<KvrLookupResult?> FetchInfoFromUrlAsync(string url) => await _kvrLookup.FetchFromUrlAsync(url);
+
+    /// <summary>What turned up the installed version, so the UI can say where the number came from.</summary>
+    public sealed record VersionDetectionResult(string? Version, string SourceDescription);
+
+    /// <summary>
+    /// Re-detects the installed version for one plugin, walking the whole fallback chain until
+    /// something answers: each copy's own file metadata (Windows version resource → VST3
+    /// moduleinfo.json → vendor bundle manifest, all inside DetectFromFile), then the Windows
+    /// uninstall registry. Unlike the bulk refresh this tries *every* installed copy rather
+    /// than only the first, since a plugin can ship a VST2 DLL with no version resource
+    /// alongside a VST3 bundle that has one.
+    /// </summary>
+    public async Task<VersionDetectionResult> DetectCurrentVersionAsync(PluginDisplayViewModel vm)
+    {
+        var copies = vm.ActiveInstalls.ToList();
+        if (copies.Count == 0)
+        {
+            return new VersionDetectionResult(null, "this plugin isn't installed");
+        }
+
+        return await Task.Run(() =>
+        {
+            foreach (var copy in copies)
+            {
+                var fromFile = _versionDetector.DetectFromFile(copy.Path);
+                if (!string.IsNullOrWhiteSpace(fromFile))
+                {
+                    return new VersionDetectionResult(fromFile, $"the {FormatLabel(copy.Format)} file");
+                }
+            }
+
+            // Last resort: the vendor's installer entry in the Windows uninstall registry.
+            var installedPrograms = _uninstallerLookup.EnumerateInstalledPrograms().ToList();
+            var fromRegistry = UninstallerLookup.FindUninstaller(installedPrograms, vm.Name, vm.Vendor)?.DisplayVersion;
+
+            return string.IsNullOrWhiteSpace(fromRegistry)
+                ? new VersionDetectionResult(null, "the plugin files or the Windows registry")
+                : new VersionDetectionResult(fromRegistry, "the Windows uninstall registry");
+        });
+    }
+
+    private static string FormatLabel(PluginFormat format) => format == PluginFormat.Vst3 ? "VST3" : "VST2";
+
+    /// <summary>
+    /// Looks up candidates for a name/vendor the user controls, for the "Search Manually"
+    /// button — unlike PreviewAutoDetectAsync this never auto-applies a "confident" result,
+    /// since the whole point is letting the user correct a match Auto-Detect got wrong (e.g.
+    /// a name-similarity false-positive matching "Omnisphere" to "Omnisphere" v1 when v3 is
+    /// actually installed).
+    /// </summary>
+    public async Task<IReadOnlyList<PluginInfoCandidate>> SearchCandidatesAsync(string name, string? vendor) =>
+        await _kvrLookup.SearchCandidatesAsync(name, vendor);
 
     /// <summary>
     /// Non-mutating preview of what an automated refresh would find for one plugin — used by
@@ -877,21 +1010,38 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void BatchMarkLegit() => ApplyTagToSelected(PluginTag.Legit);
+    private void BatchMarkLegit() => ApplyTagToTargets(Plugins.Where(p => p.IsSelected).ToList(), PluginTag.Legit);
 
     [RelayCommand]
-    private void BatchMarkCracked() => ApplyTagToSelected(PluginTag.Cracked);
+    private void BatchMarkCracked() => ApplyTagToTargets(Plugins.Where(p => p.IsSelected).ToList(), PluginTag.Cracked);
 
     [RelayCommand]
-    private void BatchMarkInstrument() => ApplyKindToSelected(PluginKind.Instrument);
+    private void BatchMarkInstrument() => ApplyKindToTargets(Plugins.Where(p => p.IsSelected).ToList(), PluginKind.Instrument);
 
     [RelayCommand]
-    private void BatchMarkEffect() => ApplyKindToSelected(PluginKind.Effect);
+    private void BatchMarkEffect() => ApplyKindToTargets(Plugins.Where(p => p.IsSelected).ToList(), PluginKind.Effect);
 
-    private void ApplyTagToSelected(PluginTag tag)
+    /// <summary>
+    /// Decides what a context-menu command should act on: the right-clicked plugin alone, or
+    /// the whole current selection. The latter only applies when the right-clicked item is
+    /// itself part of an active multi-selection — set up by
+    /// MainWindow's right-click handler, which collapses the selection to a single item
+    /// whenever you right-click something outside the current selection, so a stray right-click
+    /// can never silently apply a batch action to plugins the user isn't looking at.
+    /// </summary>
+    private List<PluginDisplayViewModel> ResolveTargets(PluginDisplayViewModel? clicked)
     {
-        var targets = Plugins.Where(p => p.IsSelected && p.IsInstalled).ToList();
-        foreach (var vm in targets)
+        if (clicked is not null && IsSelectionMode && clicked.IsSelected && SelectedCount > 1)
+        {
+            return Plugins.Where(p => p.IsSelected).ToList();
+        }
+
+        return clicked is null ? new List<PluginDisplayViewModel>() : new List<PluginDisplayViewModel> { clicked };
+    }
+
+    private void ApplyTagToTargets(List<PluginDisplayViewModel> targets, PluginTag tag)
+    {
+        foreach (var vm in targets.Where(p => p.IsInstalled))
         {
             ApplyTagToAllCopies(vm, tag);
         }
@@ -900,12 +1050,55 @@ public partial class MainViewModel : ObservableObject
         RefreshViews();
     }
 
-    private void ApplyKindToSelected(PluginKind kind)
+    private void ApplyKindToTargets(List<PluginDisplayViewModel> targets, PluginKind kind)
     {
-        var targets = Plugins.Where(p => p.IsSelected && p.IsInstalled).ToList();
-        foreach (var vm in targets)
+        foreach (var vm in targets.Where(p => p.IsInstalled))
         {
             ApplyKindToAllCopies(vm, kind);
+        }
+
+        _libraryStore.Save(_library);
+        RefreshViews();
+    }
+
+    private void ApplyFavoriteToTargets(List<PluginDisplayViewModel> targets, bool isFavorite)
+    {
+        foreach (var vm in targets.Where(p => p.Installs.Count > 0))
+        {
+            foreach (var copy in vm.Installs)
+            {
+                copy.IsFavorite = isFavorite;
+
+                var stored = _library.Plugins.FirstOrDefault(p => string.Equals(p.Path, copy.Path, StringComparison.OrdinalIgnoreCase));
+                if (stored is not null)
+                {
+                    stored.IsFavorite = isFavorite;
+                }
+            }
+
+            vm.RefreshInstallInfo();
+        }
+
+        _libraryStore.Save(_library);
+        RefreshViews();
+    }
+
+    private void ApplyHiddenToTargets(List<PluginDisplayViewModel> targets, bool isHidden)
+    {
+        foreach (var vm in targets.Where(p => p.Installs.Count > 0))
+        {
+            foreach (var copy in vm.Installs)
+            {
+                copy.IsHidden = isHidden;
+
+                var stored = _library.Plugins.FirstOrDefault(p => string.Equals(p.Path, copy.Path, StringComparison.OrdinalIgnoreCase));
+                if (stored is not null)
+                {
+                    stored.IsHidden = isHidden;
+                }
+            }
+
+            vm.RefreshInstallInfo();
         }
 
         _libraryStore.Save(_library);
@@ -952,22 +1145,10 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        var isFavorite = !vm.IsFavorite;
-
-        foreach (var copy in vm.Installs)
-        {
-            copy.IsFavorite = isFavorite;
-
-            var stored = _library.Plugins.FirstOrDefault(p => string.Equals(p.Path, copy.Path, StringComparison.OrdinalIgnoreCase));
-            if (stored is not null)
-            {
-                stored.IsFavorite = isFavorite;
-            }
-        }
-
-        _libraryStore.Save(_library);
-        vm.RefreshInstallInfo();
-        RefreshViews();
+        // The right-clicked plugin's current state decides the outcome for the whole batch —
+        // a mixed selection ends up uniformly favorite/not, rather than each item flipping its
+        // own state independently and looking inconsistent afterward.
+        ApplyFavoriteToTargets(ResolveTargets(vm), !vm.IsFavorite);
     }
 
     [RelayCommand]
@@ -978,22 +1159,7 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        var isHidden = !vm.IsHidden;
-
-        foreach (var copy in vm.Installs)
-        {
-            copy.IsHidden = isHidden;
-
-            var stored = _library.Plugins.FirstOrDefault(p => string.Equals(p.Path, copy.Path, StringComparison.OrdinalIgnoreCase));
-            if (stored is not null)
-            {
-                stored.IsHidden = isHidden;
-            }
-        }
-
-        _libraryStore.Save(_library);
-        vm.RefreshInstallInfo();
-        RefreshViews();
+        ApplyHiddenToTargets(ResolveTargets(vm), !vm.IsHidden);
     }
 
     [RelayCommand]
@@ -1020,6 +1186,11 @@ public partial class MainViewModel : ObservableObject
         finally
         {
             IsCheckingForUpdates = false;
+        }
+
+        if (ShowNotifications)
+        {
+            _notificationService.Show("VST Manager", "Metadata refresh complete.");
         }
     }
 
@@ -1255,9 +1426,7 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        ApplyTagToAllCopies(vm, tag);
-        _libraryStore.Save(_library);
-        RefreshViews();
+        ApplyTagToTargets(ResolveTargets(vm), tag);
     }
 
     private void SetKind(PluginDisplayViewModel? vm, PluginKind kind)
@@ -1267,9 +1436,7 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        ApplyKindToAllCopies(vm, kind);
-        _libraryStore.Save(_library);
-        RefreshViews();
+        ApplyKindToTargets(ResolveTargets(vm), kind);
     }
 
     [RelayCommand]
@@ -1299,15 +1466,23 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ForgetPlugin(PluginDisplayViewModel? vm)
     {
-        if (vm is null || !vm.IsRemembered)
+        var targets = ResolveTargets(vm).Where(v => v.IsRemembered).ToList();
+        if (targets.Count == 0)
         {
             return;
         }
 
+        var message = targets.Count == 1
+            ? $"Forget \"{targets[0].Name}\"?\n\nVST Manager will stop remembering that this plugin was ever installed, "
+              + "along with its tag, type, versions and favourite status. If you install it again later it "
+              + "will be treated as a brand-new plugin."
+            : $"Forget these {targets.Count} plugins?\n\n{string.Join("\n", targets.Select(v => v.Name))}\n\n"
+              + "VST Manager will stop remembering that they were ever installed, along with their tags, "
+              + "types, versions and favourite status. If any are installed again later they'll be treated "
+              + "as brand-new plugins.";
+
         var result = MessageBox.Show(
-            $"Forget \"{vm.Name}\"?\n\nVST Manager will stop remembering that this plugin was ever installed, "
-            + "along with its tag, type, versions and favourite status. If you install it again later it "
-            + "will be treated as a brand-new plugin.",
+            message,
             "Forget Plugin",
             MessageBoxButton.YesNo,
             MessageBoxImage.Question,
@@ -1318,18 +1493,29 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        foreach (var copy in vm.Installs)
+        // Two passes deliberately: remove everything from the persisted library first (this
+        // loop only reads `targets`, a snapshot, never `Plugins`), then remove from the live
+        // `Plugins` collection afterward. Doing the Plugins.Remove calls inside the same loop
+        // that produced `targets` would mutate the collection while it's still being enumerated.
+        foreach (var v in targets)
         {
-            _library.Plugins.RemoveAll(p => string.Equals(p.Path, copy.Path, StringComparison.OrdinalIgnoreCase));
+            foreach (var copy in v.Installs)
+            {
+                _library.Plugins.RemoveAll(p => string.Equals(p.Path, copy.Path, StringComparison.OrdinalIgnoreCase));
+            }
         }
 
         _libraryStore.Save(_library);
 
-        // Removing the item directly rather than rescanning: a full rescan would cost a disk
+        // Removing items directly rather than rescanning: a full rescan would cost a disk
         // sweep the user didn't ask for, and for a catalogued plugin would re-add it anyway as
         // a never-installed catalog entry.
-        vm.PropertyChanged -= OnPluginPropertyChanged;
-        Plugins.Remove(vm);
+        foreach (var v in targets)
+        {
+            v.PropertyChanged -= OnPluginPropertyChanged;
+            Plugins.Remove(v);
+        }
+
         RefreshViews();
 
         // Manual name/logo overrides are deliberately left alone: they're keyed by BaseName,
@@ -1338,7 +1524,64 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task MarkAsNotAPlugin(PluginDisplayViewModel? vm) => await MarkAsNotAPluginAsync(vm);
+    private async Task MarkAsNotAPlugin(PluginDisplayViewModel? vm)
+    {
+        var targets = ResolveTargets(vm);
+        if (targets.Count <= 1)
+        {
+            await MarkAsNotAPluginAsync(vm);
+            return;
+        }
+
+        await MarkMultipleAsNotAPluginAsync(targets);
+    }
+
+    /// <summary>
+    /// Batch form of MarkAsNotAPluginAsync, for the context menu when multiple plugins are
+    /// selected. Kept separate from the single-plugin method (rather than routing single calls
+    /// through this one) since PluginDetailWindow depends on MarkAsNotAPluginAsync's exact
+    /// signature and single-item confirmation wording.
+    /// </summary>
+    private async Task MarkMultipleAsNotAPluginAsync(List<PluginDisplayViewModel> targets)
+    {
+        var installed = targets.Where(v => v.IsInstalled).ToList();
+        if (installed.Count == 0)
+        {
+            return;
+        }
+
+        var allFiles = installed.SelectMany(v => v.ActiveInstalls.Select(i => Path.GetFileName(i.Path))).ToList();
+        const int maxShown = 10;
+        var summary = string.Join("\n", allFiles.Take(maxShown));
+        if (allFiles.Count > maxShown)
+        {
+            summary += $"\n...and {allFiles.Count - maxShown} more";
+        }
+
+        var result = MessageBox.Show(
+            $"Mark the following {installed.Count} plugin(s) as not a plugin?\n\n{summary}\n\n"
+            + "They will be excluded from all future scans on this and any other machine running this app.",
+            "Mark as Not a Plugin",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (result != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        foreach (var vm in installed)
+        {
+            foreach (var copy in vm.Installs)
+            {
+                _exclusionList.Exclude(copy.Path);
+                _library.Plugins.RemoveAll(p => string.Equals(p.Path, copy.Path, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        _libraryStore.Save(_library);
+        await LoadAndScanAsync();
+    }
 
     public async Task<bool> MarkAsNotAPluginAsync(PluginDisplayViewModel? vm)
     {
@@ -1376,12 +1619,23 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task Uninstall(PluginDisplayViewModel? vm)
     {
-        // Nothing to uninstall for a remembered plugin — its files are already gone.
-        if (vm is null || !vm.IsInstalled)
+        var targets = ResolveTargets(vm).Where(v => v.IsInstalled).ToList();
+        if (targets.Count == 0)
         {
             return;
         }
 
+        if (targets.Count == 1)
+        {
+            await UninstallSingleAsync(targets[0]);
+            return;
+        }
+
+        await UninstallBatchAsync(targets);
+    }
+
+    private async Task UninstallSingleAsync(PluginDisplayViewModel vm)
+    {
         var uninstaller = _uninstallerLookup.FindUninstaller(vm.Name, vm.Vendor);
         if (uninstaller is not null)
         {
@@ -1462,6 +1716,93 @@ public partial class MainViewModel : ObservableObject
         if (anyDeleted)
         {
             _ = LoadAndScanAsync();
+        }
+    }
+
+    /// <summary>
+    /// Uninstalls several plugins from one context-menu action. Unlike the single-plugin path,
+    /// this asks for confirmation exactly once upfront (naming every plugin, and warning that
+    /// installers run one after another) rather than per plugin — chosen deliberately so a
+    /// large selection doesn't mean clicking through up to two dialogs per plugin. Each plugin's
+    /// uninstaller (or file-delete fallback) still runs one at a time, in sequence — vendor
+    /// installers are foreground GUIs, so launching several at once isn't an option — and one
+    /// plugin failing never stops the rest of the batch. Failures are collected and reported
+    /// together at the end, followed by a single rescan.
+    /// </summary>
+    private async Task UninstallBatchAsync(List<PluginDisplayViewModel> targets)
+    {
+        var names = string.Join("\n", targets.Select(v => v.Name));
+        var confirm = MessageBox.Show(
+            $"Uninstall these {targets.Count} plugins?\n\n{names}\n\n"
+            + "Plugins with a registered uninstaller will open their installer window one at a time — "
+            + "close each as it appears to continue to the next. This cannot be undone.",
+            "Uninstall Plugins",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+
+        if (confirm != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var installedPrograms = _uninstallerLookup.EnumerateInstalledPrograms().ToList();
+        var failures = new List<string>();
+        var anyChanged = false;
+
+        foreach (var vm in targets)
+        {
+            var uninstaller = UninstallerLookup.FindUninstaller(installedPrograms, vm.Name, vm.Vendor);
+            if (uninstaller is not null)
+            {
+                try
+                {
+                    var process = Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{uninstaller.UninstallCommand}\"") { UseShellExecute = true });
+                    if (process is not null)
+                    {
+                        await process.WaitForExitAsync();
+                    }
+
+                    anyChanged = true;
+                }
+                catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException)
+                {
+                    failures.Add($"{vm.Name}: couldn't launch its uninstaller ({ex.Message})");
+                }
+
+                continue;
+            }
+
+            var deletedAny = false;
+            foreach (var copy in vm.ActiveInstalls)
+            {
+                if (DeletePluginFile(copy.Path))
+                {
+                    deletedAny = true;
+                }
+                else
+                {
+                    failures.Add($"{vm.Name}: couldn't delete {Path.GetFileName(copy.Path)}");
+                }
+            }
+
+            anyChanged |= deletedAny;
+        }
+
+        if (failures.Count > 0)
+        {
+            MessageBox.Show(
+                "Some plugins couldn't be fully uninstalled — they may be in use by another program "
+                + "(close any DAW using them and try again) or require administrator rights:\n\n"
+                + string.Join("\n", failures),
+                "Uninstall Failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+
+        if (anyChanged)
+        {
+            await LoadAndScanAsync();
         }
     }
 
@@ -1584,6 +1925,8 @@ public partial class MainViewModel : ObservableObject
             AccentColor = accent;
         }
         AutostartEnabled = settings.AutostartEnabled;
+        StartMinimized = settings.StartMinimized;
+        ShowNotifications = settings.ShowNotifications;
         LastUpdateCheck = settings.LastUpdateCheck;
         LayoutMode = Enum.TryParse<LayoutMode>(settings.LayoutMode, out var layoutMode) ? layoutMode : LayoutMode.Grid;
 

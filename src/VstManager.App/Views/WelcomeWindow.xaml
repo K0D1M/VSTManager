@@ -3,17 +3,29 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:ctrl="clr-namespace:VstManager.App.Controls"
         mc:Ignorable="d"
         Title="Welcome to VST Manager" Width="480"
         MinWidth="420" MinHeight="360" MaxHeight="820"
         Background="{DynamicResource WindowBackgroundBrush}"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize" SizeToContent="Height"
+        Style="{StaticResource ChromedWindow}"
         Loaded="Window_Loaded"
         UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ctrl:CustomTitleBar Grid.Row="0" ShowMaximize="False"
+                             TitleText="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Title}"
+                             TitleIcon="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Icon}" />
+
     <!-- Row 1 is star-sized and scrolls: adding many folders must never push the buttons in
          row 2 off the bottom of the screen. -->
-    <Grid Margin="28">
+    <Grid Grid.Row="1" Margin="28">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -101,5 +113,6 @@
                 <TextBlock Text="&#x2192;" FontSize="15" Margin="8,0,0,0" VerticalAlignment="Center" />
             </StackPanel>
         </Button>
+    </Grid>
     </Grid>
 </Window>

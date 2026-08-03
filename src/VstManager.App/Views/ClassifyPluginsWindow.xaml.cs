@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows;
+using VstManager.App.Controls;
 using VstManager.App.ViewModels;
 
 namespace VstManager.App.Views;
@@ -13,6 +14,8 @@ public partial class ClassifyPluginsWindow : Window
     public ClassifyPluginsWindow(MainViewModel mainViewModel, IReadOnlyList<PluginDisplayViewModel> plugins)
     {
         InitializeComponent();
+        MaximizedBoundsFix.Apply(this);
+        WindowIcon.ApplyDefault(this);
         _mainViewModel = mainViewModel;
         Plugins = new ObservableCollection<ClassifyPluginViewModel>(
             plugins.Select(p => new ClassifyPluginViewModel(p)));

@@ -1,5 +1,6 @@
 using System.Windows;
 using Microsoft.Win32;
+using VstManager.App.Controls;
 using VstManager.App.Services;
 using VstManager.App.ViewModels;
 
@@ -12,6 +13,8 @@ public partial class WelcomeWindow : Window
     public WelcomeWindow()
     {
         InitializeComponent();
+        MaximizedBoundsFix.Apply(this);
+        WindowIcon.ApplyDefault(this);
         DataContext = _viewModel;
     }
 

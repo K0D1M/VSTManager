@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
+using VstManager.App.Controls;
 using VstManager.App.Services;
 using VstManager.App.ViewModels;
 using VstManager.Core.Models;
@@ -21,6 +22,8 @@ public partial class PluginDetailWindow : Window
     public PluginDetailWindow(MainViewModel mainViewModel, PluginDisplayViewModel plugin)
     {
         InitializeComponent();
+        MaximizedBoundsFix.Apply(this);
+        WindowIcon.ApplyDefault(this);
         _mainViewModel = mainViewModel;
         _plugin = plugin;
         Form = new PluginEditFormViewModel(plugin);
@@ -72,7 +75,17 @@ public partial class PluginDetailWindow : Window
             _mainViewModel.MarkCrackedCommand.Execute(_plugin);
         }
 
-        if (Form.IsLogoPreviewValid && !string.IsNullOrWhiteSpace(Form.LogoUrl))
+        if (!string.IsNullOrWhiteSpace(Form.LocalLogoFilePath))
+        {
+            var success = await _mainViewModel.SetLogoFromLocalFileAsync(_plugin, Form.LocalLogoFilePath);
+            if (!success)
+            {
+                MessageBox.Show("Couldn't save the image. The rest of your changes were saved — try again.",
+                    "Fix Metadata", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+        }
+        else if (Form.IsLogoPreviewValid && !string.IsNullOrWhiteSpace(Form.LogoUrl))
         {
             var success = await _mainViewModel.FixLogoAsync(_plugin, Form.LogoUrl.Trim());
             if (!success)
@@ -206,6 +219,91 @@ public partial class PluginDetailWindow : Window
     }
 
     /// <summary>
+    /// Re-reads the installed version from disk on demand. Runs the same fallback chain the
+    /// automatic detection uses — each copy's file metadata (Windows version resource, then
+    /// VST3 moduleinfo.json, then the vendor's bundle manifest), then the Windows uninstall
+    /// registry — and reports which one answered, so a surprising number is traceable.
+    /// </summary>
+    private async void DetectCurrentVersion_Click(object sender, RoutedEventArgs e)
+    {
+        Form.IsDetectingCurrentVersion = true;
+        Form.AutoDetectStatusText = "Reading the installed version...";
+
+        try
+        {
+            var result = await _mainViewModel.DetectCurrentVersionAsync(_plugin);
+
+            if (result.Version is null)
+            {
+                Form.AutoDetectStatusText = $"Couldn't find a version in {result.SourceDescription}. "
+                                            + "Some plugins don't record one anywhere — you can type it in yourself.";
+                return;
+            }
+
+            var previous = Form.CurrentVersion?.Trim();
+            Form.CurrentVersion = result.Version;
+
+            Form.AutoDetectStatusText = string.Equals(previous, result.Version, StringComparison.OrdinalIgnoreCase)
+                ? $"Confirmed version {result.Version} from {result.SourceDescription}."
+                : $"Found version {result.Version} in {result.SourceDescription}. Click Save to keep it.";
+        }
+        finally
+        {
+            Form.IsDetectingCurrentVersion = false;
+        }
+    }
+
+    /// <summary>
+    /// Lets the user force-correct a bad match by searching directly and choosing from the
+    /// results — unlike Auto-Detect, this always shows the picker, even for a single strong
+    /// hit, since the entire point is overriding whatever the automatic match got wrong (e.g.
+    /// Auto-Detect matching "Omnisphere" to Omnisphere 1 when Omnisphere 3 is installed).
+    /// Searches on the current Name/Vendor fields, so editing them first narrows the search.
+    /// </summary>
+    private async void SearchManually_Click(object sender, RoutedEventArgs e)
+    {
+        var name = (Form.Name ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            Form.AutoDetectStatusText = "Enter a name above first, then search.";
+            return;
+        }
+
+        Form.IsSearchingManually = true;
+        Form.AutoDetectStatusText = "Searching...";
+
+        try
+        {
+            var candidates = await _mainViewModel.SearchCandidatesAsync(name, Form.Vendor?.Trim());
+            if (candidates.Count == 0)
+            {
+                Form.AutoDetectStatusText = $"No matches found for \"{name}\" online.";
+                return;
+            }
+
+            var picker = new MatchPickerWindow(name, candidates) { Owner = this };
+            picker.ShowDialog();
+
+            var chosen = picker.SelectedInfo;
+            if (chosen is null)
+            {
+                Form.AutoDetectStatusText = "No match chosen — nothing changed.";
+                return;
+            }
+
+            await ApplyFetchedInfoAsync(chosen, "your search");
+
+            // ApplyFetchedInfoAsync reports into LogoStatusText (the Web Info tab); mirror the
+            // same confirmation here since this button lives on the Details tab.
+            Form.AutoDetectStatusText = $"Applied \"{chosen.ProductName}\" — review the fields above, then click Save.";
+        }
+        finally
+        {
+            Form.IsSearchingManually = false;
+        }
+    }
+
+    /// <summary>
     /// Reads plugin details straight off a product page the user pasted. Replaces the old
     /// "search the web, then copy an image address" flow: the page yields name, vendor,
     /// version and artwork in one step, and works for KVR or any other plugin database.
@@ -288,6 +386,7 @@ public partial class PluginDetailWindow : Window
     private async Task LoadLogoPreviewAsync(string url)
     {
         Form.IsLogoPreviewValid = false;
+        Form.LocalLogoFilePath = null;
 
         var localPath = await _mainViewModel.PreviewLogoAsync(url);
         CleanupLogoPreviewFile();
@@ -313,6 +412,98 @@ public partial class PluginDetailWindow : Window
         catch (NotSupportedException)
         {
             // Unsupported image format — leave the preview hidden; other details still applied.
+        }
+    }
+
+    /// <summary>
+    /// Lets the user pick an image straight from disk — the escape hatch for when the plugin's
+    /// current artwork (or a fetched URL's) fails to display, e.g. an unsupported format like
+    /// WebP that WPF can't decode. Picking a file here takes priority over LogoUrl on Save.
+    /// </summary>
+    private void BrowseForImage_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Choose an Image",
+            Filter = "Image files|*.png;*.jpg;*.jpeg;*.bmp;*.gif|All files|*.*",
+            CheckFileExists = true
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        UseLocalImageFile(dialog.FileName);
+    }
+
+    private static readonly string[] SupportedImageExtensions = [".png", ".jpg", ".jpeg", ".bmp", ".gif"];
+
+    /// <summary>Only accept drags that are a single, image-extensioned file — anything else
+    /// (multiple files, folders, other data) falls through without changing the cursor.</summary>
+    private void ImageDropTarget_DragOver(object sender, System.Windows.DragEventArgs e)
+    {
+        e.Effects = TryGetDroppedImagePath(e, out _) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void ImageDropTarget_Drop(object sender, System.Windows.DragEventArgs e)
+    {
+        e.Handled = true;
+        if (TryGetDroppedImagePath(e, out var path))
+        {
+            UseLocalImageFile(path);
+        }
+    }
+
+    private static bool TryGetDroppedImagePath(System.Windows.DragEventArgs e, out string path)
+    {
+        path = string.Empty;
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            return false;
+        }
+
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] { Length: 1 } files)
+        {
+            return false;
+        }
+
+        if (!SupportedImageExtensions.Contains(Path.GetExtension(files[0]).ToLowerInvariant()))
+        {
+            return false;
+        }
+
+        path = files[0];
+        return true;
+    }
+
+    /// <summary>
+    /// Applies a local image file as the pending artwork — the shared endpoint for both the
+    /// "Browse..." dialog and dropping a file onto the artwork card. Picking/dropping a file
+    /// here takes priority over LogoUrl on Save.
+    /// </summary>
+    private void UseLocalImageFile(string filePath)
+    {
+        try
+        {
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.UriSource = new Uri(filePath, UriKind.Absolute);
+            bitmap.EndInit();
+            bitmap.Freeze();
+
+            LogoPreviewImage.Source = bitmap;
+            Form.IsLogoPreviewValid = true;
+            Form.LocalLogoFilePath = filePath;
+            Form.LogoUrl = null;
+            Form.LogoStatusText = "Using this image from your computer. Click Save to keep it.";
+        }
+        catch (NotSupportedException)
+        {
+            MessageBox.Show("That file isn't a supported image format. Try a PNG, JPG, BMP or GIF instead.",
+                "Choose an Image", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 

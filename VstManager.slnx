@@ -1,15 +1,23 @@
 <Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="ARM64" />
+  </Configurations>
   <Folder Name="/src/">
     <Project Path="src/VstManager.App/VstManager.App.csproj">
-      <BuildType Project="Release" />
+      <Platform Solution="*|ARM64" Project="ARM64" />
     </Project>
     <Project Path="src/VstManager.Core/VstManager.Core.csproj">
-      <BuildType Project="Release" />
+      <Platform Solution="*|ARM64" Project="ARM64" />
+      <Build Solution="*|ARM64" Project="false" />
+      <Build Solution="Debug|Any CPU" Project="false" />
     </Project>
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/VstManager.Core.Tests/VstManager.Core.Tests.csproj">
-      <BuildType Project="Release" />
+      <Platform Solution="*|ARM64" Project="ARM64" />
+      <Build Solution="*|ARM64" Project="false" />
+      <Build Solution="Debug|Any CPU" Project="false" />
     </Project>
   </Folder>
 </Solution>

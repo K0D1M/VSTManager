@@ -3,15 +3,27 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:ctrl="clr-namespace:VstManager.App.Controls"
         mc:Ignorable="d"
         Title="Settings" Height="600" Width="700"
         MinHeight="460" MinWidth="620"
         Background="{DynamicResource WindowBackgroundBrush}"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
+        Style="{StaticResource ChromedWindowResizableWithGrip}"
         Loaded="Window_Loaded"
         UseLayoutRounding="True" SnapsToDevicePixels="True">
-    <Grid Margin="20,18,20,16">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <ctrl:CustomTitleBar Grid.Row="0" ShowMaximize="False"
+                             TitleText="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Title}"
+                             TitleIcon="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Icon}" />
+
+    <Grid Grid.Row="1" Margin="20,18,20,16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -220,6 +232,20 @@
                         <Border Style="{StaticResource SettingsCard}">
                             <DockPanel LastChildFill="True">
                                 <ToggleButton DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                              IsChecked="{Binding StartMinimized}" Style="{StaticResource GhostToggleButton}"
+                                              Padding="14,7" MinWidth="60"
+                                              Content="{Binding StartMinimized, Converter={StaticResource BoolToOnOffConverter}}" />
+                                <StackPanel>
+                                    <TextBlock Text="Start minimized" Style="{StaticResource SettingsLabel}" />
+                                    <TextBlock Style="{StaticResource SettingsHint}"
+                                               Text="Open the main window minimized to the taskbar instead of full-sized — handy together with Start with Windows." />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingsCard}">
+                            <DockPanel LastChildFill="True">
+                                <ToggleButton DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"
                                               IsChecked="{Binding CheckForPluginUpdatesOnStartup}"
                                               Style="{StaticResource GhostToggleButton}"
                                               Padding="14,7" MinWidth="60"
@@ -228,6 +254,21 @@
                                     <TextBlock Text="Check plugins for updates on startup" Style="{StaticResource SettingsLabel}" />
                                     <TextBlock Style="{StaticResource SettingsHint}"
                                                Text="Looks up your installed plugins online each time the app opens to flag outdated ones. Turn this off to start faster or to avoid using the network — you can still check any time with Refresh All Metadata." />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingsCard}">
+                            <DockPanel LastChildFill="True">
+                                <ToggleButton DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                              IsChecked="{Binding ShowNotifications}"
+                                              Style="{StaticResource GhostToggleButton}"
+                                              Padding="14,7" MinWidth="60"
+                                              Content="{Binding ShowNotifications, Converter={StaticResource BoolToOnOffConverter}}" />
+                                <StackPanel>
+                                    <TextBlock Text="Windows notifications" Style="{StaticResource SettingsLabel}" />
+                                    <TextBlock Style="{StaticResource SettingsHint}"
+                                               Text="Notify when new plugins are found, newer versions are available, and when a scan or metadata refresh finishes." />
                                 </StackPanel>
                             </DockPanel>
                         </Border>
@@ -321,5 +362,6 @@
             <Button DockPanel.Dock="Right" Content="Close" Style="{StaticResource GhostButton}"
                     Padding="20,7" Click="Close_Click" />
         </DockPanel>
+    </Grid>
     </Grid>
 </Window>

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using Microsoft.Win32;
+using VstManager.App.Controls;
 using VstManager.App.Services;
 using VstManager.App.ViewModels;
 
@@ -11,6 +12,8 @@ public partial class SettingsWindow : Window
     public SettingsWindow(MainViewModel viewModel)
     {
         InitializeComponent();
+        MaximizedBoundsFix.Apply(this);
+        WindowIcon.ApplyDefault(this);
         DataContext = viewModel;
     }
 

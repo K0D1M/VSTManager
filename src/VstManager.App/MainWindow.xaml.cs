@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using VstManager.App.Controls;
 using VstManager.App.Services;
 using VstManager.App.ViewModels;
 using VstManager.App.Views;
@@ -21,6 +22,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        MaximizedBoundsFix.Apply(this);
+        WindowIcon.ApplyDefault(this);
 
         if (!File.Exists(LibraryStore.GetDefaultPath()))
         {
@@ -38,6 +41,13 @@ public partial class MainWindow : Window
             });
         };
         DataContext = vm;
+
+        // Set before the StartupUri machinery calls Show(), so the window never flashes at
+        // full size before collapsing to the taskbar.
+        if (vm.StartMinimized)
+        {
+            WindowState = WindowState.Minimized;
+        }
     }
 
     /// <summary>Natural width that fits the toolbar on one row; the locked restored width.</summary>
@@ -181,6 +191,36 @@ public partial class MainWindow : Window
         }
 
         OpenDetailWindow(vm, plugin);
+    }
+
+    /// <summary>
+    /// Explorer-style right-click selection: right-clicking a card that's already part of the
+    /// current multi-selection leaves the selection alone, so the context menu that follows
+    /// acts on the whole group (see the command methods in MainViewModel, which batch over
+    /// Plugins.Where(p => p.IsSelected) when the right-clicked item is part of a multi-select).
+    /// Right-clicking anything else collapses the selection down to just that item, so a stray
+    /// right-click never silently applies an action to an unrelated, unseen selection.
+    /// </summary>
+    private void PluginCard_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm || sender is not FrameworkElement { DataContext: PluginDisplayViewModel plugin } element)
+        {
+            return;
+        }
+
+        if (e.OriginalSource is DependencyObject originalSource && IsWithinButton(originalSource, element))
+        {
+            return;
+        }
+
+        if (vm.IsSelectionMode && plugin.IsSelected)
+        {
+            return;
+        }
+
+        vm.ClearSelectionCommand.Execute(null);
+        vm.SetSelected(plugin, true);
+        _lastClickedForRange = plugin;
     }
 
     private static void SelectRange(FrameworkElement clickedElement, PluginDisplayViewModel anchor, PluginDisplayViewModel target, MainViewModel vm)

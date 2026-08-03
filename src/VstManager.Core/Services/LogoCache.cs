@@ -103,6 +103,29 @@ public class LogoCache
         return await DownloadFromUrlAsync(sourceUrl, tempPath, cancellationToken);
     }
 
+    /// <summary>
+    /// Saves a locally-picked image file (e.g. from a file-browse dialog) as a plugin's manual
+    /// logo override. Unlike <see cref="GetManualLogoPathAsync"/> this never touches the network
+    /// — it exists for the case where the plugin's normal artwork URL fails to decode (or there
+    /// isn't one), so the user can supply a working image straight from disk.
+    /// </summary>
+    public async Task<string?> SaveLocalLogoAsync(string name, string sourceFilePath, CancellationToken cancellationToken = default)
+    {
+        Directory.CreateDirectory(_cacheDirectory);
+        var slug = GetSlugForName(name);
+        DeleteCachedFiles(slug);
+
+        var bytes = await File.ReadAllBytesAsync(sourceFilePath, cancellationToken);
+        var extension = DetectImageExtension(bytes, contentType: null)
+            ?? (IsSupportedImageExtension(Path.GetExtension(sourceFilePath).ToLowerInvariant())
+                ? Path.GetExtension(sourceFilePath).ToLowerInvariant()
+                : ".png");
+
+        var cachedPath = Path.Combine(_cacheDirectory, slug + extension);
+        await File.WriteAllBytesAsync(cachedPath, bytes, cancellationToken);
+        return cachedPath;
+    }
+
     private async Task<string?> DownloadAsync(CatalogEntry entry, string cachedPath, CancellationToken cancellationToken) =>
         await DownloadFromUrlAsync(entry.LogoUrl, cachedPath, cancellationToken, GetSlug(entry));
 
@@ -137,6 +160,10 @@ public class LogoCache
             return null;
         }
     }
+
+    /// <summary>Finds the cached manual-override logo for a plugin name, whatever extension it
+    /// was saved with, without touching the network.</summary>
+    public string? FindManualCachedFile(string name) => FindCachedFile(GetSlugForName(name));
 
     /// <summary>Finds an existing cached logo for a slug, whatever extension it was saved with.</summary>
     private string? FindCachedFile(string slug) =>

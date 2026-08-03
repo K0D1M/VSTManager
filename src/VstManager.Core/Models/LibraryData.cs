@@ -18,4 +18,11 @@ public class LibraryData
     /// still run it on demand via "Refresh All Metadata".
     /// </summary>
     public bool CheckForPluginUpdatesOnStartup { get; set; } = true;
+
+    /// <summary>Whether the main window opens minimized (to the taskbar) instead of normal-sized.</summary>
+    public bool StartMinimized { get; set; }
+
+    /// <summary>Whether Windows notifications fire for new plugins, outdated versions, and
+    /// completed scans/refreshes.</summary>
+    public bool ShowNotifications { get; set; } = true;
 }

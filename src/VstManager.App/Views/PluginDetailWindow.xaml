@@ -4,12 +4,14 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:core="clr-namespace:VstManager.Core.Models;assembly=VstManager.Core"
+        xmlns:ctrl="clr-namespace:VstManager.App.Controls"
         mc:Ignorable="d"
         Title="{Binding Name}" Width="700" Height="600"
         MinWidth="580" MinHeight="460"
         Background="{DynamicResource WindowBackgroundBrush}"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
+        Style="{StaticResource ChromedWindowResizableWithGrip}"
         Loaded="Window_Loaded"
         UseLayoutRounding="True" SnapsToDevicePixels="True">
     <Window.Icon>
@@ -19,7 +21,17 @@
         </MultiBinding>
     </Window.Icon>
 
-    <Grid Margin="20,18,20,16" RenderTransformOrigin="0.5,0.5">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <ctrl:CustomTitleBar Grid.Row="0" ShowMaximize="False"
+                             TitleText="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Title}"
+                             TitleIcon="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Icon}" />
+
+    <Grid Grid.Row="1" Margin="20,18,20,16" RenderTransformOrigin="0.5,0.5">
         <Grid.RenderTransform>
             <ScaleTransform x:Name="RootScale" ScaleX="1" ScaleY="1" />
         </Grid.RenderTransform>
@@ -127,15 +139,27 @@
                                     </StackPanel>
                                 </Grid>
 
-                                <Button Style="{StaticResource GhostButton}" Padding="12,7" FontSize="13"
-                                        HorizontalAlignment="Left" Click="AutoDetect_Click"
-                                        IsEnabled="{Binding Form.IsAutoDetecting, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource InverseBoolConverter}}"
-                                        ToolTip="Look this plugin up automatically and fill in what's found">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#x2728;" FontSize="13" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="Auto-Detect" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Button>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Style="{StaticResource GhostButton}" Padding="12,7" FontSize="13"
+                                            HorizontalAlignment="Left" Click="AutoDetect_Click"
+                                            IsEnabled="{Binding Form.IsAutoDetecting, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource InverseBoolConverter}}"
+                                            ToolTip="Look this plugin up automatically and fill in what's found">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#x2728;" FontSize="13" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="Auto-Detect" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button Style="{StaticResource GhostButton}" Padding="12,7" FontSize="13" Margin="8,0,0,0"
+                                            HorizontalAlignment="Left" Click="SearchManually_Click"
+                                            IsEnabled="{Binding Form.IsSearchingManually, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource InverseBoolConverter}}"
+                                            ToolTip="Search using the Name/Vendor above and choose the correct match yourself — use this when Auto-Detect picked the wrong plugin (e.g. Omnisphere 1 instead of Omnisphere 3)">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#x1F50D;" FontSize="13" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="Search Manually" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
 
                                 <TextBlock Style="{StaticResource SettingsHint}" Margin="0,8,0,0"
                                            Text="{Binding Form.AutoDetectStatusText, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -204,9 +228,18 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0">
                                     <TextBlock Text="Installed" Style="{StaticResource SettingsLabel}" Margin="0,0,0,6" />
-                                    <TextBox Style="{StaticResource SearchBox}"
-                                             Text="{Binding Form.CurrentVersion, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"
-                                             IsEnabled="{Binding IsInstalled}" />
+                                    <DockPanel LastChildFill="True">
+                                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="0"
+                                                Width="30" Height="30" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                Click="DetectCurrentVersion_Click"
+                                                ToolTip="Re-read the installed version from the plugin files, falling back to the Windows registry"
+                                                IsEnabled="{Binding Form.IsDetectingCurrentVersion, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource InverseBoolConverter}}">
+                                            <TextBlock Text="&#x21BB;" FontSize="15" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                        </Button>
+                                        <TextBox Style="{StaticResource SearchBox}"
+                                                 Text="{Binding Form.CurrentVersion, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"
+                                                 IsEnabled="{Binding IsInstalled}" />
+                                    </DockPanel>
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Text="Latest available" Style="{StaticResource SettingsLabel}" Margin="0,0,0,6" />
@@ -270,9 +303,25 @@
                         </Border>
 
                         <Border Style="{StaticResource SettingsCard}"
+                                AllowDrop="True" DragOver="ImageDropTarget_DragOver" Drop="ImageDropTarget_Drop">
+                            <StackPanel>
+                                <TextBlock Text="Artwork Not Showing Correctly?" Style="{StaticResource SettingsLabel}" Margin="0,0,0,6" />
+                                <TextBlock Style="{StaticResource SettingsHint}" Margin="0,0,0,10"
+                                           Text="If the artwork above won't load — an unsupported format, a broken link, or nothing found — drag an image file here, or pick one from your computer." />
+                                <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Padding="12,7"
+                                        Click="BrowseForImage_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#x1F5BC;" FontSize="13" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Browse for Image..." VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingsCard}"
                                 Visibility="{Binding Form.IsLogoPreviewValid, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityConverter}}">
                             <StackPanel>
-                                <TextBlock Text="Artwork found" Style="{StaticResource SettingsLabel}" Margin="0,0,0,8" />
+                                <TextBlock Text="Artwork Preview" Style="{StaticResource SettingsLabel}" Margin="0,0,0,8" />
                                 <Border CornerRadius="8" Background="{DynamicResource SurfaceAltBrush}" Padding="8"
                                         MinHeight="90" MaxHeight="180">
                                     <Image x:Name="LogoPreviewImage" Stretch="Uniform" MaxHeight="164"
@@ -365,5 +414,6 @@
                 </StackPanel>
             </Button>
         </DockPanel>
+    </Grid>
     </Grid>
 </Window>

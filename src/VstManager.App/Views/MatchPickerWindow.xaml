@@ -3,15 +3,27 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:ctrl="clr-namespace:VstManager.App.Controls"
         mc:Ignorable="d"
         Title="Which plugin is this?" Width="520" Height="520"
         MinWidth="440" MinHeight="380"
         Background="{DynamicResource WindowBackgroundBrush}"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
+        Style="{StaticResource ChromedWindowResizableWithGrip}"
         Loaded="Window_Loaded"
         UseLayoutRounding="True" SnapsToDevicePixels="True">
-    <Grid Margin="20">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <ctrl:CustomTitleBar Grid.Row="0" ShowMaximize="False"
+                             TitleText="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Title}"
+                             TitleIcon="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Icon}" />
+
+    <Grid Grid.Row="1" Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -80,5 +92,6 @@
                 </StackPanel>
             </Button>
         </DockPanel>
+    </Grid>
     </Grid>
 </Window>

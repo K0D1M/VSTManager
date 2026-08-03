@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
+using VstManager.App.Controls;
 using VstManager.App.Services;
 using VstManager.App.ViewModels;
 using VstManager.Core.Services;
@@ -20,6 +21,8 @@ public partial class MatchPickerWindow : Window
     public MatchPickerWindow(string pluginName, IReadOnlyList<PluginInfoCandidate> candidates)
     {
         InitializeComponent();
+        MaximizedBoundsFix.Apply(this);
+        WindowIcon.ApplyDefault(this);
 
         SubtitleText.Text = $"\"{pluginName}\" matched more than one entry online, or the match wasn't "
                             + "clear enough to apply automatically. Pick the correct one and its details "

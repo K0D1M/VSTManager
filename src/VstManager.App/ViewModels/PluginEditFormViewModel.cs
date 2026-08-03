@@ -51,8 +51,24 @@ public partial class PluginEditFormViewModel : ObservableObject
     [ObservableProperty]
     private bool _isLogoPreviewValid;
 
+    /// <summary>
+    /// Path to an image the user picked with the "Browse..." file dialog, to be used as the
+    /// plugin's artwork on Save. Set instead of LogoUrl when the image comes from disk rather
+    /// than a fetched web page — the two are mutually exclusive on Save.
+    /// </summary>
+    [ObservableProperty]
+    private string? _localLogoFilePath;
+
     [ObservableProperty]
     private bool _isAutoDetecting;
+
+    /// <summary>Busy state for "Search Manually", kept separate from IsAutoDetecting so the two buttons don't disable each other.</summary>
+    [ObservableProperty]
+    private bool _isSearchingManually;
+
+    /// <summary>Busy state for the Installed-version reload button, again kept independent of the other lookups.</summary>
+    [ObservableProperty]
+    private bool _isDetectingCurrentVersion;
 
     [ObservableProperty]
     private string? _autoDetectStatusText;
