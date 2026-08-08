@@ -36,6 +36,10 @@ public partial class PluginDetailWindow : Window
             _mainViewModel.MarkLogoInstructionsSeen();
         }
 
+        TagPickerItems.ItemsSource = mainViewModel.AvailableTags
+            .Select(tag => new TagPickerItemViewModel(mainViewModel, plugin, tag))
+            .ToList();
+
         Closed += (_, _) => CleanupLogoPreviewFile();
     }
 
@@ -108,6 +112,26 @@ public partial class PluginDetailWindow : Window
         if (sender is FrameworkElement { Tag: string path })
         {
             _mainViewModel.ShowPathInFolderCommand.Execute(path);
+        }
+    }
+
+    /// <summary>
+    /// Excludes just this one install location from future scans (the file stays on disk). The
+    /// rescan that follows rebuilds every plugin view model, so this window's bound copy is now
+    /// stale and its Install Locations list can't refresh in place — the window closes on any
+    /// successful removal (matching MarkAsNotAPlugin), leaving a correct list to reopen to.
+    /// </summary>
+    private async void RemoveFromScanning_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string path })
+        {
+            return;
+        }
+
+        var removed = await _mainViewModel.ExcludePathFromScanAsync(path);
+        if (removed)
+        {
+            Close();
         }
     }
 

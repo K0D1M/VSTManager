@@ -50,7 +50,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>True</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.5.1</Version>
+    <Version>1.6.0</Version>
     <ApplicationIcon>a_clean_modern_app_icon_logo_design_on_a_dark_b.ico</ApplicationIcon>
     <SignAssembly>False</SignAssembly>
     <Company>$(K0D1M)</Company>

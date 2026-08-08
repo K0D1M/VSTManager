@@ -16,4 +16,10 @@ public class DataExportBundle
     public JsonElement? ExcludedFiles { get; set; }
     public JsonElement? ManualLogoOverrides { get; set; }
     public JsonElement? ManualMetadataOverrides { get; set; }
+
+    /// <summary>
+    /// Per-plugin tag assignments. The tag *definitions* travel inside Library, so both halves
+    /// of the tag system move together.
+    /// </summary>
+    public JsonElement? PluginTags { get; set; }
 }

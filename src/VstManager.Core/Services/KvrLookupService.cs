@@ -5,7 +5,21 @@ using System.Text.RegularExpressions;
 
 namespace VstManager.Core.Services;
 
-public record KvrLookupResult(string ProductName, string Vendor, string? LogoUrl, string? LatestVersion, string? SourceUrl = null);
+/// <param name="Categories">
+/// Category words from the product page title — KVR titles read "Pro-Q 4 by FabFilter - EQ
+/// Plugin VST VST3 ...", so the tail after the vendor names what the plugin actually is. Used to
+/// auto-assign type tags. Empty when the page didn't carry one.
+/// </param>
+public record KvrLookupResult(
+    string ProductName,
+    string Vendor,
+    string? LogoUrl,
+    string? LatestVersion,
+    string? SourceUrl = null,
+    IReadOnlyList<string>? Categories = null)
+{
+    public IReadOnlyList<string> Categories { get; init; } = Categories ?? Array.Empty<string>();
+}
 
 /// <summary>A candidate match plus how well its name matches the plugin found on disk (0..1).</summary>
 public record PluginInfoCandidate(KvrLookupResult Info, double Confidence);
@@ -71,6 +85,48 @@ public class KvrLookupService
     /// <summary>How long to stop using an engine after it rate-limits us.</summary>
     private static readonly TimeSpan RateLimitCooldown = TimeSpan.FromMinutes(10);
 
+    /// <summary>
+    /// How long to bench an engine that answered but returned nothing usable. Shorter than the
+    /// rate-limit cooldown because a genuine "no results for this query" looks the same from
+    /// here as a soft block — DuckDuckGo's HTML endpoint currently answers 202 with the query
+    /// echoed back and no results at all, which the status-code check alone never noticed, so
+    /// every lookup kept paying the throttle for a guaranteed miss.
+    /// </summary>
+    private static readonly TimeSpan EmptyResultCooldown = TimeSpan.FromMinutes(3);
+
+    /// <summary>
+    /// Consecutive result-less responses tolerated before an engine is benched. One miss is
+    /// ordinary; several in a row means the engine isn't really answering us.
+    /// </summary>
+    private const int EmptyResponsesBeforeCooldown = 3;
+
+    private static readonly Dictionary<string, int> EngineEmptyStreak = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Records whether an engine's response actually yielded a usable link, and benches it once
+    /// it has failed to do so repeatedly.
+    /// </summary>
+    private static void NoteEngineOutcome(string engineKey, bool producedResults)
+    {
+        lock (EngineEmptyStreak)
+        {
+            if (producedResults)
+            {
+                EngineEmptyStreak.Remove(engineKey);
+                return;
+            }
+
+            var streak = EngineEmptyStreak.TryGetValue(engineKey, out var current) ? current + 1 : 1;
+            EngineEmptyStreak[engineKey] = streak;
+
+            if (streak >= EmptyResponsesBeforeCooldown)
+            {
+                EngineCooldownUntil[engineKey] = DateTime.UtcNow + EmptyResultCooldown;
+                EngineEmptyStreak.Remove(engineKey);
+            }
+        }
+    }
+
     private static readonly SemaphoreSlim SearchGate = new(1, 1);
     private static readonly Dictionary<string, DateTime> EngineCooldownUntil = new(StringComparer.OrdinalIgnoreCase);
     private static DateTime _lastSearchAt = DateTime.MinValue;
@@ -123,38 +179,54 @@ public class KvrLookupService
             {
                 return direct;
             }
+
+            // The slug guess missed, but the vendor is known — ask that vendor's own product
+            // listing before falling back to the search engines, which are slower, rate-limited
+            // and only ever approximate.
+            var viaVendor = await TryVendorIndexAsync(pluginName, vendor);
+            if (viaVendor is not null)
+            {
+                return viaVendor;
+            }
         }
 
-        var query = "site:kvraudio.com/product " + pluginName;
-
-        foreach (var (buildUrl, extractLink) in SearchEngines)
+        // Query the cleaned name, not the raw filename: a scanned "VPS Avenger_x64" or
+        // "Tritik-KrushPro" searched literally finds nothing. SearchCandidatesAsync has always
+        // used these variants; this path was quietly still using the raw name.
+        foreach (var queryVariant in BuildSearchQueries(pluginName, vendor))
         {
-            try
-            {
-                var engineUrl = buildUrl(query);
-                var searchFetch = await ThrottledSearchFetchAsync(EngineKey(engineUrl), engineUrl);
-                if (searchFetch is null)
-                {
-                    continue;
-                }
+            var query = "site:kvraudio.com/product " + queryVariant;
 
-                var productUrl = extractLink(searchFetch.Value.Body);
-                if (productUrl is null)
-                {
-                    continue;
-                }
-
-                var productFetch = await FetchAsync(productUrl);
-                var result = productFetch is null ? null : ParseProductPage(productFetch.Value.Body);
-                if (result is not null)
-                {
-                    return result;
-                }
-            }
-            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or UriFormatException)
+            foreach (var (buildUrl, extractLink) in SearchEngines)
             {
-                // This engine failed outright (network-level block, timeout, etc.) — move on
-                // to the next one rather than giving up the whole lookup.
+                try
+                {
+                    var engineUrl = buildUrl(query);
+                    var searchFetch = await ThrottledSearchFetchAsync(EngineKey(engineUrl), engineUrl);
+                    if (searchFetch is null)
+                    {
+                        continue;
+                    }
+
+                    var productUrl = extractLink(searchFetch.Value.Body);
+                    NoteEngineOutcome(EngineKey(engineUrl), productUrl is not null);
+                    if (productUrl is null)
+                    {
+                        continue;
+                    }
+
+                    var productFetch = await FetchAsync(productUrl);
+                    var result = productFetch is null ? null : ParseProductPage(productFetch.Value.Body);
+                    if (result is not null)
+                    {
+                        return result;
+                    }
+                }
+                catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or UriFormatException)
+                {
+                    // This engine failed outright (network-level block, timeout, etc.) — move on
+                    // to the next one rather than giving up the whole lookup.
+                }
             }
         }
 
@@ -195,6 +267,13 @@ public class KvrLookupService
         if (!string.IsNullOrWhiteSpace(vendor))
         {
             Add(await TryDirectProductPageAsync(pluginName, vendor), confidenceBonus: 0.15);
+
+            // The vendor's own listing is authoritative about which products they publish, so a
+            // hit here is nearly as strong as a resolving slug guess.
+            if (!HaveConfidentHit())
+            {
+                Add(await TryVendorIndexAsync(pluginName, vendor), confidenceBonus: 0.10);
+            }
         }
 
         // Every extra candidate costs a page fetch, so stop as soon as the answer is already
@@ -301,6 +380,7 @@ public class KvrLookupService
                 }
 
                 var urls = ExtractAllProductLinks(fetch.Value.Body).Take(max).ToList();
+                NoteEngineOutcome(EngineKey(engineUrl), urls.Count > 0);
                 if (urls.Count > 0)
                 {
                     return urls;
@@ -320,6 +400,33 @@ public class KvrLookupService
     /// (Brave's direct hrefs and DuckDuckGo's uddg= redirects) in one pass, since the caller
     /// wants several candidates rather than only the first.
     /// </summary>
+    /// <summary>
+    /// Pulls product links out of a vendor's own developer page, which links its catalogue with
+    /// root-relative hrefs ("/product/pro-q-4-by-fabfilter") rather than the absolute URLs a
+    /// search results page carries. Kept separate from <see cref="ExtractAllProductLinks"/>
+    /// deliberately: loosening that one to accept relative paths would let it scrape unrelated
+    /// site chrome out of search pages.
+    /// </summary>
+    public static IReadOnlyList<string> ExtractVendorProductLinks(string developerHtml)
+    {
+        var found = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (Match match in Regex.Matches(
+                     developerHtml,
+                     "(?:https://www\\.kvraudio\\.com)?/product/([a-z0-9-]+)",
+                     RegexOptions.IgnoreCase))
+        {
+            var url = "https://www.kvraudio.com/product/" + match.Groups[1].Value.ToLowerInvariant();
+            if (seen.Add(url))
+            {
+                found.Add(url);
+            }
+        }
+
+        return found;
+    }
+
     public static IReadOnlyList<string> ExtractAllProductLinks(string searchHtml)
     {
         var found = new List<string>();
@@ -350,38 +457,332 @@ public class KvrLookupService
 
     private async Task<KvrLookupResult?> TryDirectProductPageAsync(string pluginName, string vendor)
     {
-        var nameSlug = Slugify(pluginName);
-        var vendorSlug = Slugify(vendor);
-        if (nameSlug.Length == 0 || vendorSlug.Length == 0)
+        var url = DirectProductUrl(pluginName, vendor);
+        if (url is null)
         {
             return null;
         }
 
         try
         {
-            var fetch = await FetchAsync($"https://www.kvraudio.com/product/{nameSlug}-by-{vendorSlug}");
-            if (fetch is null || fetch.Value.StatusCode is < 200 or >= 300)
-            {
-                return null;
-            }
-
-            // A slug miss redirects to the generic /plugins/ listing rather than 404ing;
-            // only a final URL still under /product/ is a real product page.
-            var finalPath = fetch.Value.FinalUrl is { } finalUrl && Uri.TryCreate(finalUrl, UriKind.Absolute, out var uri)
-                ? uri.AbsolutePath
-                : null;
-
-            if (finalPath is null || !finalPath.StartsWith("/product/", StringComparison.OrdinalIgnoreCase))
-            {
-                return null;
-            }
-
-            return ParseAnyProductPage(fetch.Value.Body, fetch.Value.FinalUrl!);
+            return InterpretDirectFetch(await FetchAsync(url), url);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Product URLs for one vendor, from their KVR developer page. Cached for the life of the
+    /// service so a library with a dozen plugins from the same maker costs one fetch, not twelve.
+    /// A null value is a remembered miss, so an unlisted vendor isn't retried per plugin.
+    /// </summary>
+    private readonly Dictionary<string, IReadOnlyList<string>?> _vendorIndexCache =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    private readonly SemaphoreSlim _vendorIndexGate = new(1, 1);
+
+    /// <summary>
+    /// Finds a plugin via its vendor's own product listing rather than a web search.
+    ///
+    /// This is the reliable path for a name whose slug can't be guessed. KVR's developer page
+    /// lists every product a vendor publishes, with exact slugs, in a single request that isn't
+    /// rate-limited — where the public search engines both bot-wall us and, when they do answer,
+    /// only ever return a guess. Matching happens locally against that list.
+    /// </summary>
+    private async Task<KvrLookupResult?> TryVendorIndexAsync(string pluginName, string vendor)
+    {
+        var productUrls = await GetVendorProductUrlsAsync(vendor);
+        if (productUrls is null || productUrls.Count == 0)
+        {
+            return null;
+        }
+
+        // Score every listed product by how well its slug matches the scanned name, and only
+        // fetch the winner — the page fetch is the expensive part, the comparison is free.
+        var best = productUrls
+            .Select(url => (Url: url, Score: NameSimilarity.Score(CleanNameForSearch(pluginName), SlugToName(url), vendor)))
+            .Where(x => x.Score >= NameSimilarity.PlausibleThreshold)
+            .OrderByDescending(x => x.Score)
+            .FirstOrDefault();
+
+        if (best.Url is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return InterpretDirectFetch(await FetchAsync(best.Url), best.Url);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return null;
+        }
+    }
+
+    private async Task<IReadOnlyList<string>?> GetVendorProductUrlsAsync(string vendor)
+    {
+        var vendorSlug = Slugify(vendor);
+        if (vendorSlug.Length == 0)
+        {
+            return null;
+        }
+
+        await _vendorIndexGate.WaitAsync();
+        try
+        {
+            if (_vendorIndexCache.TryGetValue(vendorSlug, out var cached))
+            {
+                return cached;
+            }
+
+            IReadOnlyList<string>? urls = null;
+            var answered = false;
+
+            try
+            {
+                var url = $"https://www.kvraudio.com/developer/{vendorSlug}";
+                var fetch = await FetchAsync(url);
+
+                if (fetch is not null && fetch.Value.StatusCode is >= 200 and < 300)
+                {
+                    // An unknown developer redirects to the generic /developer/ listing rather
+                    // than 404ing — the same shape as a product-slug miss going to /plugins/.
+                    // Either way the site has answered definitively, so the result is cacheable.
+                    answered = true;
+
+                    if ((fetch.Value.FinalUrl ?? url).Contains($"/developer/{vendorSlug}", StringComparison.OrdinalIgnoreCase))
+                    {
+                        urls = ExtractVendorProductLinks(fetch.Value.Body);
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or UriFormatException)
+            {
+                answered = false;
+            }
+
+            // Only remember a definitive answer. Caching a transient network failure would
+            // silently write off every plugin by that vendor for the rest of the run — with a
+            // maker like FabFilter that's a dozen plugins lost to one dropped request.
+            if (answered)
+            {
+                _vendorIndexCache[vendorSlug] = urls;
+            }
+
+            return urls;
+        }
+        finally
+        {
+            _vendorIndexGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Turns a product URL back into a readable name for comparison: the slug carries the
+    /// product and vendor ("earth-piano-by-roland"), and only the product half should be scored
+    /// against the scanned filename.
+    /// </summary>
+    private static string SlugToName(string productUrl)
+    {
+        var slug = productUrl[(productUrl.LastIndexOf('/') + 1)..];
+
+        var byIndex = slug.LastIndexOf("-by-", StringComparison.OrdinalIgnoreCase);
+        if (byIndex > 0)
+        {
+            slug = slug[..byIndex];
+        }
+
+        return slug.Replace('-', ' ');
+    }
+
+    /// <summary>
+    /// How many product pages go into one curl invocation. curl fetches a batch's URLs one after
+    /// another (it reuses the connection but doesn't parallelise), so the batch size only buys
+    /// process-spawn and TLS-handshake savings — the actual concurrency comes from running
+    /// several batches at once, below.
+    /// </summary>
+    private const int DirectBatchSize = 4;
+
+    /// <summary>
+    /// How many curl processes fetch product pages at the same time. Product pages aren't behind
+    /// the search engines' rate limiting, so this is safe in a way that parallelising the search
+    /// path would not be; kept modest to stay a well-behaved client.
+    /// </summary>
+    private const int MaxConcurrentFetches = 4;
+
+    /// <summary>
+    /// Looks several plugins up at once, using the direct-URL strategy for everyone whose vendor
+    /// is known and falling back to the (necessarily serialised) search path only for the rest.
+    ///
+    /// This is the bulk entry point: the per-plugin <see cref="SearchAsync"/> costs a process
+    /// spawn and a fresh TLS handshake each time, which is what made enriching a large library
+    /// take minutes. Requests are batched into shared curl invocations, so the common case —
+    /// a catalogued plugin with a known vendor — collapses to roughly one process per eight
+    /// plugins.
+    /// </summary>
+    /// <param name="requests">Plugin name and optional vendor, keyed so callers can match results back.</param>
+    /// <param name="onResolved">
+    /// Invoked as each plugin resolves, so a caller can report progress rather than waiting for
+    /// the whole set. May be called from a background thread.
+    /// </param>
+    public virtual async Task<IReadOnlyDictionary<string, KvrLookupResult?>> SearchManyAsync(
+        IReadOnlyList<(string Key, string Name, string? Vendor)> requests,
+        Action<string, KvrLookupResult?>? onResolved = null,
+        CancellationToken cancellationToken = default)
+    {
+        var results = new Dictionary<string, KvrLookupResult?>(StringComparer.OrdinalIgnoreCase);
+
+        var directable = requests.Where(r => !string.IsNullOrWhiteSpace(r.Vendor)).ToList();
+        var needsSearch = new List<(string Key, string Name, string? Vendor)>(
+            requests.Where(r => string.IsNullOrWhiteSpace(r.Vendor)));
+
+        // Batches run concurrently. This is where the speed actually comes from: a single curl
+        // invocation walks its URLs one at a time, so overlapping several of them is what turns
+        // a long serial crawl into a handful of parallel ones.
+        var gate = new SemaphoreSlim(MaxConcurrentFetches, MaxConcurrentFetches);
+        var chunkTasks = Chunk(directable, DirectBatchSize).Select(async chunk =>
+        {
+            await gate.WaitAsync(cancellationToken);
+            try
+            {
+                var urls = chunk.Select(r => DirectProductUrl(r.Name, r.Vendor!)).ToList();
+                var fetches = await FetchManyAsync(urls.Where(u => u is not null).Select(u => u!).ToList());
+
+                var resolved = new List<(string Key, KvrLookupResult? Result)>();
+                var fetchIndex = 0;
+
+                foreach (var (request, url) in chunk.Zip(urls))
+                {
+                    KvrLookupResult? result = null;
+                    if (url is not null)
+                    {
+                        result = InterpretDirectFetch(fetches.ElementAtOrDefault(fetchIndex));
+                        fetchIndex++;
+                    }
+
+                    resolved.Add((request.Key, result));
+                }
+
+                return (Chunk: chunk, Resolved: resolved);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }).ToList();
+
+        foreach (var (chunk, resolved) in await Task.WhenAll(chunkTasks))
+        {
+            foreach (var (request, entry) in chunk.Zip(resolved))
+            {
+                // A slug that didn't resolve still deserves the search fallback rather than
+                // being written off as "not on KVR".
+                if (entry.Result is null)
+                {
+                    needsSearch.Add(request);
+                }
+                else
+                {
+                    results[request.Key] = entry.Result;
+                    onResolved?.Invoke(request.Key, entry.Result);
+                }
+            }
+        }
+
+        // Second pass for slug misses that still have a vendor: consult each vendor's own
+        // product listing. Grouped so a maker with a dozen installed plugins costs one page
+        // fetch, and done before any search engine because it's both faster and authoritative.
+        var stillMissing = new List<(string Key, string Name, string? Vendor)>();
+        foreach (var group in needsSearch
+                     .Where(r => !string.IsNullOrWhiteSpace(r.Vendor))
+                     .GroupBy(r => r.Vendor!, StringComparer.OrdinalIgnoreCase))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            foreach (var request in group)
+            {
+                var result = await TryVendorIndexAsync(request.Name, group.Key);
+                if (result is null)
+                {
+                    stillMissing.Add(request);
+                    continue;
+                }
+
+                results[request.Key] = result;
+                onResolved?.Invoke(request.Key, result);
+            }
+        }
+
+        stillMissing.AddRange(needsSearch.Where(r => string.IsNullOrWhiteSpace(r.Vendor)));
+
+        // The search path stays strictly serial: the engines rate-limit hard and stay hostile
+        // once tripped, which would poison every remaining lookup. See ThrottledSearchFetchAsync.
+        foreach (var request in stillMissing)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (results.ContainsKey(request.Key))
+            {
+                continue;
+            }
+
+            var result = await SearchAsync(request.Name, request.Vendor);
+            results[request.Key] = result;
+            onResolved?.Invoke(request.Key, result);
+        }
+
+        return results;
+    }
+
+    private static IEnumerable<List<T>> Chunk<T>(IReadOnlyList<T> source, int size)
+    {
+        for (var i = 0; i < source.Count; i += size)
+        {
+            yield return source.Skip(i).Take(size).ToList();
+        }
+    }
+
+    private static string? DirectProductUrl(string pluginName, string vendor)
+    {
+        // Clean before slugging: Slugify only strips trailing noise tokens, so a scanned name
+        // like "VPS Avenger_x64" or "Tritik-KrushPro" still needs CleanNameForSearch to lose the
+        // parts that never appear in a product listing.
+        var nameSlug = Slugify(CleanNameForSearch(pluginName));
+        var vendorSlug = Slugify(vendor);
+        return nameSlug.Length == 0 || vendorSlug.Length == 0
+            ? null
+            : $"https://www.kvraudio.com/product/{nameSlug}-by-{vendorSlug}";
+    }
+
+    /// <summary>
+    /// Shared by the single and batched direct paths: a slug miss redirects to the generic
+    /// /plugins/ listing rather than 404ing, so only a final URL still under /product/ counts.
+    /// </summary>
+    /// <param name="requestedUrl">
+    /// Used when the fetch can't report where it landed. curl always reports a final URL, but the
+    /// HttpClient fallback doesn't — and treating that as a miss threw away perfectly good pages.
+    /// </param>
+    private static KvrLookupResult? InterpretDirectFetch(FetchResult? fetch, string? requestedUrl = null)
+    {
+        if (fetch is null || fetch.Value.StatusCode is < 200 or >= 300)
+        {
+            return null;
+        }
+
+        var effectiveUrl = fetch.Value.FinalUrl ?? requestedUrl;
+        var finalPath = effectiveUrl is not null && Uri.TryCreate(effectiveUrl, UriKind.Absolute, out var uri)
+            ? uri.AbsolutePath
+            : null;
+
+        if (finalPath is null || !finalPath.StartsWith("/product/", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return ParseAnyProductPage(fetch.Value.Body, effectiveUrl!);
     }
 
     private readonly record struct FetchResult(int StatusCode, string Body, string? FinalUrl);
@@ -473,6 +874,135 @@ public class KvrLookupService
             // curl.exe missing from PATH, or timed out — fall back to HttpClient.
             return null;
         }
+    }
+
+    /// <summary>
+    /// Fetches several URLs in a single curl.exe invocation. curl keeps the connection alive
+    /// across URLs given to one command, so N pages cost one process spawn and one TLS handshake
+    /// instead of N of each — the difference between a slow startup and a quick one on a large
+    /// library. Results come back positionally, one per requested URL, null where that URL
+    /// failed.
+    ///
+    /// Falls back to fetching one at a time if the batch call fails outright (curl missing, or
+    /// the batch tripping something the single path doesn't), so a failure here is never worse
+    /// than the old behaviour.
+    /// </summary>
+    private static async Task<IReadOnlyList<FetchResult?>> FetchManyAsync(IReadOnlyList<string> urls)
+    {
+        if (urls.Count == 0)
+        {
+            return Array.Empty<FetchResult?>();
+        }
+
+        if (urls.Count == 1)
+        {
+            return new[] { await FetchAsync(urls[0]) };
+        }
+
+        var batched = await TryFetchManyViaCurlAsync(urls);
+        if (batched is not null)
+        {
+            return batched;
+        }
+
+        var results = new FetchResult?[urls.Count];
+        for (var i = 0; i < urls.Count; i++)
+        {
+            results[i] = await FetchAsync(urls[i]);
+        }
+
+        return results;
+    }
+
+    private static async Task<IReadOnlyList<FetchResult?>?> TryFetchManyViaCurlAsync(IReadOnlyList<string> urls)
+    {
+        var startInfo = new ProcessStartInfo("curl.exe")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            StandardOutputEncoding = Encoding.UTF8
+        };
+        startInfo.ArgumentList.Add("-s");
+        startInfo.ArgumentList.Add("-L");
+        startInfo.ArgumentList.Add("--max-time");
+        startInfo.ArgumentList.Add("8");
+        startInfo.ArgumentList.Add("-A");
+        startInfo.ArgumentList.Add(UserAgent);
+
+        // The -w marker is emitted after each URL's body, so one stdout stream can be split back
+        // into per-URL responses in request order.
+        foreach (var url in urls)
+        {
+            startInfo.ArgumentList.Add("-w");
+            startInfo.ArgumentList.Add("\n" + CurlMetaMarker + "%{http_code}|%{url_effective}\n");
+            startInfo.ArgumentList.Add(url);
+        }
+
+        try
+        {
+            using var process = Process.Start(startInfo);
+            if (process is null)
+            {
+                return null;
+            }
+
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+
+            // Scaled to the batch: one shared budget would time out the tail of a long batch.
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10 + (2 * urls.Count)));
+            await process.WaitForExitAsync(cts.Token);
+            var stdout = await stdoutTask;
+
+            var parsed = SplitBatchedOutput(stdout, urls.Count);
+
+            // A non-zero exit means at least one URL failed; the others' output is still usable,
+            // so only give up entirely when nothing parsed.
+            return parsed.Any(r => r is not null) ? parsed : null;
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or OperationCanceledException or IOException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Splits one curl stdout stream carrying several responses back into per-URL results, in
+    /// request order. Each response is a body followed by the meta marker.
+    /// </summary>
+    private static FetchResult?[] SplitBatchedOutput(string stdout, int expectedCount)
+    {
+        var results = new FetchResult?[expectedCount];
+        var searchFrom = 0;
+
+        for (var i = 0; i < expectedCount; i++)
+        {
+            var markerIndex = stdout.IndexOf(CurlMetaMarker, searchFrom, StringComparison.Ordinal);
+            if (markerIndex < 0)
+            {
+                break;
+            }
+
+            var body = stdout[searchFrom..markerIndex];
+            var metaStart = markerIndex + CurlMetaMarker.Length;
+            var metaEnd = stdout.IndexOf('\n', metaStart);
+            if (metaEnd < 0)
+            {
+                metaEnd = stdout.Length;
+            }
+
+            var meta = stdout[metaStart..metaEnd].Trim().Split('|', 2);
+            if (int.TryParse(meta[0], out var statusCode))
+            {
+                var finalUrl = meta.Length > 1 && meta[1].Length > 0 ? meta[1] : null;
+                results[i] = new FetchResult(statusCode, body, finalUrl);
+            }
+
+            searchFrom = Math.Min(metaEnd + 1, stdout.Length);
+        }
+
+        return results;
     }
 
     /// <summary>
@@ -708,10 +1238,38 @@ public class KvrLookupService
             return null;
         }
 
+        // The tail after the vendor is KVR's own category line ("EQ Plugin VST VST3 Audio Unit
+        // AAX CLAP"), which is what the plugin actually *is* — kept for type auto-tagging.
+        var categories = dashIndex >= 0
+            ? ExtractCategories(afterBy[(dashIndex + 3)..])
+            : Array.Empty<string>();
+
         var logoMatch = Regex.Match(productHtml, "https://static\\.kvraudio\\.com/i/[a-z]/[^\"'\\s]+\\.(jpg|jpeg|png|webp)", RegexOptions.IgnoreCase);
         var logoUrl = logoMatch.Success ? logoMatch.Value : null;
 
-        return new KvrLookupResult(productName, vendor, logoUrl, ExtractLatestVersion(productHtml));
+        return new KvrLookupResult(productName, vendor, logoUrl, ExtractLatestVersion(productHtml), null, categories);
+    }
+
+    /// <summary>
+    /// Pulls the meaningful words out of KVR's category tail. The line mixes what the plugin is
+    /// ("EQ", "Synth") with the formats it ships in ("VST3", "AAX", "Audio Unit") — the formats
+    /// are already known from the scan and would only add noise, so they're dropped here.
+    /// </summary>
+    public static IReadOnlyList<string> ExtractCategories(string categoryText)
+    {
+        var noise = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "plugin", "plugins", "vst", "vst2", "vst3", "aax", "clap", "au", "audio", "unit",
+            "rtas", "standalone", "app", "windows", "mac", "macos", "osx", "linux", "ios",
+            "x86", "x64", "and", "for", "the", "with"
+        };
+
+        return categoryText
+            .Split(new[] { ' ', ',', '/', '&', '|', '-', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(word => word.Trim())
+            .Where(word => word.Length > 1 && !noise.Contains(word))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     /// <summary>

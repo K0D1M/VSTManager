@@ -64,6 +64,16 @@ public class PluginDisplayItem
         }
     }
 
+    /// <summary>
+    /// The tags this plugin carries, resolved to definitions and ordered manual-first. Filled in
+    /// by PluginDisplayBuilder.ApplyTags after the items are built, since tag assignments live
+    /// outside the scan data.
+    /// </summary>
+    public List<TagDefinition> Tags { get; set; } = new();
+
+    /// <summary>Ids among <see cref="Tags"/> that were auto-detected rather than user-applied.</summary>
+    public HashSet<string> AutoTagIds { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
     public bool IsFavoriteSummary => Installs.Any(i => i.IsFavorite);
 
     public bool IsHiddenSummary => Installs.Any(i => i.IsHidden);

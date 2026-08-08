@@ -27,5 +27,11 @@
     <conv:HideMenuTextConverter x:Key="HideMenuTextConverter" />
     <conv:HiddenToOpacityConverter x:Key="HiddenToOpacityConverter" />
     <conv:FormatToLabelConverter x:Key="FormatToLabelConverter" />
+    <conv:CloudStateToBrushConverter x:Key="CloudStateToBrushConverter" />
+    <conv:CloudStateIsSyncingConverter x:Key="CloudStateIsSyncingConverter" />
+    <conv:HexToBrushConverter x:Key="HexToBrushConverter" />
+    <conv:TagCommandArgsConverter x:Key="TagCommandArgsConverter" />
+    <conv:SortOptionLabelConverter x:Key="SortOptionLabelConverter" />
+    <conv:ResourceKeyToGeometryConverter x:Key="ResourceKeyToGeometryConverter" />
 
 </ResourceDictionary>

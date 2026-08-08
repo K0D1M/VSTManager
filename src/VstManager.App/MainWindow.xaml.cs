@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -18,6 +19,9 @@ namespace VstManager.App;
 public partial class MainWindow : Window
 {
     private PluginDisplayViewModel? _lastClickedForRange;
+    private readonly TrayIconService _trayIconService = new(
+        Path.Combine(AppContext.BaseDirectory, "a_clean_modern_app_icon_logo_design_on_a_dark_b.ico"));
+    private bool _isExiting;
 
     public MainWindow()
     {
@@ -48,6 +52,38 @@ public partial class MainWindow : Window
         {
             WindowState = WindowState.Minimized;
         }
+
+        _trayIconService.OpenRequested += (_, _) => RestoreFromTray();
+        _trayIconService.ExitRequested += (_, _) =>
+        {
+            _isExiting = true;
+            Close();
+        };
+        Closing += MainWindow_Closing;
+        Closed += (_, _) => _trayIconService.Dispose();
+    }
+
+    private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_isExiting || DataContext is not MainViewModel { MinimizeToTray: true })
+        {
+            return;
+        }
+
+        // Hide instead of closing: the app keeps scanning and firing notifications in the
+        // background, and the tray icon's "Open"/"Exit" are the only way back — closing for
+        // real happens only via the tray's Exit, which sets _isExiting first.
+        e.Cancel = true;
+        Hide();
+        _trayIconService.Show();
+    }
+
+    private void RestoreFromTray()
+    {
+        _trayIconService.Hide();
+        Show();
+        WindowState = WindowState.Normal;
+        Activate();
     }
 
     /// <summary>Natural width that fits the toolbar on one row; the locked restored width.</summary>
@@ -169,20 +205,13 @@ public partial class MainWindow : Window
 
         if (shift && _lastClickedForRange is not null)
         {
-            SelectRange(element, _lastClickedForRange, plugin, vm);
+            // Ctrl+Shift extends; plain Shift replaces, so an overshot range can be pulled back.
+            SelectRange(element, _lastClickedForRange, plugin, vm, additive: ctrl);
             e.Handled = true;
             return;
         }
 
-        if (ctrl)
-        {
-            vm.SetSelected(plugin, !plugin.IsSelected);
-            _lastClickedForRange = plugin;
-            e.Handled = true;
-            return;
-        }
-
-        if (vm.IsSelectionMode)
+        if (ctrl || vm.IsSelectionMode)
         {
             vm.SetSelected(plugin, !plugin.IsSelected);
             _lastClickedForRange = plugin;
@@ -194,58 +223,60 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Explorer-style right-click selection: right-clicking a card that's already part of the
-    /// current multi-selection leaves the selection alone, so the context menu that follows
-    /// acts on the whole group (see the command methods in MainViewModel, which batch over
-    /// Plugins.Where(p => p.IsSelected) when the right-clicked item is part of a multi-select).
-    /// Right-clicking anything else collapses the selection down to just that item, so a stray
-    /// right-click never silently applies an action to an unrelated, unseen selection.
+    /// Selects the range between the anchor and the clicked card, replacing the current
+    /// selection rather than adding to it — the Explorer behaviour people expect, and the only
+    /// way to *shrink* a range once you've overshot it. Ctrl+Shift+click extends instead, for
+    /// building a selection out of several ranges.
     /// </summary>
-    private void PluginCard_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (DataContext is not MainViewModel vm || sender is not FrameworkElement { DataContext: PluginDisplayViewModel plugin } element)
-        {
-            return;
-        }
-
-        if (e.OriginalSource is DependencyObject originalSource && IsWithinButton(originalSource, element))
-        {
-            return;
-        }
-
-        if (vm.IsSelectionMode && plugin.IsSelected)
-        {
-            return;
-        }
-
-        vm.ClearSelectionCommand.Execute(null);
-        vm.SetSelected(plugin, true);
-        _lastClickedForRange = plugin;
-    }
-
-    private static void SelectRange(FrameworkElement clickedElement, PluginDisplayViewModel anchor, PluginDisplayViewModel target, MainViewModel vm)
+    private static void SelectRange(
+        FrameworkElement clickedElement,
+        PluginDisplayViewModel anchor,
+        PluginDisplayViewModel target,
+        MainViewModel vm,
+        bool additive)
     {
         var itemsControl = FindAncestorItemsControl(clickedElement);
         var items = (itemsControl?.ItemsSource as IEnumerable)?.OfType<PluginDisplayViewModel>().ToList();
 
-        if (items is null)
-        {
-            vm.SetSelected(target, true);
-            return;
-        }
+        var anchorIndex = items?.IndexOf(anchor) ?? -1;
+        var targetIndex = items?.IndexOf(target) ?? -1;
 
-        var anchorIndex = items.IndexOf(anchor);
-        var targetIndex = items.IndexOf(target);
-        if (anchorIndex < 0 || targetIndex < 0)
+        // The anchor can be in a different section (or gone after a rescan), in which case
+        // there's no meaningful range — fall back to selecting just what was clicked.
+        if (items is null || anchorIndex < 0 || targetIndex < 0)
         {
             vm.SetSelected(target, true);
             return;
         }
 
         var (start, end) = anchorIndex <= targetIndex ? (anchorIndex, targetIndex) : (targetIndex, anchorIndex);
-        for (var i = start; i <= end; i++)
+        vm.SelectRange(items.Skip(start).Take(end - start + 1).ToList(), additive);
+    }
+
+    /// <summary>
+    /// Escape leaves selection mode, Ctrl+A selects everything currently visible. Handled at the
+    /// window rather than per-card so they work wherever focus happens to be — except while
+    /// typing in the search box, where both keys mean what they normally mean in a text field.
+    /// </summary>
+    private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm || Keyboard.FocusedElement is TextBoxBase)
         {
-            vm.SetSelected(items[i], true);
+            return;
+        }
+
+        if (e.Key == Key.Escape && (vm.IsSelectionMode || vm.SelectedCount > 0))
+        {
+            vm.ExitSelectionModeCommand.Execute(null);
+            _lastClickedForRange = null;
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.A && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            vm.SelectAllVisibleCommand.Execute(null);
+            e.Handled = true;
         }
     }
 

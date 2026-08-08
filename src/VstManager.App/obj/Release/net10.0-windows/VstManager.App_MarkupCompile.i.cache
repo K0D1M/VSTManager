@@ -1,5 +1,5 @@
 ﻿VstManager.App
-1.0.0.0
+1.6.0.0
 
 winexe
 C#
@@ -10,11 +10,11 @@ none
 false
 TRACE;RELEASE;NET;NET10_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR_GREATER;NET7_0_OR_GREATER;NET8_0_OR_GREATER;NET9_0_OR_GREATER;NET10_0_OR_GREATER;NETCOREAPP3_0_OR_GREATER;NETCOREAPP3_1_OR_GREATER;WINDOWS7_0_OR_GREATER
 C:\Users\Konstantinos D\VstManager\src\VstManager.App\App.xaml
-921901757
+13-816590367
 1663472097
-211048934341
-208-1551364620
-MainWindow.xaml;Themes\Converters.xaml;Themes\Dark.xaml;Themes\Light.xaml;Themes\Styles.xaml;Views\ClassifyPluginsWindow.xaml;Views\PluginDetailWindow.xaml;Views\SettingsWindow.xaml;Views\WelcomeWindow.xaml;
+371466181212
+218-1300229000
+Controls\CustomTitleBar.xaml;MainWindow.xaml;Themes\Converters.xaml;Themes\Dark.xaml;Themes\Light.xaml;Themes\Styles.xaml;Themes\TitleBar.xaml;Views\ClassifyPluginsWindow.xaml;Views\CloudConflictWindow.xaml;Views\MatchPickerWindow.xaml;Views\PluginDetailWindow.xaml;Views\SettingsWindow.xaml;Views\WelcomeWindow.xaml;
 
-False
+True
 

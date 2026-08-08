@@ -14,6 +14,12 @@ public partial class PluginDisplayViewModel : ObservableObject
         RefreshInstallInfo();
     }
 
+    /// <summary>
+    /// The underlying display item. Exposed so the display builder can re-resolve tags in place
+    /// after an assignment changes, without rebuilding every view model.
+    /// </summary>
+    public PluginDisplayItem Item => _item;
+
     public string Name => _item.Name;
     public string? Vendor => _item.Vendor;
     public string BaseName => _item.BaseName;
@@ -86,6 +92,35 @@ public partial class PluginDisplayViewModel : ObservableObject
     private bool _isOutdated;
 
     public bool HasFormat(PluginFormat format) => _item.Installs.Any(i => i.Format == format);
+
+    /// <summary>
+    /// The tags this plugin carries, manual first. Rebuilt rather than mutated in place so a
+    /// single collection-changed notification redraws the chips, instead of one per tag.
+    /// </summary>
+    public IReadOnlyList<TagDefinition> Tags => _item.Tags;
+
+    /// <summary>The first few tags, for the card and row chips where space is tight.</summary>
+    public IReadOnlyList<TagDefinition> VisibleTags => _item.Tags.Take(MaxVisibleTags).ToList();
+
+    /// <summary>"+2" when tags are hidden by the cap, otherwise null so the badge collapses.</summary>
+    public string? OverflowTagsText =>
+        _item.Tags.Count > MaxVisibleTags ? $"+{_item.Tags.Count - MaxVisibleTags}" : null;
+
+    /// <summary>Sort key for "by Type": the leading tag's name, or null when untagged.</summary>
+    public string? PrimaryTagName => _item.Tags.FirstOrDefault()?.Name;
+
+    private const int MaxVisibleTags = 3;
+
+    public bool IsAutoTag(TagDefinition tag) => _item.AutoTagIds.Contains(tag.Id);
+
+    /// <summary>Re-reads tags from the underlying item after an assignment changed.</summary>
+    public void RefreshTags()
+    {
+        OnPropertyChanged(nameof(Tags));
+        OnPropertyChanged(nameof(VisibleTags));
+        OnPropertyChanged(nameof(OverflowTagsText));
+        OnPropertyChanged(nameof(PrimaryTagName));
+    }
 
     public void ApplyMetadataOverride(string? name, string? vendor)
     {

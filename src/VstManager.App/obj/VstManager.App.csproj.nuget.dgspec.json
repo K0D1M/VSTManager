@@ -5,7 +5,7 @@
   },
   "projects": {
     "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\VstManager.App.csproj": {
-      "version": "1.5.1",
+      "version": "1.6.0",
       "restore": {
         "projectUniqueName": "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\VstManager.App.csproj",
         "projectName": "VstManager.App",
@@ -26,6 +26,7 @@
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "C:\\Program Files\\dotnet\\library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -396,6 +397,7 @@
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "C:\\Program Files\\dotnet\\library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -422,6 +424,10 @@
           "framework": "net10.0",
           "targetAlias": "net10.0",
           "dependencies": {
+            "AWSSDK.S3": {
+              "target": "Package",
+              "version": "[3.7.413, )"
+            },
             "CommunityToolkit.Mvvm": {
               "target": "Package",
               "version": "[8.4.2, )"

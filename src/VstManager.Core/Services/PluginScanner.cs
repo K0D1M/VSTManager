@@ -5,10 +5,12 @@ namespace VstManager.Core.Services;
 public class PluginScanner
 {
     private readonly ExclusionListService _exclusionList;
+    private readonly VendorDetector _vendorDetector;
 
-    public PluginScanner(ExclusionListService? exclusionList = null)
+    public PluginScanner(ExclusionListService? exclusionList = null, VendorDetector? vendorDetector = null)
     {
         _exclusionList = exclusionList ?? new ExclusionListService();
+        _vendorDetector = vendorDetector ?? new VendorDetector();
     }
 
     public List<PluginInfo> Scan(IEnumerable<string> vst3Folders, IEnumerable<string> vst2Folders)
@@ -61,7 +63,11 @@ public class PluginScanner
             {
                 Name = name,
                 Path = path,
-                Format = format
+                Format = format,
+
+                // Read here, while the path is in hand, and persisted by LibraryStore so the
+                // per-plugin file reads only happen for entries the library hasn't seen before.
+                Vendor = _vendorDetector.Detect(path, name)
             };
         }
     }

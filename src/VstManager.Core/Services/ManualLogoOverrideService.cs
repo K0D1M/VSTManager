@@ -65,19 +65,19 @@ public class ManualLogoOverrideService
             return new Dictionary<string, string>();
         }
 
-        var json = File.ReadAllText(_filePath);
-        return JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
-    }
-
-    private void Save()
-    {
-        var directory = Path.GetDirectoryName(_filePath);
-        if (!string.IsNullOrEmpty(directory))
+        try
         {
-            Directory.CreateDirectory(directory);
+            var json = File.ReadAllText(_filePath);
+            return JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
         }
-
-        var json = JsonSerializer.Serialize(_overrides, SerializerOptions);
-        File.WriteAllText(_filePath, json);
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            // Read during start-up, so a damaged file must not be allowed to throw — see
+            // ManualMetadataOverrideService.Load for the full reasoning.
+            JsonFileStore.Quarantine(_filePath);
+            return new Dictionary<string, string>();
+        }
     }
+
+    private void Save() => JsonFileStore.Write(_filePath, _overrides, SerializerOptions);
 }

@@ -67,20 +67,23 @@ public class ManualMetadataOverrideService
             return new Dictionary<string, ManualMetadataOverride>();
         }
 
-        var json = File.ReadAllText(_filePath);
-        return JsonSerializer.Deserialize<Dictionary<string, ManualMetadataOverride>>(json)
-               ?? new Dictionary<string, ManualMetadataOverride>();
-    }
-
-    private void Save()
-    {
-        var directory = Path.GetDirectoryName(_filePath);
-        if (!string.IsNullOrEmpty(directory))
+        try
         {
-            Directory.CreateDirectory(directory);
+            var json = File.ReadAllText(_filePath);
+            return JsonSerializer.Deserialize<Dictionary<string, ManualMetadataOverride>>(json)
+                   ?? new Dictionary<string, ManualMetadataOverride>();
         }
-
-        var json = JsonSerializer.Serialize(_overrides, SerializerOptions);
-        File.WriteAllText(_filePath, json);
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            // A damaged overrides file used to take the whole app down with it: this is read
+            // from the view model's constructor, so the exception surfaced as "the constructor
+            // on MainWindow threw" and the window never opened — unrecoverable without editing
+            // JSON by hand. Losing manual corrections is bad, but being unable to start is worse,
+            // so the file is set aside for recovery and the app carries on.
+            JsonFileStore.Quarantine(_filePath);
+            return new Dictionary<string, ManualMetadataOverride>();
+        }
     }
+
+    private void Save() => JsonFileStore.Write(_filePath, _overrides, SerializerOptions);
 }

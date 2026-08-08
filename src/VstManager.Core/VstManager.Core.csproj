@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <!-- MEGA S4 is S3-compatible, so the stock AWS SDK talks to it with a custom ServiceURL. -->
+    <PackageReference Include="AWSSDK.S3" Version="3.7.413" />
   </ItemGroup>
 
   <ItemGroup>

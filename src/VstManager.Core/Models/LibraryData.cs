@@ -25,4 +25,36 @@ public class LibraryData
     /// <summary>Whether Windows notifications fire for new plugins, outdated versions, and
     /// completed scans/refreshes.</summary>
     public bool ShowNotifications { get; set; } = true;
+
+    /// <summary>Whether closing the main window hides it to the system tray instead of exiting
+    /// the app — background scanning/notifications keep running until Exit is chosen from the
+    /// tray icon.</summary>
+    public bool MinimizeToTray { get; set; }
+
+    /// <summary>Whether settings are mirrored to the cloud. Off until the user opts in.</summary>
+    public bool CloudSyncEnabled { get; set; }
+
+    /// <summary>
+    /// Identifies this user's settings in the remote bucket. Generated once on first use;
+    /// carrying the same id to another machine is what makes the two share a settings copy.
+    /// </summary>
+    public string? CloudDeviceId { get; set; }
+
+    /// <summary>
+    /// When the last successful sync completed (UTC). Compared against the library file's
+    /// modification time to tell "changed since last sync" from "untouched".
+    /// </summary>
+    public DateTime? LastCloudSyncAt { get; set; }
+
+    /// <summary>
+    /// Every tag that exists — the built-in set plus anything the user created. Lives here
+    /// rather than in its own file so it exports and cloud-syncs with the rest of the library
+    /// for free. The per-plugin assignments are separate (see PluginTagService).
+    /// </summary>
+    public List<TagDefinition> Tags { get; set; } = new();
+
+    /// <summary>How the plugin lists are ordered. Stored as the enum name.</summary>
+    public string SortOption { get; set; } = "Name";
+
+    public bool SortDescending { get; set; }
 }

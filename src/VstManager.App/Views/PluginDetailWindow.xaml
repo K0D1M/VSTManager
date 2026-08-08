@@ -215,6 +215,36 @@
                             </Grid>
                         </Border>
 
+                        <TextBlock Text="Tags" Style="{StaticResource SettingsSectionTitle}" Margin="0,4,0,4" />
+                        <TextBlock Style="{StaticResource SettingsSectionCaption}"
+                                   Text="What kind of plugin this is. Tags marked auto were detected from KVR — change any of them and your choice sticks." />
+                        <Border Style="{StaticResource SettingsCard}">
+                            <ItemsControl x:Name="TagPickerItems">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <ToggleButton Style="{StaticResource GhostToggleButton}" Padding="9,4" FontSize="12"
+                                                      Margin="0,0,5,5" IsChecked="{Binding IsApplied, Mode=TwoWay}"
+                                                      ToolTip="{Binding Hint}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Width="9" Height="9" CornerRadius="4.5" Margin="0,0,6,0"
+                                                        VerticalAlignment="Center"
+                                                        Background="{Binding Tag.ColorHex, Converter={StaticResource HexToBrushConverter}}" />
+                                                <TextBlock Text="{Binding Tag.Name}" VerticalAlignment="Center" />
+                                                <TextBlock Text="auto" FontSize="9" Margin="5,0,0,0" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                                           Visibility="{Binding IsAuto, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                            </StackPanel>
+                                        </ToggleButton>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+
                         <TextBlock Text="Version" Style="{StaticResource SettingsSectionTitle}" Margin="0,4,0,4" />
                         <TextBlock Style="{StaticResource SettingsSectionCaption}"
                                    Text="An OUTDATED badge appears when the latest release is newer than what you have installed." />
@@ -359,6 +389,14 @@
                                     <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush2}"
                                             BorderThickness="1" CornerRadius="10" Padding="12,9" Margin="0,0,0,8">
                                         <DockPanel LastChildFill="True">
+                                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="0"
+                                                    Width="30" Height="30" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                    ToolTip="Remove from scanning (keeps the file on disk)"
+                                                    Tag="{Binding Path}" Click="RemoveFromScanning_Click">
+                                                <Path Data="{StaticResource IconX}" Stroke="{DynamicResource CrackedBrush}"
+                                                      StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                      Stretch="Uniform" Width="13" Height="13" />
+                                            </Button>
                                             <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="0"
                                                     Width="30" Height="30" Margin="10,0,0,0" VerticalAlignment="Center"
                                                     ToolTip="Show in Folder"

@@ -16,8 +16,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/VstManager.Core.Tests/VstManager.Core.Tests.csproj">
       <Platform Solution="*|ARM64" Project="ARM64" />
-      <Build Solution="*|ARM64" Project="false" />
-      <Build Solution="Debug|Any CPU" Project="false" />
+      <Build Project="false" />
     </Project>
   </Folder>
 </Solution>

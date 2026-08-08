@@ -54,4 +54,19 @@ public class PluginInfo
     /// later rescans so it means "when it disappeared", not "the last time we checked".
     /// </summary>
     public DateTime? UninstalledAt { get; set; }
+
+    /// <summary>
+    /// When this copy first turned up in a scan, for the "Recently added" sort. Null for entries
+    /// that predate the field; LibraryStore backfills those from the file's own timestamp on the
+    /// next rescan, which is an approximation but a far better one than "unknown".
+    /// </summary>
+    public DateTime? FirstSeenAt { get; set; }
+
+    /// <summary>
+    /// Who makes this plugin, read off disk at scan time (bundle manifest, version resource, or
+    /// the containing folder). Stored so the disk reads happen once rather than every launch.
+    /// Only a fallback for display — a catalog entry or a manual correction always wins — but
+    /// it's what lets the online lookup build a direct product URL instead of web-searching.
+    /// </summary>
+    public string? Vendor { get; set; }
 }

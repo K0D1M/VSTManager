@@ -6,9 +6,21 @@ namespace VstManager.Core.Services;
 
 public class LogoCache
 {
+    /// <summary>How old a cached logo may get before "Refresh All Metadata" re-downloads it.</summary>
+    private static readonly TimeSpan LogoFreshWindow = TimeSpan.FromDays(30);
+
     private readonly string _cacheDirectory;
     private readonly HttpClient _httpClient;
     private readonly HashSet<string> _failedThisSession = new();
+
+    /// <summary>
+    /// slug → cached file path, so a cache hit is a dictionary lookup rather than a directory
+    /// scan. Built once on first use: the old per-call Directory.EnumerateFiles meant one
+    /// filesystem enumeration per plugin per load, which on a large library dominated the cost
+    /// of showing logos that were already downloaded.
+    /// </summary>
+    private Dictionary<string, string>? _index;
+    private readonly object _indexLock = new();
 
     public LogoCache(HttpClient? httpClient = null, string? cacheDirectory = null)
     {
@@ -50,16 +62,44 @@ public class LogoCache
         return await DownloadAsync(entry, cachedPath, cancellationToken);
     }
 
-    public async Task<string?> RefreshLogoAsync(CatalogEntry entry, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Re-fetches a catalog logo, but only when the cached copy is missing or has gone stale.
+    /// This runs across the whole library on "Refresh All Metadata"; unconditionally deleting
+    /// and re-downloading every logo there meant a full re-download of artwork that hadn't
+    /// changed. Pass force: true for a single plugin the user explicitly asked to refresh.
+    /// </summary>
+    public async Task<string?> RefreshLogoAsync(CatalogEntry entry, bool force = false, CancellationToken cancellationToken = default)
     {
         var slug = GetSlug(entry);
         _failedThisSession.Remove(slug);
 
         Directory.CreateDirectory(_cacheDirectory);
+
+        if (!force)
+        {
+            var existing = FindCachedFile(slug);
+            if (existing is not null && !IsStale(existing))
+            {
+                return existing;
+            }
+        }
+
         DeleteCachedFiles(slug);
 
         var cachedPath = Path.Combine(_cacheDirectory, slug + GetExtensionFromUrl(entry.LogoUrl));
         return await DownloadFromUrlAsync(entry.LogoUrl, cachedPath, cancellationToken, slug);
+    }
+
+    private static bool IsStale(string path)
+    {
+        try
+        {
+            return DateTime.UtcNow - File.GetLastWriteTimeUtc(path) > LogoFreshWindow;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return true;
+        }
     }
 
     public static string GetSlugForName(string name)
@@ -123,6 +163,7 @@ public class LogoCache
 
         var cachedPath = Path.Combine(_cacheDirectory, slug + extension);
         await File.WriteAllBytesAsync(cachedPath, bytes, cancellationToken);
+        RememberCachedFile(slug, cachedPath);
         return cachedPath;
     }
 
@@ -148,6 +189,13 @@ public class LogoCache
                 : Path.ChangeExtension(cachedPath, actualExtension);
 
             await File.WriteAllBytesAsync(correctedPath, bytes, cancellationToken);
+
+            var slug = Path.GetFileNameWithoutExtension(correctedPath);
+            if (!string.IsNullOrEmpty(slug))
+            {
+                RememberCachedFile(slug, correctedPath);
+            }
+
             return correctedPath;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
@@ -165,10 +213,75 @@ public class LogoCache
     /// was saved with, without touching the network.</summary>
     public string? FindManualCachedFile(string name) => FindCachedFile(GetSlugForName(name));
 
+    /// <summary>
+    /// Builds (once) and returns the slug → path index. The cache directory is flat and only
+    /// this process writes to it, so a single enumeration at startup stays accurate as long as
+    /// every write path below keeps the index in step.
+    /// </summary>
+    private Dictionary<string, string> GetIndex()
+    {
+        lock (_indexLock)
+        {
+            if (_index is not null)
+            {
+                return _index;
+            }
+
+            _index = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            try
+            {
+                Directory.CreateDirectory(_cacheDirectory);
+                foreach (var file in Directory.EnumerateFiles(_cacheDirectory))
+                {
+                    var slug = Path.GetFileNameWithoutExtension(file);
+                    if (!string.IsNullOrEmpty(slug))
+                    {
+                        _index[slug] = file;
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // An unreadable cache directory just means every logo re-downloads.
+            }
+
+            return _index;
+        }
+    }
+
     /// <summary>Finds an existing cached logo for a slug, whatever extension it was saved with.</summary>
-    private string? FindCachedFile(string slug) =>
-        Directory.EnumerateFiles(_cacheDirectory, slug + ".*")
-            .FirstOrDefault(f => string.Equals(Path.GetFileNameWithoutExtension(f), slug, StringComparison.Ordinal));
+    private string? FindCachedFile(string slug)
+    {
+        var index = GetIndex();
+
+        lock (_indexLock)
+        {
+            if (!index.TryGetValue(slug, out var path))
+            {
+                return null;
+            }
+
+            // The index can outlive the file if something outside the app cleared the folder.
+            if (File.Exists(path))
+            {
+                return path;
+            }
+
+            index.Remove(slug);
+            return null;
+        }
+    }
+
+    private void RememberCachedFile(string slug, string path)
+    {
+        var index = GetIndex();
+
+        lock (_indexLock)
+        {
+            index[slug] = path;
+        }
+    }
 
     /// <summary>Removes every cached file for a slug (any extension) before a fresh download.</summary>
     private void DeleteCachedFiles(string slug)
@@ -188,6 +301,12 @@ public class LogoCache
             {
                 // Best-effort; a stale file will simply be overwritten on the next matching download.
             }
+        }
+
+        var index = GetIndex();
+        lock (_indexLock)
+        {
+            index.Remove(slug);
         }
     }
 
