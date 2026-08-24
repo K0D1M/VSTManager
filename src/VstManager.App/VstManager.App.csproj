@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <Content Include="a_clean_modern_app_icon_logo_design_on_a_dark_b.ico" />
+    <Content Include="a_clean_modern_app_icon_logo_design_on_a_dark_b-transparent.ico" />
   </ItemGroup>
 
   <ItemGroup>
@@ -50,8 +50,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>True</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.6.0</Version>
-    <ApplicationIcon>a_clean_modern_app_icon_logo_design_on_a_dark_b.ico</ApplicationIcon>
+    <Version>1.6.5</Version>
+    <ApplicationIcon>a_clean_modern_app_icon_logo_design_on_a_dark_b-transparent.ico</ApplicationIcon>
     <SignAssembly>False</SignAssembly>
     <Company>$(K0D1M)</Company>
     <Product>$(KD Manager for VST)</Product>

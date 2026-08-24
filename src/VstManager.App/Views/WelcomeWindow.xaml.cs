@@ -14,6 +14,7 @@ public partial class WelcomeWindow : Window
     {
         InitializeComponent();
         MaximizedBoundsFix.Apply(this);
+        WindowCorners.Apply(this);
         WindowIcon.ApplyDefault(this);
         DataContext = _viewModel;
     }

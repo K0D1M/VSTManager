@@ -7,7 +7,7 @@
             <Setter.Value>
                 <shell:WindowChrome CaptionHeight="40"
                                     GlassFrameThickness="0"
-                                    CornerRadius="0"
+                                    CornerRadius="8"
                                     NonClientFrameEdges="None"
                                     UseAeroCaptionButtons="False"
                                     ResizeBorderThickness="6" />
@@ -20,7 +20,7 @@
             <Setter.Value>
                 <shell:WindowChrome CaptionHeight="40"
                                     GlassFrameThickness="0"
-                                    CornerRadius="0"
+                                    CornerRadius="8"
                                     NonClientFrameEdges="None"
                                     UseAeroCaptionButtons="False"
                                     ResizeBorderThickness="8" />

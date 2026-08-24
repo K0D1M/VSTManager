@@ -17,9 +17,22 @@ public static class WindowSizing
     private const double Margin = 16;
 
     /// <summary>
+    /// Marks a window whose design size has already been scaled, so repeated FitToScreen calls
+    /// don't compound the multiplier.
+    /// </summary>
+    private static readonly DependencyProperty ScaleAppliedProperty =
+        DependencyProperty.RegisterAttached(
+            "ScaleApplied", typeof(bool), typeof(WindowSizing), new PropertyMetadata(false));
+
+    /// <summary>
     /// Shrinks the window to fit the current monitor's work area (respecting the taskbar) and
     /// nudges it back on-screen if it would hang off an edge. Also lowers MinWidth/MinHeight
     /// when they alone exceed the screen, so the window stays resizable on small displays.
+    ///
+    /// Before that, it grows the window's designed size by the current UI zoom: content is scaled
+    /// by <see cref="UiScale"/>, so at 150% a window needs proportionally more room to show the
+    /// same content without scrollbars. The screen clamp below still applies, so this never makes
+    /// a window bigger than the monitor.
     /// </summary>
     public static void FitToScreen(Window window)
     {
@@ -27,6 +40,8 @@ public static class WindowSizing
         {
             return;
         }
+
+        ApplyScaleToDesignSize(window);
 
         var work = GetWorkArea(window);
         var maxWidth = work.Width - Margin;
@@ -74,6 +89,40 @@ public static class WindowSizing
         {
             window.Top = Math.Max(work.Top, work.Bottom - window.ActualHeight - Margin / 2);
         }
+    }
+
+    /// <summary>
+    /// Scales the window's designed Width/Height/Min by the current zoom, once. Auto-sized
+    /// dimensions (SizeToContent windows leave Width or Height as NaN) are left alone — their
+    /// scaled content already drives the measured size.
+    /// </summary>
+    private static void ApplyScaleToDesignSize(Window window)
+    {
+        if ((bool)window.GetValue(ScaleAppliedProperty))
+        {
+            return;
+        }
+
+        window.SetValue(ScaleAppliedProperty, true);
+
+        var factor = UiScale.Factor;
+        if (Math.Abs(factor - 1.0) < 0.001)
+        {
+            return;
+        }
+
+        if (!double.IsNaN(window.Width))
+        {
+            window.Width *= factor;
+        }
+
+        if (!double.IsNaN(window.Height))
+        {
+            window.Height *= factor;
+        }
+
+        window.MinWidth *= factor;
+        window.MinHeight *= factor;
     }
 
     /// <summary>Work area (screen minus taskbar) of the monitor this window is on, in DIPs.</summary>

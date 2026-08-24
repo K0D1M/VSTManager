@@ -39,6 +39,12 @@ public static class ThemeManager
         var hoverColor = Lighten(color, 0.12);
         resources["AccentColorHover"] = hoverColor;
         resources["AccentHoverBrush"] = new SolidColorBrush(hoverColor);
+
+        // Rebuild the accent gradient too, or picking a new colour would leave the seeded
+        // first-paint gradient behind on the selected tab and primary buttons.
+        var gradient = new LinearGradientBrush(color, hoverColor, new Point(0, 0), new Point(1, 1));
+        gradient.Freeze();
+        resources["AccentGradientBrush"] = gradient;
     }
 
     private static Color Lighten(Color color, double amount)

@@ -18,6 +18,7 @@ public partial class CloudConflictWindow : Window
     {
         InitializeComponent();
         MaximizedBoundsFix.Apply(this);
+        WindowCorners.Apply(this);
         WindowIcon.ApplyDefault(this);
 
         LocalTimestampText.Text = Describe(localChangedAt);

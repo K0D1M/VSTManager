@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>VstManager.WinUI</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <!-- WinUI has no AnyCPU. -->
+    <Platforms>x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+
+    <UseWinUI>true</UseWinUI>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Unpackaged. VstManager.Core shells out to curl.exe for the KVR lookups, which MSIX
+         packaging can restrict — and unpackaged also means no MSIX deploy step just to try
+         the prototype. Requires the Windows App Runtime to be installed, which it is. -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <EnableMsixTooling>false</EnableMsixTooling>
+
+    <!-- MVVMTK0045 advises partial properties instead of [ObservableProperty] fields for AOT-safe
+         WinRT marshalling. This prototype is JIT, not published AOT, and the view models are
+         copied verbatim from the WPF head so they stay diffable against it. -->
+    <NoWarn>$(NoWarn);MVVMTK0045</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VstManager.Core\VstManager.Core.csproj" />
+  </ItemGroup>
+
+</Project>

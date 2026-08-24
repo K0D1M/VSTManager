@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using VstManager.App.Controls;
+using VstManager.App.Services;
 using VstManager.App.ViewModels;
 
 namespace VstManager.App.Views;
@@ -15,11 +16,16 @@ public partial class ClassifyPluginsWindow : Window
     {
         InitializeComponent();
         MaximizedBoundsFix.Apply(this);
+        WindowCorners.Apply(this);
         WindowIcon.ApplyDefault(this);
         _mainViewModel = mainViewModel;
         Plugins = new ObservableCollection<ClassifyPluginViewModel>(
             plugins.Select(p => new ClassifyPluginViewModel(p)));
         DataContext = this;
+
+        // Grow the window for the current zoom and keep it on-screen. This window has no Loaded
+        // handler in XAML, so subscribe here rather than adding one.
+        Loaded += (_, _) => WindowSizing.FitToScreen(this);
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)

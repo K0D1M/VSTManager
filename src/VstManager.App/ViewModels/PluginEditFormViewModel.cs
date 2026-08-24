@@ -76,6 +76,13 @@ public partial class PluginEditFormViewModel : ObservableObject
     [ObservableProperty]
     private string? _logoStatusText;
 
+    /// <summary>Busy state for "Refresh Metadata", independent of the other lookups.</summary>
+    [ObservableProperty]
+    private bool _isRefreshingMetadata;
+
+    [ObservableProperty]
+    private string? _refreshMetadataStatusText;
+
     public PluginEditFormViewModel(PluginDisplayViewModel vm)
     {
         _name = vm.Name;
@@ -89,5 +96,17 @@ public partial class PluginEditFormViewModel : ObservableObject
             PluginTagSummary.Cracked => PluginTag.Cracked,
             _ => null
         };
+    }
+
+    /// <summary>
+    /// Re-syncs the staged Current/Latest version fields from the live plugin. Called after
+    /// Refresh Metadata, which writes straight to the plugin rather than staging into this form
+    /// like every other button on this window — without this, an unrelated Save afterwards would
+    /// overwrite the just-refreshed values with the stale ones the form opened with.
+    /// </summary>
+    public void SyncVersionsFrom(PluginDisplayViewModel vm)
+    {
+        CurrentVersion = vm.CurrentVersion;
+        LatestVersion = vm.LatestVersion;
     }
 }

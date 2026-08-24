@@ -23,6 +23,7 @@ public partial class PluginDetailWindow : Window
     {
         InitializeComponent();
         MaximizedBoundsFix.Apply(this);
+        WindowCorners.Apply(this);
         WindowIcon.ApplyDefault(this);
         _mainViewModel = mainViewModel;
         _plugin = plugin;
@@ -274,6 +275,31 @@ public partial class PluginDetailWindow : Window
         finally
         {
             Form.IsDetectingCurrentVersion = false;
+        }
+    }
+
+    /// <summary>
+    /// Re-checks this one plugin's version and online metadata immediately. Unlike every other
+    /// button on this tab, this does not stage into <see cref="Form"/> for the user to review and
+    /// Save — it writes straight to the plugin and persists, the same as the toolbar's "Refresh
+    /// All Metadata" but scoped to one plugin. The staged version fields are re-synced afterwards
+    /// so a later Save doesn't clobber the refreshed values with what the form opened with.
+    /// </summary>
+    private async void RefreshMetadata_Click(object sender, RoutedEventArgs e)
+    {
+        Form.IsRefreshingMetadata = true;
+        Form.RefreshMetadataStatusText = "Checking online...";
+
+        try
+        {
+            await _mainViewModel.RefreshPluginMetadataCommand.ExecuteAsync(_plugin);
+            Form.SyncVersionsFrom(_plugin);
+            Form.RefreshMetadataStatusText = $"Refreshed just now. Latest version: "
+                + (string.IsNullOrWhiteSpace(_plugin.LatestVersion) ? "not found online." : $"{_plugin.LatestVersion}.");
+        }
+        finally
+        {
+            Form.IsRefreshingMetadata = false;
         }
     }
 

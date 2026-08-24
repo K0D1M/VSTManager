@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ctrl="clr-namespace:VstManager.App.Controls">
 
     <FontFamily x:Key="AppFontFamily">Segoe UI</FontFamily>
 
@@ -160,7 +161,7 @@
     </Style>
 
     <Style x:Key="AccentButton" TargetType="Button">
-        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Background" Value="{DynamicResource AccentGradientBrush}" />
         <Setter Property="Foreground" Value="White" />
         <Setter Property="Padding" Value="16,8" />
         <Setter Property="BorderThickness" Value="0" />
@@ -554,6 +555,11 @@
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter Property="Opacity" Value="0.85" />
                         </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            <Setter Property="Foreground" Value="White" />
+                        </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
@@ -575,7 +581,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Border x:Name="Seg" Background="Transparent" CornerRadius="15" Padding="14,7" Margin="2"
+                    <Border x:Name="Seg" Background="Transparent" CornerRadius="13" Padding="11,5" Margin="2"
                             RenderTransformOrigin="0.5,0.5">
                         <Border.RenderTransform>
                             <ScaleTransform x:Name="Scale" ScaleX="1" ScaleY="1" />
@@ -638,7 +644,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Border x:Name="Seg" Width="34" Height="34" Background="Transparent" CornerRadius="7" Margin="2">
+                    <Border x:Name="Seg" Width="30" Height="30" Background="Transparent" CornerRadius="7" Margin="2">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -886,7 +892,7 @@
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush2}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="10" />
-        <Setter Property="Padding" Value="5" />
+        <Setter Property="Padding" Value="4" />
     </Style>
 
     <!-- Settings: left sidebar navigation, rendered from a TabControl so each section's
@@ -920,11 +926,17 @@
         </StackPanel>
     </DataTemplate>
 
+    <!-- The icon+label template applies only when the header is a SettingsTabHeader. Tabs with a
+         plain string header (the plugin detail window's Details/Web Info/Files) fall through to
+         WPF's default text rendering — otherwise binding .Icon/.Text on a string blanks the label. -->
+    <ctrl:SettingsNavHeaderTemplateSelector x:Key="SettingsNavHeaderTemplateSelector"
+                                            IconTemplate="{StaticResource SettingsNavItemHeader}" />
+
     <Style x:Key="SettingsNavItem" TargetType="TabItem">
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         <Setter Property="FontSize" Value="14" />
-        <Setter Property="HeaderTemplate" Value="{StaticResource SettingsNavItemHeader}" />
+        <Setter Property="HeaderTemplateSelector" Value="{StaticResource SettingsNavHeaderTemplateSelector}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TabItem">
@@ -934,7 +946,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentBrush}" />
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentGradientBrush}" />
                             <Setter Property="Foreground" Value="White" />
                             <Setter Property="FontWeight" Value="SemiBold" />
                         </Trigger>
@@ -1141,7 +1153,7 @@
         <Setter Property="Width" Value="1" />
         <Setter Property="Background" Value="{DynamicResource BorderBrush2}" />
         <Setter Property="VerticalAlignment" Value="Stretch" />
-        <Setter Property="Margin" Value="4,4,14,10" />
+        <Setter Property="Margin" Value="3,3,10,6" />
     </Style>
 
 </ResourceDictionary>

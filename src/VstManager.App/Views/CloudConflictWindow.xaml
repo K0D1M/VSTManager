@@ -4,6 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:ctrl="clr-namespace:VstManager.App.Controls"
+        xmlns:svc="clr-namespace:VstManager.App.Services"
         mc:Ignorable="d"
         Title="Cloud Sync Conflict" Width="520"
         MinWidth="460" MinHeight="300" MaxHeight="760"
@@ -23,7 +24,7 @@
                              TitleText="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Title}"
                              TitleIcon="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Icon}" />
 
-        <Grid Grid.Row="1" Margin="28">
+        <Grid Grid.Row="1" Margin="28" svc:UiScale.ScaleContent="True">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />

@@ -15,7 +15,19 @@
     <Color x:Key="UnclassifiedColor">#FF64748B</Color>
     <Color x:Key="OutdatedColor">#FFD97706</Color>
 
-    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="{StaticResource WindowBackgroundColor}" />
+    <!-- Gentle diagonal; surfaces/cards stay solid (below) for legibility. -->
+    <Color x:Key="WindowBackgroundColor2">#FFEAEAF3</Color>
+    <LinearGradientBrush x:Key="WindowBackgroundBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="{StaticResource WindowBackgroundColor}" Offset="0" />
+        <GradientStop Color="{StaticResource WindowBackgroundColor2}" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Accent → hover; rebuilt at runtime by ThemeManager.ApplyAccent, seeded here for first paint. -->
+    <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="{StaticResource AccentColor}" Offset="0" />
+        <GradientStop Color="{StaticResource AccentColorHover}" Offset="1" />
+    </LinearGradientBrush>
+
     <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
     <SolidColorBrush x:Key="SurfaceAltBrush" Color="{StaticResource SurfaceAltColor}" />
     <SolidColorBrush x:Key="BorderBrush2" Color="{StaticResource BorderColor}" />

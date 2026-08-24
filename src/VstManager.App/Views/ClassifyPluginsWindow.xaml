@@ -4,6 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:ctrl="clr-namespace:VstManager.App.Controls"
+        xmlns:svc="clr-namespace:VstManager.App.Services"
         mc:Ignorable="d"
         Title="Classify Plugins" Height="560" Width="520"
         MinHeight="360" MinWidth="440"
@@ -22,7 +23,7 @@
                              TitleText="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Title}"
                              TitleIcon="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Icon}" />
 
-    <Grid Grid.Row="1" Margin="20">
+    <Grid Grid.Row="1" Margin="20" svc:UiScale.ScaleContent="True">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />

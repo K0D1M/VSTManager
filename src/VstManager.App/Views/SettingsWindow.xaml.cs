@@ -14,6 +14,7 @@ public partial class SettingsWindow : Window
     {
         InitializeComponent();
         MaximizedBoundsFix.Apply(this);
+        WindowCorners.Apply(this);
         WindowIcon.ApplyDefault(this);
         DataContext = viewModel;
     }

@@ -8,6 +8,7 @@
         xmlns:conv="clr-namespace:VstManager.App.Converters"
         xmlns:core="clr-namespace:VstManager.Core.Models;assembly=VstManager.Core"
         xmlns:ctrl="clr-namespace:VstManager.App.Controls"
+        xmlns:svc="clr-namespace:VstManager.App.Services"
         mc:Ignorable="d"
         Background="{DynamicResource WindowBackgroundBrush}"
         Title="VST Manager" Height="680" Width="1100"
@@ -16,6 +17,7 @@
         Style="{StaticResource ChromedWindow}"
         Loaded="Window_Loaded"
         PreviewKeyDown="MainWindow_PreviewKeyDown"
+        PreviewMouseWheel="MainWindow_PreviewMouseWheel"
         UseLayoutRounding="True" SnapsToDevicePixels="True">
     <Window.Resources>
         <DataTemplate x:Key="PluginCardTemplate" DataType="{x:Type vm:PluginDisplayViewModel}">
@@ -417,6 +419,17 @@
                         </MenuItem>
 
                         <Separator />
+                        <MenuItem Header="Refresh Metadata"
+                                  IsEnabled="{Binding PlacementTarget.DataContext.IsInstalled, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  Command="{Binding PlacementTarget.Tag.RefreshPluginMetadataCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  ToolTip="Re-check this plugin's version, vendor and artwork online now">
+                            <MenuItem.Icon>
+                                <Path Data="{StaticResource IconRefresh}" Stroke="{DynamicResource TextPrimaryBrush}"
+                                      StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      Stretch="Uniform" Width="14" Height="14" />
+                            </MenuItem.Icon>
+                        </MenuItem>
                         <MenuItem Header="Fix Metadata..."
                                   IsEnabled="{Binding PlacementTarget.DataContext.IsInstalled, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   Command="{Binding PlacementTarget.Tag.OpenFixMetadataCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
@@ -522,7 +535,7 @@
                              TitleText="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Title}"
                              TitleIcon="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Icon}" />
 
-        <Grid Grid.Row="1" Margin="18">
+        <Grid Grid.Row="1" Margin="18" svc:UiScale.ScaleContent="True">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -531,7 +544,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" Margin="0,0,0,16" LastChildFill="False">
+        <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="False">
             <StackPanel DockPanel.Dock="Left">
                 <TextBlock Text="VST Manager" FontSize="25" FontWeight="Bold"
                            Foreground="{DynamicResource TextPrimaryBrush}" />
@@ -597,9 +610,9 @@
             </StackPanel>
         </DockPanel>
 
-        <WrapPanel x:Name="ToolbarPanel" Grid.Row="1" Margin="0,0,0,10" Orientation="Horizontal">
+        <WrapPanel x:Name="ToolbarPanel" Grid.Row="1" Margin="0,0,0,6" Orientation="Horizontal">
             <!-- Group: Legit / Cracked management mode -->
-            <Border Margin="0,0,14,10" CornerRadius="17"
+            <Border Margin="0,0,10,6" CornerRadius="15"
                     Background="{DynamicResource SurfaceAltBrush}"
                     BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="1"
                     ToolTip="Choose whether to manage your Legit, Cracked, or all plugins">
@@ -614,7 +627,7 @@
             </Border>
 
             <!-- Group: Search -->
-            <Border Width="280" Margin="0,0,14,10" VerticalAlignment="Center" CornerRadius="18"
+            <Border Width="260" Height="30" Margin="0,0,10,6" VerticalAlignment="Center" CornerRadius="15"
                     Background="{DynamicResource SurfaceAltBrush}"
                     BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="1.5">
                 <Border.Style>
@@ -666,7 +679,7 @@
             <Border Style="{StaticResource ToolbarSeparator}" />
 
             <!-- Group: View controls (Layout, Filter, Select) -->
-            <Border Style="{StaticResource ToolbarGroup}" Margin="0,0,14,10">
+            <Border Style="{StaticResource ToolbarGroup}" Margin="0,0,10,6">
                 <StackPanel Orientation="Horizontal">
                     <Border CornerRadius="8" Background="Transparent">
                         <StackPanel Orientation="Horizontal">
@@ -684,7 +697,14 @@
                     </Border>
 
                     <ToggleButton x:Name="FilterToggle" Margin="6,0,0,0"
-                                  Style="{StaticResource FilterPopupButton}" ToolTip="Filters" />
+                                  Style="{StaticResource GhostToggleButton}" Padding="10,5"
+                                  ToolTip="Narrow the list by status, format, tags and more">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource IconFunnel}" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                                  Stretch="Uniform" Width="13" Height="13" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Filter" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ToggleButton>
 
                     <Popup PlacementTarget="{Binding ElementName=FilterToggle}"
                            Placement="Bottom" IsOpen="{Binding IsChecked, ElementName=FilterToggle}"
@@ -761,7 +781,7 @@
                     </Popup>
 
                     <ToggleButton x:Name="SortToggle" Margin="6,0,0,0"
-                                  Style="{StaticResource GhostToggleButton}" Padding="12,7"
+                                  Style="{StaticResource GhostToggleButton}" Padding="10,5"
                                   ToolTip="Change how plugins are ordered">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#x21C5;" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
@@ -801,11 +821,11 @@
                     </Popup>
 
                     <ToggleButton Style="{StaticResource GhostToggleButton}" Margin="6,0,0,0"
-                                  Padding="12,7" IsChecked="{Binding IsSelectionMode}"
+                                  Padding="10,5" IsChecked="{Binding IsSelectionMode}"
                                   ToolTip="Select multiple plugins to edit at once (Ctrl+Click or Shift+Click also work anytime)">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#x2611;" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Select" VerticalAlignment="Center" />
+                            <TextBlock Text="Multi-Select" VerticalAlignment="Center" />
                         </StackPanel>
                     </ToggleButton>
                 </StackPanel>
@@ -813,32 +833,89 @@
 
             <Border Style="{StaticResource ToolbarSeparator}" />
 
-            <!-- Group: Bulk tagging -->
-            <Border Style="{StaticResource ToolbarGroup}" Margin="0,0,14,10">
+            <!-- Group: Select menu. These act immediately on click, not as a standing filter
+                 condition, so they belong with the other one-shot bulk actions instead of the
+                 persistent filter state. Collapsed into a dropdown (matching the Filter/Sort
+                 icon+name pattern) rather than left as flat buttons, since it's a one-shot pick
+                 from a short list of related actions, not a persistent toggle. -->
+            <ToggleButton x:Name="SelectByTagToggle" Margin="0,0,10,6"
+                          Style="{StaticResource GhostToggleButton}" Padding="10,5"
+                          ToolTip="Select plugins by tag">
                 <StackPanel Orientation="Horizontal">
-                    <Button Style="{StaticResource GhostButton}"
-                            Command="{Binding MarkAllLegitCommand}" ToolTip="Mark all visible installed plugins as Legit">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#x2713;" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Mark All Legit" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Style="{StaticResource GhostButton}" Margin="6,0,0,0"
-                            Command="{Binding MarkAllCrackedCommand}" ToolTip="Mark all visible installed plugins as Cracked">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#x2620;" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Mark All Cracked" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
+                    <Path Data="{StaticResource IconCheckSquare}" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                          Stretch="Uniform" Width="13" Height="13" Margin="0,0,6,0" VerticalAlignment="Center" />
+                    <TextBlock Text="Select" VerticalAlignment="Center" />
                 </StackPanel>
-            </Border>
+            </ToggleButton>
+
+            <Popup PlacementTarget="{Binding ElementName=SelectByTagToggle}"
+                   Placement="Bottom" IsOpen="{Binding IsChecked, ElementName=SelectByTagToggle}"
+                   StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+                <Border Style="{StaticResource CardBorder}" Width="200" Margin="0,6,0,0">
+                    <StackPanel>
+                        <Button Style="{StaticResource GhostButton}" HorizontalContentAlignment="Left"
+                                Command="{Binding SelectAllLegitCommand}" ToolTip="Select every visible plugin marked Legit">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#x2713;" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource LegitBrush}" />
+                                <TextBlock Text="Select All Legit" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource GhostButton}" HorizontalContentAlignment="Left" Margin="0,4,0,0"
+                                Command="{Binding SelectAllCrackedCommand}" ToolTip="Select every visible plugin marked Cracked">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#x2620;" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource CrackedBrush}" />
+                                <TextBlock Text="Select All Cracked" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <Border Style="{StaticResource ToolbarSeparator}" />
+
+            <!-- Group: Tag menu (bulk tagging) -->
+            <ToggleButton x:Name="BulkTagToggle" Margin="0,0,10,6"
+                          Style="{StaticResource GhostToggleButton}" Padding="10,5"
+                          ToolTip="Mark all visible plugins by tag">
+                <StackPanel Orientation="Horizontal">
+                    <Path Data="{StaticResource IconTag}" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                          Stretch="Uniform" Width="13" Height="13" Margin="0,0,6,0" VerticalAlignment="Center" />
+                    <TextBlock Text="Tag" VerticalAlignment="Center" />
+                </StackPanel>
+            </ToggleButton>
+
+            <Popup PlacementTarget="{Binding ElementName=BulkTagToggle}"
+                   Placement="Bottom" IsOpen="{Binding IsChecked, ElementName=BulkTagToggle}"
+                   StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+                <Border Style="{StaticResource CardBorder}" Width="200" Margin="0,6,0,0">
+                    <StackPanel>
+                        <Button Style="{StaticResource GhostButton}" HorizontalContentAlignment="Left"
+                                Command="{Binding MarkAllLegitCommand}" ToolTip="Mark all visible installed plugins as Legit">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#x2713;" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Mark All Legit" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Style="{StaticResource GhostButton}" HorizontalContentAlignment="Left" Margin="0,4,0,0"
+                                Command="{Binding MarkAllCrackedCommand}" ToolTip="Mark all visible installed plugins as Cracked">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#x2620;" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Mark All Cracked" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Popup>
 
             <Border Style="{StaticResource ToolbarSeparator}" />
 
             <!-- Group: Primary actions -->
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <Button Style="{StaticResource AccentButton}"
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                <Button Style="{StaticResource AccentButton}" Padding="13,6"
                         Command="{Binding RescanCommand}" IsEnabled="{Binding IsScanning, Converter={StaticResource InverseBoolConverter}}"
                         ToolTip="Rescan for installed plugins">
                     <StackPanel Orientation="Horizontal">
@@ -872,12 +949,27 @@
                     </StackPanel>
                 </Button>
 
-                <Button Style="{StaticResource IconButton}" Margin="10,0,0,0"
-                        Command="{Binding RefreshAllMetadataCommand}" ToolTip="Refresh all metadata"
-                        Content="&#x21BB;" />
+                <!-- Distinct icon from Rescan's spinning glyph on purpose: Rescan looks for new
+                     files on disk, this re-queries KVR online for every installed plugin. The two
+                     used to share the same ↻ symbol, which read as the same action. -->
+                <Button Style="{StaticResource IconButton}" Width="Auto" Height="30" Padding="10,5" Margin="8,0,0,0"
+                        Command="{Binding RefreshAllMetadataCommand}"
+                        ToolTip="Re-check every installed plugin's version, vendor and artwork online">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource IconRefresh}" Stroke="{DynamicResource TextPrimaryBrush}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Stretch="Uniform" Width="13" Height="13" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Refresh Metadata" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
 
-                <Button Style="{StaticResource GearButton}" Margin="10,0,0,0"
-                        Click="SettingsButton_Click" ToolTip="Settings" />
+                <Button Style="{StaticResource IconButton}" Width="Auto" Height="30" Padding="10,5" Margin="8,0,0,0"
+                        Click="SettingsButton_Click" ToolTip="App settings">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x2699;" FontSize="13" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Settings" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </WrapPanel>
 
@@ -1053,5 +1145,24 @@
             </StackPanel>
         </ScrollViewer>
         </Grid>
+
+        <!-- Transient zoom readout for the Ctrl +/-/0 shortcuts. Sits in the outer grid, outside
+             the scaled content, so it stays a constant size at any zoom. Starts hidden; the
+             code-behind fades it in and back out on each change. -->
+        <Border x:Name="ZoomIndicator" Grid.Row="1"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Background="{DynamicResource SurfaceAltBrush}" CornerRadius="14" Padding="34,22"
+                BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="1"
+                Opacity="0" IsHitTestVisible="False">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="24" ShadowDepth="0" Opacity="0.5" Color="#000000" />
+            </Border.Effect>
+            <StackPanel>
+                <TextBlock x:Name="ZoomIndicatorText" Text="100%" FontSize="38" FontWeight="Bold"
+                           TextAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" />
+                <TextBlock Text="Display size" FontSize="13" TextAlignment="Center" Margin="0,4,0,0"
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>

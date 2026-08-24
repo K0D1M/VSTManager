@@ -232,6 +232,52 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private LayoutMode _layoutMode = LayoutMode.Grid;
 
+    /// <summary>
+    /// Content zoom as a whole percent (100 = default), bound to the Settings control. Mirrors
+    /// the global <see cref="Services.UiScale"/> factor; kept as an int so the stepper/slider
+    /// reads cleanly. Persisted like LayoutMode.
+    /// </summary>
+    [ObservableProperty]
+    private int _uiScalePercent = 100;
+
+    /// <summary>Smallest/largest zoom the UI offers, exposed for the Settings control bounds.</summary>
+    public int UiScaleMinPercent => (int)Math.Round(Services.UiScale.Min * 100);
+    public int UiScaleMaxPercent => (int)Math.Round(Services.UiScale.Max * 100);
+    public int UiScaleStepPercent => (int)Math.Round(Services.UiScale.Step * 100);
+
+    [RelayCommand]
+    private void ZoomIn() => UiScalePercent += UiScaleStepPercent;
+
+    [RelayCommand]
+    private void ZoomOut() => UiScalePercent -= UiScaleStepPercent;
+
+    [RelayCommand]
+    private void ZoomReset() => UiScalePercent = 100;
+
+    partial void OnUiScalePercentChanged(int value)
+    {
+        // Clamp defensively — the stepper commands add/subtract past the ends, and a slider or
+        // restored value could land out of range. Re-assigning re-enters this handler once with
+        // the clamped value, so the work below runs against the final number.
+        var clamped = Math.Clamp(value, UiScaleMinPercent, UiScaleMaxPercent);
+        if (clamped != value)
+        {
+            UiScalePercent = clamped;
+            return;
+        }
+
+        // Drives every open window through the global static.
+        Services.UiScale.Factor = value / 100.0;
+
+        if (_isInitializing)
+        {
+            return;
+        }
+
+        _library.UiScale = value / 100.0;
+        SaveLibrary();
+    }
+
     public string CurrentVersion => UpdateChecker.CurrentVersion;
 
     public IEnumerable<string> CustomScanFolders => _library.CustomScanFolders;
@@ -701,6 +747,14 @@ public partial class MainViewModel : ObservableObject
         _layoutMode = Enum.TryParse<LayoutMode>(settings.LayoutMode, out var layoutMode) ? layoutMode : LayoutMode.Grid;
         _sortOption = Enum.TryParse<SortOption>(settings.SortOption, out var sortOption) ? sortOption : SortOption.Name;
         _sortDescending = settings.SortDescending;
+
+        // Seed the global scale before any window shows, so the first paint is already at the
+        // saved zoom. Assign the field (not the property) to avoid a save during init; push to
+        // the static explicitly since the field-set skips OnUiScalePercentChanged.
+        _uiScalePercent = Math.Clamp(
+            (int)Math.Round(settings.UiScale * 100), UiScaleMinPercent, UiScaleMaxPercent);
+        Services.UiScale.Factor = _uiScalePercent / 100.0;
+
         _isInitializing = false;
 
         // Hold the loaded copy rather than the empty placeholder, so any setting saved before
@@ -1517,6 +1571,45 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void MarkAllCracked() => SetTagForVisibleInstalled(PluginTag.Cracked);
 
+    [RelayCommand]
+    private void SelectAllLegit() => SelectVisibleByTag(PluginTagSummary.Legit);
+
+    [RelayCommand]
+    private void SelectAllCracked() => SelectVisibleByTag(PluginTagSummary.Cracked);
+
+    /// <summary>
+    /// Selects every currently visible plugin carrying the given tag — a plugin with both a
+    /// Legit and a Cracked copy (PluginTagSummary.Both) matches either. Scoped to what
+    /// MatchesFilters already leaves on screen, the same convention SelectAllVisible uses, so
+    /// this can never reach past an active search/filter to select something hidden from view.
+    /// </summary>
+    private void SelectVisibleByTag(PluginTagSummary tag)
+    {
+        var matches = Plugins
+            .Where(MatchesFilters)
+            .Where(p => p.Tag == tag || p.Tag == PluginTagSummary.Both)
+            .ToList();
+
+        if (matches.Count == 0)
+        {
+            return;
+        }
+
+        IsSelectionMode = true;
+        MutateSelection(() =>
+        {
+            foreach (var vm in Plugins)
+            {
+                vm.IsSelected = false;
+            }
+
+            foreach (var vm in matches)
+            {
+                vm.IsSelected = true;
+            }
+        });
+    }
+
     private void SetTagForVisibleInstalled(PluginTag tag)
     {
         var targets = Plugins.Where(p => p.IsInstalled && MatchesFilters(p)).ToList();
@@ -1831,6 +1924,64 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Refreshes version and online metadata for one plugin, or the whole multi-selection when
+    /// the right-clicked plugin is part of one — the same "act on the selection" rule every other
+    /// context-menu command uses via <see cref="ResolveTargets"/>. No confirmation dialog and no
+    /// catalog re-match, unlike <see cref="RefreshMetadataCoreAsync"/>: re-matching already-
+    /// identified plugins against the catalog has little value, and a confirm popup would be
+    /// heavy for what's meant to be a quick, no-dialog action even for a handful of plugins.
+    /// </summary>
+    [RelayCommand]
+    private async Task RefreshPluginMetadata(PluginDisplayViewModel? vm)
+    {
+        var targets = ResolveTargets(vm).Where(v => v.IsInstalled).ToList();
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
+        // Same version-detection chain as RefreshMetadataCoreAsync's step 1, scoped to just the
+        // resolved targets rather than a whole-library batch.
+        var installedPrograms = await Task.Run(() => _uninstallerLookup.EnumerateInstalledPrograms().ToList());
+        var versionChanged = false;
+
+        foreach (var target in targets)
+        {
+            foreach (var copy in target.ActiveInstalls)
+            {
+                var detected = _versionDetector.DetectFromFile(copy.Path)
+                    ?? UninstallerLookup.FindUninstaller(installedPrograms, target.Name, target.Vendor)?.DisplayVersion;
+
+                if (string.IsNullOrWhiteSpace(detected)
+                    || string.Equals(detected, copy.CurrentVersion, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                copy.CurrentVersion = detected;
+                var stored = _library.Plugins.FirstOrDefault(p => string.Equals(p.Path, copy.Path, StringComparison.OrdinalIgnoreCase));
+                if (stored is not null)
+                {
+                    stored.CurrentVersion = detected;
+                }
+
+                versionChanged = true;
+            }
+
+            target.RefreshInstallInfo();
+        }
+
+        if (versionChanged)
+        {
+            SaveLibrary();
+        }
+
+        // Bypasses the lookup cache — an explicit refresh must actually go and check — and is
+        // scoped to just the resolved targets, so only their KVR requests fire, not the library.
+        await EnrichAllFromWebAsync(ignoreCache: true, targets: targets);
+    }
+
     private async Task RefreshMetadataCoreAsync(IReadOnlyList<PluginDisplayViewModel> targets)
     {
         // 1. Re-detect Current Version from the file's embedded version, falling back to the
@@ -1980,9 +2131,15 @@ public partial class MainViewModel : ObservableObject
     /// True for "Refresh All Metadata", which must re-query even entries that look fresh —
     /// that's the whole point of asking for it.
     /// </param>
-    private async Task EnrichAllFromWebAsync(bool ignoreCache = false)
+    /// <param name="targets">
+    /// Which plugins to enrich. Null (the default) means every installed plugin, which is what
+    /// startup and "Refresh All Metadata" want. A single-plugin "Refresh Metadata" action passes
+    /// a one-item list here so only that plugin's KVR request fires — without this parameter the
+    /// method always re-queried the whole library regardless of what the caller asked for.
+    /// </param>
+    private async Task EnrichAllFromWebAsync(bool ignoreCache = false, IReadOnlyList<PluginDisplayViewModel>? targets = null)
     {
-        var webTargets = Plugins.Where(p => p.IsInstalled).ToList();
+        var webTargets = targets ?? Plugins.Where(p => p.IsInstalled).ToList();
         var resultsByBaseName = new Dictionary<string, KvrLookupResult?>(StringComparer.OrdinalIgnoreCase);
         var pending = new List<(string Key, string Name, string? Vendor)>();
 
@@ -2708,6 +2865,8 @@ public partial class MainViewModel : ObservableObject
 
         SortOption = Enum.TryParse<SortOption>(settings.SortOption, out var sortOption) ? sortOption : SortOption.Name;
         SortDescending = settings.SortDescending;
+        UiScalePercent = Math.Clamp(
+            (int)Math.Round(settings.UiScale * 100), UiScaleMinPercent, UiScaleMaxPercent);
 
         _exclusionList.Reload();
         _manualLogoOverrides.Reload();

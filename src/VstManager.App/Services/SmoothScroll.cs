@@ -91,6 +91,11 @@ public static class SmoothScroll
             FillBehavior = FillBehavior.Stop
         };
 
+        // Sample the animation at the monitor's refresh rate. WPF defaults animation clocks to
+        // ~60 fps, so on a 120/144/240 Hz display the scroll positions are computed only 60×/sec
+        // and the extra frames just repeat — visibly less smooth than the display can manage.
+        Timeline.SetDesiredFrameRate(animation, DisplayInfo.GetRefreshRate(viewer));
+
         // Land exactly on the target and drop the animation, so the value doesn't snap back
         // when the storyboard is released.
         animation.Completed += (_, _) =>

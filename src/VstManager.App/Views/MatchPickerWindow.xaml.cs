@@ -22,6 +22,7 @@ public partial class MatchPickerWindow : Window
     {
         InitializeComponent();
         MaximizedBoundsFix.Apply(this);
+        WindowCorners.Apply(this);
         WindowIcon.ApplyDefault(this);
 
         SubtitleText.Text = $"\"{pluginName}\" matched more than one entry online, or the match wasn't "

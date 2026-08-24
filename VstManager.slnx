@@ -6,10 +6,17 @@
   <Folder Name="/src/">
     <Project Path="src/VstManager.App/VstManager.App.csproj">
       <Platform Solution="*|ARM64" Project="ARM64" />
+      <Build Solution="Debug|ARM64" Project="false" />
     </Project>
     <Project Path="src/VstManager.Core/VstManager.Core.csproj">
       <Platform Solution="*|ARM64" Project="ARM64" />
       <Build Solution="*|ARM64" Project="false" />
+    </Project>
+    <!-- Experimental WinUI 3 head. WinUI has no AnyCPU configuration, so the solution's
+         "Any CPU" platform is mapped to this project's x64. -->
+    <Project Path="src/VstManager.WinUI/VstManager.WinUI.csproj">
+      <Platform Solution="*|Any CPU" Project="x64" />
+      <Platform Solution="*|ARM64" Project="ARM64" />
       <Build Solution="Debug|Any CPU" Project="false" />
     </Project>
   </Folder>

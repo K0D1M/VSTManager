@@ -4,6 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:ctrl="clr-namespace:VstManager.App.Controls"
+        xmlns:svc="clr-namespace:VstManager.App.Services"
         mc:Ignorable="d"
         Title="Settings" Height="620" Width="740"
         MinHeight="460" MinWidth="660"
@@ -23,7 +24,7 @@
                              TitleText="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Title}"
                              TitleIcon="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Icon}" />
 
-    <Grid Grid.Row="1" Margin="20,18,20,16">
+    <Grid Grid.Row="1" Margin="20,18,20,16" svc:UiScale.ScaleContent="True">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -123,6 +124,27 @@
                                     <TextBox Style="{StaticResource SearchBox}"
                                              Text="{Binding AccentHexInput, UpdateSourceTrigger=PropertyChanged}" />
                                 </DockPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingsCard}">
+                            <StackPanel>
+                                <DockPanel LastChildFill="True">
+                                    <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" MinWidth="48"
+                                               TextAlignment="Right" FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               Text="{Binding UiScalePercent, StringFormat={}{0}%}" />
+                                    <StackPanel>
+                                        <TextBlock Text="Display size" Style="{StaticResource SettingsLabel}" />
+                                        <TextBlock Style="{StaticResource SettingsHint}"
+                                                   Text="Scale all text, cards and icons together. Also adjustable anytime with Ctrl +, Ctrl -, and Ctrl 0 to reset." />
+                                    </StackPanel>
+                                </DockPanel>
+                                <Slider Margin="0,12,0,0" VerticalAlignment="Center"
+                                        Minimum="{Binding UiScaleMinPercent}" Maximum="{Binding UiScaleMaxPercent}"
+                                        TickFrequency="{Binding UiScaleStepPercent}" IsSnapToTickEnabled="True"
+                                        TickPlacement="BottomRight"
+                                        Value="{Binding UiScalePercent, Mode=TwoWay}" />
                             </StackPanel>
                         </Border>
 

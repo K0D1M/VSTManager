@@ -1,13 +1,12 @@
 using System.Collections;
-using System.Runtime.InteropServices;
 using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using VstManager.App.Controls;
 using VstManager.App.Services;
 using VstManager.App.ViewModels;
@@ -27,6 +26,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         MaximizedBoundsFix.Apply(this);
+        WindowCorners.Apply(this);
         WindowIcon.ApplyDefault(this);
 
         if (!File.Exists(LibraryStore.GetDefaultPath()))
@@ -86,87 +86,11 @@ public partial class MainWindow : Window
         Activate();
     }
 
-    /// <summary>Natural width that fits the toolbar on one row; the locked restored width.</summary>
-    private double _lockedWidth;
-
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
-        // Lock the restored width to exactly where the toolbar's buttons end: measure the
-        // toolbar unconstrained to get its natural single-row width, then add back the root
-        // Grid's margins and the window chrome.
-        if (Content is not FrameworkElement root)
-        {
-            return;
-        }
-
-        ToolbarPanel.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        var nonContentWidth = ActualWidth - root.ActualWidth;
-        var target = Math.Ceiling(ToolbarPanel.DesiredSize.Width + nonContentWidth);
-
-        // Never demand more width than the monitor actually has — otherwise the window opens
-        // partly offscreen and can't be dragged back to a usable size.
-        var work = WindowSizing.GetWorkArea(this);
-        _lockedWidth = Math.Min(target, work.Width - 16);
-        Width = _lockedWidth;
-
-        // The width lock is enforced by intercepting the live drag-resize message rather than
-        // by setting MaxWidth. MaxWidth also constrains the *maximized* window, and clearing
-        // it from OnStateChanged is too late — Win32 has already committed the size by then,
-        // which left "maximize" stuck at the toolbar width. Blocking the drag instead leaves
-        // maximizing completely unconstrained.
-        if (PresentationSource.FromVisual(this) is HwndSource source)
-        {
-            source.AddHook(WndProc);
-        }
-
+        // The window is freely resizable in both dimensions; just keep it inside the monitor's
+        // work area on open (and grow it for the current zoom — see WindowSizing.FitToScreen).
         WindowSizing.FitToScreen(this);
-    }
-
-    private const int WmSizing = 0x0214;
-    private const int WmszLeft = 1;
-    private const int WmszTopLeft = 4;
-    private const int WmszBottomLeft = 7;
-
-    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
-    {
-        // Only interferes with interactive edge-dragging; maximize/restore/minimize are
-        // untouched because Windows doesn't send WM_SIZING for them.
-        if (msg != WmSizing || _lockedWidth <= 0 || WindowState != WindowState.Normal)
-        {
-            return IntPtr.Zero;
-        }
-
-        var rect = Marshal.PtrToStructure<Win32Rect>(lParam);
-        var scaleX = PresentationSource.FromVisual(this)?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
-        var lockedPixels = (int)Math.Round(_lockedWidth * scaleX);
-
-        // Hold the edge *opposite* the one being dragged still. Always pinning Right would
-        // make a left-edge drag slide the whole window sideways instead of doing nothing.
-        var edge = wParam.ToInt32();
-        var draggingLeftEdge = edge is WmszLeft or WmszTopLeft or WmszBottomLeft;
-
-        if (draggingLeftEdge)
-        {
-            rect.Left = rect.Right - lockedPixels;
-        }
-        else
-        {
-            rect.Right = rect.Left + lockedPixels;
-        }
-
-        Marshal.StructureToPtr(rect, lParam, fDeleteOld: false);
-
-        handled = true;
-        return new IntPtr(1);
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct Win32Rect
-    {
-        public int Left;
-        public int Top;
-        public int Right;
-        public int Bottom;
     }
 
     private void OpenDetailWindow(MainViewModel vm, PluginDisplayViewModel plugin)
@@ -277,7 +201,96 @@ public partial class MainWindow : Window
         {
             vm.SelectAllVisibleCommand.Execute(null);
             e.Handled = true;
+            return;
         }
+
+        // Ctrl +/-/0 zoom, the familiar browser/VS Code binding. OemPlus/OemMinus are the main
+        // keys; Add/Subtract/NumPad0 cover the numpad. Ctrl+0 resets to 100%.
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            switch (e.Key)
+            {
+                case Key.OemPlus or Key.Add:
+                    vm.ZoomInCommand.Execute(null);
+                    break;
+                case Key.OemMinus or Key.Subtract:
+                    vm.ZoomOutCommand.Execute(null);
+                    break;
+                case Key.D0 or Key.NumPad0:
+                    vm.ZoomResetCommand.Execute(null);
+                    break;
+                default:
+                    return;
+            }
+
+            // Flash the current zoom, since the keyboard shortcut has no other feedback. Read the
+            // value back so it reflects clamping at the 80%/150% ends.
+            ShowZoomIndicator(vm.UiScalePercent);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// Ctrl + wheel zooms, matching the keyboard shortcut and browsers. This fires while the
+    /// event tunnels down from the window, before SmoothScroll's ScrollViewer handler, so marking
+    /// it handled here both zooms and stops the list from scrolling at the same time.
+    /// </summary>
+    private void MainWindow_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm
+            || !Keyboard.Modifiers.HasFlag(ModifierKeys.Control)
+            || e.Delta == 0)
+        {
+            return;
+        }
+
+        if (e.Delta > 0)
+        {
+            vm.ZoomInCommand.Execute(null);
+        }
+        else
+        {
+            vm.ZoomOutCommand.Execute(null);
+        }
+
+        ShowZoomIndicator(vm.UiScalePercent);
+        e.Handled = true;
+    }
+
+    private Storyboard? _zoomIndicatorAnimation;
+
+    /// <summary>
+    /// Briefly shows the centred zoom readout, then fades it out. Restarts on each call so rapid
+    /// presses keep it on screen with an up-to-date number.
+    /// </summary>
+    private void ShowZoomIndicator(int percent)
+    {
+        ZoomIndicatorText.Text = $"{percent}%";
+
+        _zoomIndicatorAnimation ??= BuildZoomIndicatorAnimation();
+        _zoomIndicatorAnimation.Begin();
+    }
+
+    private Storyboard BuildZoomIndicatorAnimation()
+    {
+        // Quick fade in, hold ~0.85s, fade out. FillBehavior defaults to HoldEnd, so it settles
+        // back to fully hidden.
+        var fade = new DoubleAnimationUsingKeyFrames
+        {
+            KeyFrames =
+            {
+                new LinearDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(100))),
+                new LinearDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(950))),
+                new LinearDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(1350)))
+            }
+        };
+
+        Storyboard.SetTarget(fade, ZoomIndicator);
+        Storyboard.SetTargetProperty(fade, new PropertyPath(UIElement.OpacityProperty));
+
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(fade);
+        return storyboard;
     }
 
     private static bool IsWithinButton(DependencyObject source, DependencyObject boundary)

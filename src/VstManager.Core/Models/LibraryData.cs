@@ -57,4 +57,11 @@ public class LibraryData
     public string SortOption { get; set; } = "Name";
 
     public bool SortDescending { get; set; }
+
+    /// <summary>
+    /// User-chosen zoom for all window content, 1.0 = 100%. Scales text, cards and icons together
+    /// (on top of the OS's own DPI scaling) so the app can be made denser or roomier to taste and
+    /// stay comfortable from FHD to 4K. Clamped to UiScale.Min..UiScale.Max on load.
+    /// </summary>
+    public double UiScale { get; set; } = 1.0;
 }

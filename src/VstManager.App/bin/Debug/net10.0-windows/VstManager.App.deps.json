@@ -6,7 +6,7 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v10.0": {
-      "VstManager.App/1.5.2": {
+      "VstManager.App/1.6.5": {
         "dependencies": {
           "CommunityToolkit.Mvvm": "8.4.2",
           "VstManager.Core": "1.0.0"
@@ -57,7 +57,7 @@
     }
   },
   "libraries": {
-    "VstManager.App/1.5.2": {
+    "VstManager.App/1.6.5": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

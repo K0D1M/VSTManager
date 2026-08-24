@@ -1,0 +1,115 @@
+<ContentDialog
+    x:Class="VstManager.WinUI.Views.PluginDetailDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:core="using:VstManager.Core.Models"
+    CloseButtonText="Close"
+    DefaultButton="Close">
+
+    <ScrollViewer MaxHeight="520">
+        <StackPanel Spacing="18" Width="440">
+
+            <!-- Identity -->
+            <Grid ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Width="76" Height="76" CornerRadius="12"
+                        Background="{ThemeResource SurfaceAltBrush}">
+                    <Grid>
+                        <FontIcon Glyph="&#xEC4F;" FontSize="26"
+                                  Foreground="{ThemeResource TextSecondaryBrush}" />
+                        <Image Stretch="UniformToFill"
+                               Source="{x:Bind Plugin.LogoPath, Converter={StaticResource PathToImage}, Mode=OneWay}" />
+                    </Grid>
+                </Border>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                    <TextBlock Text="{x:Bind Plugin.Name}" FontSize="21" FontWeight="Bold"
+                               TextWrapping="Wrap" Foreground="{ThemeResource TextPrimaryBrush}" />
+                    <TextBlock Text="{x:Bind Plugin.VendorDisplay}" FontSize="13"
+                               Foreground="{ThemeResource TextSecondaryBrush}" />
+                    <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,4,0,0">
+                        <Border CornerRadius="9" Padding="8,2"
+                                Background="{x:Bind Plugin.Tag, Converter={StaticResource TagSummaryToBrush}, Mode=OneWay}">
+                            <TextBlock Text="{x:Bind Plugin.Tag, Converter={StaticResource TagSummaryToText}, Mode=OneWay}"
+                                       FontSize="10" FontWeight="SemiBold" Foreground="White" />
+                        </Border>
+                        <Border CornerRadius="9" Padding="8,2" Background="{ThemeResource SurfaceAltBrush}"
+                                Visibility="{x:Bind Plugin.InstalledFormatsText, Converter={StaticResource StringToVisibility}, Mode=OneWay}">
+                            <TextBlock Text="{x:Bind Plugin.InstalledFormatsText, Mode=OneWay}" FontSize="10"
+                                       FontWeight="SemiBold" Foreground="{ThemeResource TextSecondaryBrush}" />
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+
+            <!-- Versions -->
+            <Border CornerRadius="10" Padding="14" Background="{ThemeResource CardBackgroundBrush}"
+                    BorderBrush="{ThemeResource CardBorderBrush}" BorderThickness="1">
+                <Grid ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Installed" FontSize="11"
+                                   Foreground="{ThemeResource TextSecondaryBrush}" />
+                        <TextBlock Text="{x:Bind VersionOrDash(Plugin.CurrentVersion), Mode=OneWay}"
+                                   FontSize="15" Foreground="{ThemeResource TextPrimaryBrush}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="Latest available" FontSize="11"
+                                   Foreground="{ThemeResource TextSecondaryBrush}" />
+                        <TextBlock Text="{x:Bind VersionOrDash(Plugin.LatestVersion), Mode=OneWay}"
+                                   FontSize="15" Foreground="{ThemeResource TextPrimaryBrush}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Tags -->
+            <StackPanel Spacing="8"
+                        Visibility="{x:Bind HasTags, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="Tags" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextPrimaryBrush}" />
+                <muxc:ItemsRepeater ItemsSource="{x:Bind Plugin.Tags}">
+                    <muxc:ItemsRepeater.Layout>
+                        <muxc:UniformGridLayout Orientation="Horizontal" MinItemWidth="0"
+                                                MinColumnSpacing="6" MinRowSpacing="6" />
+                    </muxc:ItemsRepeater.Layout>
+                    <muxc:ItemsRepeater.ItemTemplate>
+                        <DataTemplate x:DataType="core:TagDefinition">
+                            <Border CornerRadius="10" Padding="10,3"
+                                    Background="{x:Bind ColorHex, Converter={StaticResource HexToBrush}}">
+                                <TextBlock Text="{x:Bind Name}" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="White" />
+                            </Border>
+                        </DataTemplate>
+                    </muxc:ItemsRepeater.ItemTemplate>
+                </muxc:ItemsRepeater>
+            </StackPanel>
+
+            <!-- Install locations -->
+            <StackPanel Spacing="8">
+                <TextBlock Text="Install locations" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextPrimaryBrush}" />
+                <ItemsControl ItemsSource="{x:Bind Plugin.ActiveInstalls}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="core:PluginInfo">
+                            <Border CornerRadius="8" Padding="10,7" Margin="0,0,0,5"
+                                    Background="{ThemeResource SurfaceAltBrush}">
+                                <TextBlock Text="{x:Bind Path}" FontSize="11"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{ThemeResource TextSecondaryBrush}"
+                                           ToolTipService.ToolTip="{x:Bind Path}" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</ContentDialog>
