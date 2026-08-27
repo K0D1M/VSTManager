@@ -5,7 +5,7 @@
   },
   "projects": {
     "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\VstManager.App.csproj": {
-      "version": "1.6.5",
+      "version": "1.6.5.1",
       "restore": {
         "projectUniqueName": "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\VstManager.App.csproj",
         "projectName": "VstManager.App",
@@ -60,6 +60,10 @@
             "CommunityToolkit.Mvvm": {
               "target": "Package",
               "version": "[8.4.2, )"
+            },
+            "MpCoding.WPF.LoadingAnimations": {
+              "target": "Package",
+              "version": "[1.0.2, )"
             }
           },
           "imports": [

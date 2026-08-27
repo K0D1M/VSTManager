@@ -77,4 +77,6 @@ public class PluginDisplayItem
     public bool IsFavoriteSummary => Installs.Any(i => i.IsFavorite);
 
     public bool IsHiddenSummary => Installs.Any(i => i.IsHidden);
+
+    public bool IgnoreVersionCheckSummary => Installs.Any(i => i.IgnoreVersionCheck);
 }

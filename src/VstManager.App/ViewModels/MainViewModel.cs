@@ -87,8 +87,7 @@ public partial class MainViewModel : ObservableObject
 
     private readonly ICloudSyncProvider _cloudProvider;
     private readonly CloudSyncService _cloudSync;
-    private readonly NotificationService _notificationService = new(
-        Path.Combine(AppContext.BaseDirectory, "a_clean_modern_app_icon_logo_design_on_a_dark_b.ico"));
+    private readonly NotificationService _notificationService = new(AppIdentityService.IconPath);
 
     private LibraryData _library = new();
 
@@ -1835,6 +1834,28 @@ public partial class MainViewModel : ObservableObject
         RefreshViews();
     }
 
+    private void ApplyIgnoreVersionCheckToTargets(List<PluginDisplayViewModel> targets, bool ignoreVersionCheck)
+    {
+        foreach (var vm in targets.Where(p => p.Installs.Count > 0))
+        {
+            foreach (var copy in vm.Installs)
+            {
+                copy.IgnoreVersionCheck = ignoreVersionCheck;
+
+                var stored = _library.Plugins.FirstOrDefault(p => string.Equals(p.Path, copy.Path, StringComparison.OrdinalIgnoreCase));
+                if (stored is not null)
+                {
+                    stored.IgnoreVersionCheck = ignoreVersionCheck;
+                }
+            }
+
+            vm.RefreshInstallInfo();
+        }
+
+        SaveLibrary();
+        RefreshViews();
+    }
+
     private void ApplyTagToAllCopies(PluginDisplayViewModel vm, PluginTag tag)
     {
         foreach (var copy in vm.Installs)
@@ -1893,6 +1914,17 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void ToggleIgnoreVersionCheck(PluginDisplayViewModel? vm)
+    {
+        if (vm is null || vm.Installs.Count == 0)
+        {
+            return;
+        }
+
+        ApplyIgnoreVersionCheckToTargets(ResolveTargets(vm), !vm.IgnoreVersionCheck);
+    }
+
+    [RelayCommand]
     private async Task RefreshAllMetadata()
     {
         var result = MessageBox.Show(
@@ -1941,45 +1973,60 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        // Same version-detection chain as RefreshMetadataCoreAsync's step 1, scoped to just the
-        // resolved targets rather than a whole-library batch.
-        var installedPrograms = await Task.Run(() => _uninstallerLookup.EnumerateInstalledPrograms().ToList());
-        var versionChanged = false;
-
         foreach (var target in targets)
         {
-            foreach (var copy in target.ActiveInstalls)
+            target.IsRefreshingMetadata = true;
+        }
+
+        try
+        {
+            // Same version-detection chain as RefreshMetadataCoreAsync's step 1, scoped to just
+            // the resolved targets rather than a whole-library batch.
+            var installedPrograms = await Task.Run(() => _uninstallerLookup.EnumerateInstalledPrograms().ToList());
+            var versionChanged = false;
+
+            foreach (var target in targets)
             {
-                var detected = _versionDetector.DetectFromFile(copy.Path)
-                    ?? UninstallerLookup.FindUninstaller(installedPrograms, target.Name, target.Vendor)?.DisplayVersion;
-
-                if (string.IsNullOrWhiteSpace(detected)
-                    || string.Equals(detected, copy.CurrentVersion, StringComparison.OrdinalIgnoreCase))
+                foreach (var copy in target.ActiveInstalls)
                 {
-                    continue;
+                    var detected = _versionDetector.DetectFromFile(copy.Path)
+                        ?? UninstallerLookup.FindUninstaller(installedPrograms, target.Name, target.Vendor)?.DisplayVersion;
+
+                    if (string.IsNullOrWhiteSpace(detected)
+                        || string.Equals(detected, copy.CurrentVersion, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    copy.CurrentVersion = detected;
+                    var stored = _library.Plugins.FirstOrDefault(p => string.Equals(p.Path, copy.Path, StringComparison.OrdinalIgnoreCase));
+                    if (stored is not null)
+                    {
+                        stored.CurrentVersion = detected;
+                    }
+
+                    versionChanged = true;
                 }
 
-                copy.CurrentVersion = detected;
-                var stored = _library.Plugins.FirstOrDefault(p => string.Equals(p.Path, copy.Path, StringComparison.OrdinalIgnoreCase));
-                if (stored is not null)
-                {
-                    stored.CurrentVersion = detected;
-                }
-
-                versionChanged = true;
+                target.RefreshInstallInfo();
             }
 
-            target.RefreshInstallInfo();
-        }
+            if (versionChanged)
+            {
+                SaveLibrary();
+            }
 
-        if (versionChanged)
+            // Bypasses the lookup cache — an explicit refresh must actually go and check — and is
+            // scoped to just the resolved targets, so only their KVR requests fire, not the library.
+            await EnrichAllFromWebAsync(ignoreCache: true, targets: targets);
+        }
+        finally
         {
-            SaveLibrary();
+            foreach (var target in targets)
+            {
+                target.IsRefreshingMetadata = false;
+            }
         }
-
-        // Bypasses the lookup cache — an explicit refresh must actually go and check — and is
-        // scoped to just the resolved targets, so only their KVR requests fire, not the library.
-        await EnrichAllFromWebAsync(ignoreCache: true, targets: targets);
     }
 
     private async Task RefreshMetadataCoreAsync(IReadOnlyList<PluginDisplayViewModel> targets)

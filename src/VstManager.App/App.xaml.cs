@@ -1,5 +1,6 @@
 ﻿using System.Configuration;
 using System.Data;
+using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using VstManager.App.Services;
@@ -15,6 +16,10 @@ public partial class App : Application
     {
         base.OnStartup(e);
         DispatcherUnhandledException += OnDispatcherUnhandledException;
+
+        // Before any window exists: the shell caches this process's AppUserModelID the first
+        // time it needs one, and without it notification balloons never reach Action Center.
+        AppIdentityService.Register();
 
         // Registered as a class handler so every ScrollViewer gets smooth wheel scrolling,
         // including ones generated inside control templates.

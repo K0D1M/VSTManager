@@ -100,10 +100,19 @@
                         </Border>
                         <Border Style="{StaticResource TagBadge}" Padding="8,2"
                                 Background="{DynamicResource OutdatedBrush}"
-                                ToolTip="{Binding LatestVersion, StringFormat='A newer version (v{0}) is available'}"
-                                Visibility="{Binding IsOutdated, Converter={StaticResource BoolToVisibilityConverter}}">
+                                ToolTip="{Binding LatestVersion, StringFormat='A newer version (v{0}) is available'}">
+                            <Border.Visibility>
+                                <MultiBinding Converter="{StaticResource OutdatedBadgeVisibilityConverter}">
+                                    <Binding Path="IsOutdated" />
+                                    <Binding Path="IgnoreVersionCheck" />
+                                </MultiBinding>
+                            </Border.Visibility>
                             <TextBlock Text="OUTDATED" FontSize="11" FontWeight="Bold" Foreground="White" />
                         </Border>
+                        <Button Style="{StaticResource GhostButton}" Padding="8,3" FontSize="11" Margin="6,0,0,0"
+                                Click="ToggleIgnoreVersionCheck_Click"
+                                Content="{Binding IgnoreVersionCheck, Converter={StaticResource IgnoreVersionCheckMenuTextConverter}}"
+                                Visibility="{Binding IsInstalled, Converter={StaticResource BoolToVisibilityConverter}}" />
                     </StackPanel>
                 </StackPanel>
             </DockPanel>

@@ -47,6 +47,29 @@
           "buildTransitive/CommunityToolkit.Mvvm.targets": {}
         }
       },
+      "MpCoding.WPF.LoadingAnimations/1.0.2": {
+        "type": "package",
+        "compile": {
+          "lib/netcoreapp3.1/MpCoding.WPF.LoadingAnimations.dll": {
+            "related": ".pdb"
+          }
+        },
+        "runtime": {
+          "lib/netcoreapp3.1/MpCoding.WPF.LoadingAnimations.dll": {
+            "related": ".pdb"
+          }
+        },
+        "frameworkReferences": [
+          "Microsoft.WindowsDesktop.App.WPF"
+        ],
+        "contentFiles": {
+          "contentFiles/any/netcoreapp3.1/MpCodingDP.ico": {
+            "buildAction": "Content",
+            "codeLanguage": "any",
+            "copyToOutput": false
+          }
+        }
+      },
       "VstManager.Core/1.0.0": {
         "type": "project",
         "framework": ".NETCoreApp,Version=v10.0",
@@ -165,6 +188,22 @@
         "lib/netstandard2.1/CommunityToolkit.Mvvm.xml"
       ]
     },
+    "MpCoding.WPF.LoadingAnimations/1.0.2": {
+      "sha512": "St9WZMTJgqJ5M+OXDycfbg0ripQsXDpd3EyELCsKMLdUPDgWwgsJ6CkG05OY8tyuzIhGKVx3yS1cuUJPEifHgQ==",
+      "type": "package",
+      "path": "mpcoding.wpf.loadinganimations/1.0.2",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "MpCodingDP.png",
+        "content/MpCodingDP.ico",
+        "contentFiles/any/netcoreapp3.1/MpCodingDP.ico",
+        "lib/netcoreapp3.1/MpCoding.WPF.LoadingAnimations.dll",
+        "lib/netcoreapp3.1/MpCoding.WPF.LoadingAnimations.pdb",
+        "mpcoding.wpf.loadinganimations.1.0.2.nupkg.sha512",
+        "mpcoding.wpf.loadinganimations.nuspec"
+      ]
+    },
     "VstManager.Core/1.0.0": {
       "type": "project",
       "path": "../VstManager.Core/VstManager.Core.csproj",
@@ -174,6 +213,7 @@
   "projectFileDependencyGroups": {
     "net10.0-windows": [
       "CommunityToolkit.Mvvm >= 8.4.2",
+      "MpCoding.WPF.LoadingAnimations >= 1.0.2",
       "VstManager.Core >= 1.0.0"
     ]
   },
@@ -182,7 +222,7 @@
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
-    "version": "1.6.5",
+    "version": "1.6.5.1",
     "restore": {
       "projectUniqueName": "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\VstManager.App.csproj",
       "projectName": "VstManager.App",
@@ -237,6 +277,10 @@
           "CommunityToolkit.Mvvm": {
             "target": "Package",
             "version": "[8.4.2, )"
+          },
+          "MpCoding.WPF.LoadingAnimations": {
+            "target": "Package",
+            "version": "[1.0.2, )"
           }
         },
         "imports": [

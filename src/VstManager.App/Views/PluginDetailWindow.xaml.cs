@@ -303,6 +303,11 @@ public partial class PluginDetailWindow : Window
         }
     }
 
+    private void ToggleIgnoreVersionCheck_Click(object sender, RoutedEventArgs e)
+    {
+        _mainViewModel.ToggleIgnoreVersionCheckCommand.Execute(_plugin);
+    }
+
     /// <summary>
     /// Lets the user force-correct a bad match by searching directly and choosing from the
     /// results — unlike Auto-Detect, this always shows the picker, even for a single strong

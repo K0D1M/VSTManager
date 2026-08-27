@@ -105,6 +105,29 @@ public class HideMenuTextConverter : IValueConverter
         throw new NotSupportedException();
 }
 
+public class IgnoreVersionCheckMenuTextConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? "Stop Ignoring Version Updates" : "Ignore Version Updates";
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>OUTDATED badge visibility: true only when the plugin is actually outdated AND the user hasn't asked to ignore its version check. IsOutdated itself is left untouched everywhere else (sort, filter, counts).</summary>
+public class OutdatedBadgeVisibilityConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var isOutdated = values.Length > 0 && values[0] is true;
+        var ignoreVersionCheck = values.Length > 1 && values[1] is true;
+        return isOutdated && !ignoreVersionCheck ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 public class HiddenToOpacityConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>

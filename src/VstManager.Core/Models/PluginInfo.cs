@@ -40,6 +40,9 @@ public class PluginInfo
     public bool IsFavorite { get; set; }
     public bool IsHidden { get; set; }
 
+    /// <summary>When true, the OUTDATED badge is suppressed for this copy even if LatestVersion is newer than CurrentVersion — a user-set exception (e.g. a cracked copy that can't be updated the normal way), not tag-based.</summary>
+    public bool IgnoreVersionCheck { get; set; }
+
     /// <summary>
     /// True when this entry's file was present in an earlier scan but is no longer on disk.
     /// The entry is deliberately retained so the user's classification (tag, kind, versions,

@@ -80,6 +80,14 @@ public partial class PluginDisplayViewModel : ObservableObject
     [ObservableProperty]
     private bool _isHidden;
 
+    /// <summary>True when the user has chosen to suppress the OUTDATED badge for this plugin specifically. Does not affect IsOutdated itself, only its visibility.</summary>
+    [ObservableProperty]
+    private bool _ignoreVersionCheck;
+
+    /// <summary>True while Refresh Metadata is running for this specific plugin (context menu or detail window), drives the card/row's loading spinner.</summary>
+    [ObservableProperty]
+    private bool _isRefreshingMetadata;
+
     /// <summary>
     /// True if discovered by the most recent scan (not persisted — resets to false once a
     /// subsequent scan runs and this plugin is already in the stored library).
@@ -143,6 +151,7 @@ public partial class PluginDisplayViewModel : ObservableObject
         Kind = _item.KindSummary;
         IsFavorite = _item.IsFavoriteSummary;
         IsHidden = _item.IsHiddenSummary;
+        IgnoreVersionCheck = _item.IgnoreVersionCheckSummary;
         CurrentVersion = _item.Installs.Select(i => i.CurrentVersion).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
         LatestVersion = _item.Installs.Select(i => i.LatestVersion).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
         IsOutdated = VersionComparer.IsNewer(LatestVersion, CurrentVersion);

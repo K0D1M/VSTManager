@@ -9,6 +9,7 @@
         xmlns:core="clr-namespace:VstManager.Core.Models;assembly=VstManager.Core"
         xmlns:ctrl="clr-namespace:VstManager.App.Controls"
         xmlns:svc="clr-namespace:VstManager.App.Services"
+        xmlns:mp="http://schemas.mpcoding.com/mpcoding/wpf/loadinganimation"
         mc:Ignorable="d"
         Background="{DynamicResource WindowBackgroundBrush}"
         Title="VST Manager" Height="680" Width="1100"
@@ -146,8 +147,13 @@
 
                             <Border Style="{StaticResource TagBadge}" Margin="2,2" Padding="8,3"
                                     Background="{DynamicResource OutdatedBrush}"
-                                    ToolTip="{Binding LatestVersion, StringFormat='A newer version (v{0}) is available'}"
-                                    Visibility="{Binding IsOutdated, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    ToolTip="{Binding LatestVersion, StringFormat='A newer version (v{0}) is available'}">
+                                <Border.Visibility>
+                                    <MultiBinding Converter="{StaticResource OutdatedBadgeVisibilityConverter}">
+                                        <Binding Path="IsOutdated" />
+                                        <Binding Path="IgnoreVersionCheck" />
+                                    </MultiBinding>
+                                </Border.Visibility>
                                 <TextBlock Text="OUTDATED" FontSize="11" FontWeight="Bold" Foreground="White" />
                             </Border>
                         </WrapPanel>
@@ -208,6 +214,14 @@
                                    Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibilityConverter}}" />
                     </Border>
 
+                    <!-- Refresh Metadata in progress for this plugin: dim the card and show a
+                         spinner, the same "this one's busy" language the Rescan button's spin
+                         already uses at the toolbar level, just scoped to a single card. -->
+                    <Border CornerRadius="10" Background="#AA000000" IsHitTestVisible="False"
+                            Visibility="{Binding IsRefreshingMetadata, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <mp:DonutSpinner Width="32" Height="32" SpinnerColor="White" Duration="0:0:0.9" />
+                    </Border>
+
                 </Grid>
             </Border>
         </DataTemplate>
@@ -258,6 +272,12 @@
                                     <Binding Path="IsInstalled" Converter="{StaticResource OpacityConverter}" />
                                 </Image.Opacity>
                             </Image>
+
+                            <!-- Refresh Metadata in progress for this plugin -->
+                            <Border CornerRadius="8" Background="#AA000000" IsHitTestVisible="False"
+                                    Visibility="{Binding IsRefreshingMetadata, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <mp:DonutSpinner Width="18" Height="18" SpinnerColor="White" Duration="0:0:0.9" />
+                            </Border>
                         </Grid>
                     </Border>
 
@@ -287,8 +307,13 @@
                             </Border>
                             <Border Grid.Column="3" Style="{StaticResource TagBadge}" Padding="7,1"
                                     Background="{DynamicResource OutdatedBrush}" VerticalAlignment="Center"
-                                    ToolTip="{Binding LatestVersion, StringFormat='A newer version (v{0}) is available'}"
-                                    Visibility="{Binding IsOutdated, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    ToolTip="{Binding LatestVersion, StringFormat='A newer version (v{0}) is available'}">
+                                <Border.Visibility>
+                                    <MultiBinding Converter="{StaticResource OutdatedBadgeVisibilityConverter}">
+                                        <Binding Path="IsOutdated" />
+                                        <Binding Path="IgnoreVersionCheck" />
+                                    </MultiBinding>
+                                </Border.Visibility>
                                 <TextBlock Text="OUTDATED" FontSize="10" FontWeight="Bold" Foreground="White" />
                             </Border>
                         </Grid>
@@ -349,6 +374,14 @@
                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                             <MenuItem.Icon>
                                 <TextBlock Text="&#x1F441;" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="{Binding PlacementTarget.DataContext.IgnoreVersionCheck, Converter={StaticResource IgnoreVersionCheckMenuTextConverter}, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  IsEnabled="{Binding PlacementTarget.DataContext.IsInstalled, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  Command="{Binding PlacementTarget.Tag.ToggleIgnoreVersionCheckCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                            <MenuItem.Icon>
+                                <TextBlock Text="&#x1F51D;" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <Separator />
@@ -959,7 +992,7 @@
                         <Path Data="{StaticResource IconRefresh}" Stroke="{DynamicResource TextPrimaryBrush}"
                               StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                               Stretch="Uniform" Width="13" Height="13" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Refresh Metadata" VerticalAlignment="Center" />
+                        <TextBlock Text="Refresh All Metadata" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
 

@@ -217,7 +217,15 @@ public class KvrLookupService
 
                     var productFetch = await FetchAsync(productUrl);
                     var result = productFetch is null ? null : ParseProductPage(productFetch.Value.Body);
-                    if (result is not null)
+
+                    // Unlike the direct-URL and vendor-index paths, a search engine's top link is
+                    // not self-verifying — it can be any KVR product page that merely mentions the
+                    // query terms. Without this check a generic or ambiguous scanned name (e.g.
+                    // "Reverb", "Delay") could silently attach an unrelated product's version,
+                    // name, vendor and logo. Same plausibility floor SearchCandidatesAsync and
+                    // TryVendorIndexAsync already require before accepting a match.
+                    if (result is not null
+                        && NameSimilarity.Score(pluginName, result.ProductName, result.Vendor) >= NameSimilarity.PlausibleThreshold)
                     {
                         return result;
                     }

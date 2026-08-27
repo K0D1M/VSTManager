@@ -88,7 +88,7 @@ namespace VstManager.App.Views {
                 return;
             }
             _contentLoaded = true;
-            System.Uri resourceLocater = new System.Uri("/VstManager.App;component/views/plugindetailwindow.xaml", System.UriKind.Relative);
+            System.Uri resourceLocater = new System.Uri("/VstManager.App;V1.6.5.0;component/views/plugindetailwindow.xaml", System.UriKind.Relative);
             
             #line 1 "..\..\..\..\Views\PluginDetailWindow.xaml"
             System.Windows.Application.LoadComponent(this, resourceLocater);
