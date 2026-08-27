@@ -12,7 +12,7 @@ TRACE;DEBUG;NET;NET10_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_O
 C:\Users\Konstantinos D\VstManager\src\VstManager.App\App.xaml
 13-816590367
 1-2136994992
-39-91980766
+43-2042051805
 218-883044752
 Controls\CustomTitleBar.xaml;MainWindow.xaml;Themes\Converters.xaml;Themes\Dark.xaml;Themes\Light.xaml;Themes\Styles.xaml;Themes\TitleBar.xaml;Views\ClassifyPluginsWindow.xaml;Views\CloudConflictWindow.xaml;Views\MatchPickerWindow.xaml;Views\PluginDetailWindow.xaml;Views\SettingsWindow.xaml;Views\WelcomeWindow.xaml;
 

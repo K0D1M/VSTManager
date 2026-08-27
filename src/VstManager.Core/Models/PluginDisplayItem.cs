@@ -77,4 +77,11 @@ public class PluginDisplayItem
     public bool IsFavoriteSummary => Installs.Any(i => i.IsFavorite);
 
     public bool IsHiddenSummary => Installs.Any(i => i.IsHidden);
+
+    /// <summary>
+    /// True when any copy is set to ignore version updates. Matches how favourite and hidden
+    /// summarise: the plugin is treated as one thing in the UI, so setting it on any copy
+    /// suppresses the badge for all of them.
+    /// </summary>
+    public bool IgnoreVersionCheckSummary => Installs.Any(i => i.IgnoreVersionCheck);
 }

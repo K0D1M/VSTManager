@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("VstManager.Core")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0dba4e64e9954052203a92151d7bff7fc3cefcb6")]
 [assembly: System.Reflection.AssemblyProductAttribute("VstManager.Core")]
 [assembly: System.Reflection.AssemblyTitleAttribute("VstManager.Core")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

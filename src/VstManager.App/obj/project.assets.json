@@ -182,7 +182,7 @@
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
-    "version": "1.6.5",
+    "version": "1.7.0",
     "restore": {
       "projectUniqueName": "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\VstManager.App.csproj",
       "projectName": "VstManager.App",

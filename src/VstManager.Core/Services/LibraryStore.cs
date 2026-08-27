@@ -48,7 +48,11 @@ public class LibraryStore
     /// Reconciles the stored library against a fresh scan. Entries whose files are still on
     /// disk keep their user-set metadata; entries whose files have gone are *retained* and
     /// flagged uninstalled rather than dropped, so uninstalling a plugin no longer destroys
-    /// its tag, kind, versions, favourite and hidden state.
+    /// its tag, kind, versions, favourite, hidden and ignore-version-check state.
+    ///
+    /// Every user-set field has to be copied across explicitly below: a scan builds brand new
+    /// PluginInfo objects from disk, so anything not listed silently reverts to its default on
+    /// the next rescan. Adding a user-settable property to PluginInfo means adding it here too.
     /// </summary>
     public List<PluginInfo> MergeOnRescan(List<PluginInfo> existing, List<PluginInfo> scanned)
     {
@@ -66,6 +70,7 @@ public class LibraryStore
                 found.LatestVersion = existingEntry.LatestVersion;
                 found.IsFavorite = existingEntry.IsFavorite;
                 found.IsHidden = existingEntry.IsHidden;
+                found.IgnoreVersionCheck = existingEntry.IgnoreVersionCheck;
                 found.FirstSeenAt = existingEntry.FirstSeenAt;
 
                 // A fresh scan re-reads the vendor from disk; keep the stored one only when this

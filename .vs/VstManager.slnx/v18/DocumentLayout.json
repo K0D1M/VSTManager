@@ -1,0 +1,120 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\Konstantinos D\\VstManager\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{57B46191-07FB-7815-22F6-6477B156DE0F}|src\\VstManager.App\\VstManager.App.csproj|c:\\users\\konstantinos d\\vstmanager\\src\\vstmanager.app\\views\\classifypluginswindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{57B46191-07FB-7815-22F6-6477B156DE0F}|src\\VstManager.App\\VstManager.App.csproj|solutionrelative:src\\vstmanager.app\\views\\classifypluginswindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{57B46191-07FB-7815-22F6-6477B156DE0F}|src\\VstManager.App\\VstManager.App.csproj|c:\\users\\konstantinos d\\vstmanager\\src\\vstmanager.app\\views\\plugindetailwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{57B46191-07FB-7815-22F6-6477B156DE0F}|src\\VstManager.App\\VstManager.App.csproj|solutionrelative:src\\vstmanager.app\\views\\plugindetailwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{57B46191-07FB-7815-22F6-6477B156DE0F}|src\\VstManager.App\\VstManager.App.csproj|c:\\users\\konstantinos d\\vstmanager\\src\\vstmanager.app\\views\\welcomewindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{57B46191-07FB-7815-22F6-6477B156DE0F}|src\\VstManager.App\\VstManager.App.csproj|solutionrelative:src\\vstmanager.app\\views\\welcomewindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{57B46191-07FB-7815-22F6-6477B156DE0F}|src\\VstManager.App\\VstManager.App.csproj|c:\\users\\konstantinos d\\vstmanager\\src\\vstmanager.app\\views\\settingswindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{57B46191-07FB-7815-22F6-6477B156DE0F}|src\\VstManager.App\\VstManager.App.csproj|solutionrelative:src\\vstmanager.app\\views\\settingswindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{57B46191-07FB-7815-22F6-6477B156DE0F}|src\\VstManager.App\\VstManager.App.csproj|c:\\users\\konstantinos d\\vstmanager\\src\\vstmanager.app\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{57B46191-07FB-7815-22F6-6477B156DE0F}|src\\VstManager.App\\VstManager.App.csproj|solutionrelative:src\\vstmanager.app\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{57B46191-07FB-7815-22F6-6477B156DE0F}|src\\VstManager.App\\VstManager.App.csproj|c:\\users\\konstantinos d\\vstmanager\\src\\vstmanager.app\\views\\matchpickerwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{57B46191-07FB-7815-22F6-6477B156DE0F}|src\\VstManager.App\\VstManager.App.csproj|solutionrelative:src\\vstmanager.app\\views\\matchpickerwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 6,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "WelcomeWindow.xaml",
+              "DocumentMoniker": "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\Views\\WelcomeWindow.xaml",
+              "RelativeDocumentMoniker": "src\\VstManager.App\\Views\\WelcomeWindow.xaml",
+              "ToolTip": "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\Views\\WelcomeWindow.xaml",
+              "RelativeToolTip": "src\\VstManager.App\\Views\\WelcomeWindow.xaml",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2026-08-24T20:49:15.025Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "PluginDetailWindow.xaml",
+              "DocumentMoniker": "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\Views\\PluginDetailWindow.xaml",
+              "RelativeDocumentMoniker": "src\\VstManager.App\\Views\\PluginDetailWindow.xaml",
+              "ToolTip": "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\Views\\PluginDetailWindow.xaml",
+              "RelativeToolTip": "src\\VstManager.App\\Views\\PluginDetailWindow.xaml",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2026-08-24T20:49:07.722Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "MainWindow.xaml",
+              "DocumentMoniker": "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\MainWindow.xaml",
+              "RelativeDocumentMoniker": "src\\VstManager.App\\MainWindow.xaml",
+              "ToolTip": "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\MainWindow.xaml*",
+              "RelativeToolTip": "src\\VstManager.App\\MainWindow.xaml*",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2026-08-24T20:28:57.415Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "MatchPickerWindow.xaml",
+              "DocumentMoniker": "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\Views\\MatchPickerWindow.xaml",
+              "RelativeDocumentMoniker": "src\\VstManager.App\\Views\\MatchPickerWindow.xaml",
+              "ToolTip": "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\Views\\MatchPickerWindow.xaml",
+              "RelativeToolTip": "src\\VstManager.App\\Views\\MatchPickerWindow.xaml",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2026-08-24T20:28:55.133Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "SettingsWindow.xaml",
+              "DocumentMoniker": "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\Views\\SettingsWindow.xaml",
+              "RelativeDocumentMoniker": "src\\VstManager.App\\Views\\SettingsWindow.xaml",
+              "ToolTip": "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\Views\\SettingsWindow.xaml",
+              "RelativeToolTip": "src\\VstManager.App\\Views\\SettingsWindow.xaml",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2026-08-24T20:27:14.807Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "ClassifyPluginsWindow.xaml",
+              "DocumentMoniker": "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\Views\\ClassifyPluginsWindow.xaml",
+              "RelativeDocumentMoniker": "src\\VstManager.App\\Views\\ClassifyPluginsWindow.xaml",
+              "ToolTip": "C:\\Users\\Konstantinos D\\VstManager\\src\\VstManager.App\\Views\\ClassifyPluginsWindow.xaml",
+              "RelativeToolTip": "src\\VstManager.App\\Views\\ClassifyPluginsWindow.xaml",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2026-08-24T20:27:02.465Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

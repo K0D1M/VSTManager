@@ -81,6 +81,13 @@ public partial class PluginDisplayViewModel : ObservableObject
     private bool _isHidden;
 
     /// <summary>
+    /// User-set suppression of the OUTDATED badge. <see cref="IsOutdated"/> is deliberately left
+    /// alone, so sorting and filtering by update status still see the real value.
+    /// </summary>
+    [ObservableProperty]
+    private bool _ignoreVersionCheck;
+
+    /// <summary>
     /// True if discovered by the most recent scan (not persisted — resets to false once a
     /// subsequent scan runs and this plugin is already in the stored library).
     /// </summary>
@@ -143,6 +150,7 @@ public partial class PluginDisplayViewModel : ObservableObject
         Kind = _item.KindSummary;
         IsFavorite = _item.IsFavoriteSummary;
         IsHidden = _item.IsHiddenSummary;
+        IgnoreVersionCheck = _item.IgnoreVersionCheckSummary;
         CurrentVersion = _item.Installs.Select(i => i.CurrentVersion).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
         LatestVersion = _item.Installs.Select(i => i.LatestVersion).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
         IsOutdated = VersionComparer.IsNewer(LatestVersion, CurrentVersion);

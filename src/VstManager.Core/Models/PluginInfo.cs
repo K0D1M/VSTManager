@@ -41,6 +41,16 @@ public class PluginInfo
     public bool IsHidden { get; set; }
 
     /// <summary>
+    /// User-set: suppress the OUTDATED badge for this plugin. Set per plugin, independent of its
+    /// Legit/Cracked tag — cracked copies commonly report a version that can never be bumped the
+    /// normal way, so the badge is permanent noise the user should be able to silence.
+    ///
+    /// Only the badge is hidden. The computed outdated state itself is untouched, so sorting,
+    /// filtering by update status and the outdated counts all keep telling the truth.
+    /// </summary>
+    public bool IgnoreVersionCheck { get; set; }
+
+    /// <summary>
     /// True when this entry's file was present in an earlier scan but is no longer on disk.
     /// The entry is deliberately retained so the user's classification (tag, kind, versions,
     /// favourite, hidden) survives an uninstall instead of being destroyed by the next

@@ -2,7 +2,9 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Windows;
+// Only two WPF dependencies remain, and both have direct Avalonia equivalents: Color (the
+// user-configurable accent) and ListCollectionView (the filtered plugin views). Everything else
+// now goes through VstManager.Core.Abstractions.
 using System.Windows.Data;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -10,6 +12,7 @@ using CommunityToolkit.Mvvm.Input;
 using VstManager.App.Converters;
 using VstManager.App.Services;
 using VstManager.App.Views;
+using VstManager.Core.Abstractions;
 using VstManager.Core.Models;
 using VstManager.Core.Services;
 using VstManager.Core.Services.Cloud;
@@ -61,6 +64,13 @@ public sealed record TagCommandArgs(PluginDisplayViewModel? Plugin, TagDefinitio
 
 public partial class MainViewModel : ObservableObject
 {
+    // The platform surface, behind interfaces so this view model can be shared with the Avalonia
+    // UI head rather than forked. Defaulted to the WPF implementations in the constructor.
+    private readonly IDialogService _dialogs;
+    private readonly IUiDispatcher _dispatcher;
+    private readonly IAppShell _shell;
+    private readonly IPlatformIntegration _platform;
+
     private readonly ScanPathProvider _scanPathProvider = new();
     private readonly ExclusionListService _exclusionList = new();
     private readonly PluginScanner _scanner;
@@ -532,44 +542,19 @@ public partial class MainViewModel : ObservableObject
     private void OnCloudSyncStateChanged(object? sender, EventArgs e)
     {
         // Syncing runs off the UI thread; the bound properties have to be set back on it.
-        Application.Current?.Dispatcher.InvokeAsync(() =>
+        _dispatcher.Post(() =>
         {
             CloudState = _cloudSync.State;
             CloudStatusMessage = _cloudSync.StatusMessage;
         });
     }
 
-    /// <summary>
-    /// Puts the conflict in front of the user. Sync runs on a background thread, so the dialog
-    /// has to be marshalled to the UI one and its answer awaited before the sync continues.
-    /// </summary>
-    private async Task<ConflictResolution> AskAboutCloudConflictAsync(DateTime localChangedAt, DateTime remoteChangedAt)
-    {
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is null)
-        {
-            return ConflictResolution.Skip;
-        }
-
-        return await dispatcher.InvokeAsync(() =>
-        {
-            var owner = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive)
-                        ?? Application.Current.MainWindow;
-
-            var dialog = new CloudConflictWindow(localChangedAt, remoteChangedAt);
-            if (owner is not null && !ReferenceEquals(owner, dialog))
-            {
-                dialog.Owner = owner;
-            }
-
-            dialog.ShowDialog();
-            return dialog.Resolution;
-        });
-    }
+    private Task<ConflictResolution> AskAboutCloudConflictAsync(DateTime localChangedAt, DateTime remoteChangedAt) =>
+        _shell.AskAboutCloudConflictAsync(localChangedAt, remoteChangedAt);
 
     private void OnCloudRemoteDataApplied(object? sender, EventArgs e)
     {
-        Application.Current?.Dispatcher.InvokeAsync(async () => await ReloadAfterRestoreAsync());
+        _dispatcher.Post(async () => await ReloadAfterRestoreAsync());
     }
 
     /// <summary>
@@ -630,9 +615,7 @@ public partial class MainViewModel : ObservableObject
                 ? $"A new version (v{result.LatestVersion}) is ready to install. VST Manager will close and the installer will open. Continue?"
                 : $"A new version (v{result.LatestVersion}) is available. Open the release page?";
 
-            var confirmResult = MessageBox.Show(message, "Update Available", MessageBoxButton.YesNo, MessageBoxImage.Information);
-
-            if (confirmResult == MessageBoxResult.Yes)
+            if (_dialogs.Confirm(message, "Update Available", DialogSeverity.Information))
             {
                 await InstallOrOpenRelease();
             }
@@ -650,7 +633,7 @@ public partial class MainViewModel : ObservableObject
         }
         else if (LatestReleaseUrl is not null)
         {
-            Process.Start(new ProcessStartInfo(LatestReleaseUrl) { UseShellExecute = true });
+            _platform.OpenExternal(LatestReleaseUrl);
         }
     }
 
@@ -664,14 +647,14 @@ public partial class MainViewModel : ObservableObject
 
             if (!success)
             {
-                MessageBox.Show(
+                _dialogs.ShowMessage(
                     "Couldn't download the update. Try again later, or use the button again to open the release page instead.",
-                    "Update Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    "Update Failed", DialogSeverity.Warning);
                 return;
             }
 
-            Process.Start(new ProcessStartInfo(destinationPath) { UseShellExecute = true });
-            Application.Current.Shutdown();
+            _platform.OpenExternal(destinationPath);
+            _shell.Shutdown();
         }
         finally
         {
@@ -702,8 +685,21 @@ public partial class MainViewModel : ObservableObject
         SaveLibrary();
     }
 
-    public MainViewModel()
+    /// <summary>
+    /// Services default to the WPF implementations, so XAML design-time instantiation and the
+    /// single production call site both keep working unchanged. The Avalonia head passes its own.
+    /// </summary>
+    public MainViewModel(
+        IDialogService? dialogs = null,
+        IUiDispatcher? dispatcher = null,
+        IAppShell? shell = null,
+        IPlatformIntegration? platform = null)
     {
+        _dialogs = dialogs ?? new WpfDialogService();
+        _dispatcher = dispatcher ?? new WpfUiDispatcher();
+        _shell = shell ?? new WpfAppShell();
+        _platform = platform ?? new WindowsPlatformIntegration();
+
         _scanner = new PluginScanner(_exclusionList);
 
         FavoritesView = new ListCollectionView(Plugins)
@@ -1892,16 +1888,52 @@ public partial class MainViewModel : ObservableObject
         ApplyHiddenToTargets(ResolveTargets(vm), !vm.IsHidden);
     }
 
+    /// <summary>
+    /// Suppresses (or restores) the OUTDATED badge for this plugin. Applies to the whole
+    /// selection when one is active, the same as every other bulk toggle.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleIgnoreVersionCheck(PluginDisplayViewModel? vm)
+    {
+        if (vm is null || vm.Installs.Count == 0)
+        {
+            return;
+        }
+
+        ApplyIgnoreVersionCheckToTargets(ResolveTargets(vm), !vm.IgnoreVersionCheck);
+    }
+
+    private void ApplyIgnoreVersionCheckToTargets(List<PluginDisplayViewModel> targets, bool ignore)
+    {
+        foreach (var vm in targets.Where(p => p.Installs.Count > 0))
+        {
+            foreach (var copy in vm.Installs)
+            {
+                copy.IgnoreVersionCheck = ignore;
+
+                var stored = _library.Plugins.FirstOrDefault(p => string.Equals(p.Path, copy.Path, StringComparison.OrdinalIgnoreCase));
+                if (stored is not null)
+                {
+                    stored.IgnoreVersionCheck = ignore;
+                }
+            }
+
+            vm.RefreshInstallInfo();
+        }
+
+        SaveLibrary();
+        RefreshViews();
+    }
+
     [RelayCommand]
     private async Task RefreshAllMetadata()
     {
-        var result = MessageBox.Show(
+        var result = _dialogs.Confirm(
             "This action will take some time. Continue?",
             "Refresh All Metadata",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
+            DialogSeverity.Question);
 
-        if (result != MessageBoxResult.Yes)
+        if (!result)
         {
             return;
         }
@@ -2070,13 +2102,12 @@ public partial class MainViewModel : ObservableObject
         if (changedMatches.Count > 0)
         {
             var summary = string.Join("\n", changedMatches.Select(m => $"{m.Vm.Name} → {m.NewEntry.Name}"));
-            var confirmResult = MessageBox.Show(
-                $"Refreshing found a different catalog match for {changedMatches.Count} plugin(s):\n\n{summary}\n\nApply these changes?",
+            var confirmResult = _dialogs.Confirm(
+            $"Refreshing found a different catalog match for {changedMatches.Count} plugin(s):\n\n{summary}\n\nApply these changes?",
                 "Catalog Match Changed",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
+            DialogSeverity.Question);
 
-            applyChangedMatches = confirmResult == MessageBoxResult.Yes;
+            applyChangedMatches = confirmResult;
         }
 
         // Matching is recomputed fresh from the catalog on every rebuild rather than
@@ -2333,12 +2364,12 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ShowPathInFolder(string? path)
     {
-        if (path is null || !File.Exists(path) && !Directory.Exists(path))
+        if (path is null)
         {
             return;
         }
 
-        Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
+        _platform.RevealInFileManager(path);
     }
 
     /// <summary>
@@ -2364,14 +2395,12 @@ public partial class MainViewModel : ObservableObject
               + "types, versions and favourite status. If any are installed again later they'll be treated "
               + "as brand-new plugins.";
 
-        var result = MessageBox.Show(
+        var result = _dialogs.Confirm(
             message,
             "Forget Plugin",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question,
-            MessageBoxResult.No);
+            DialogSeverity.Question);
 
-        if (result != MessageBoxResult.Yes)
+        if (!result)
         {
             return;
         }
@@ -2441,14 +2470,13 @@ public partial class MainViewModel : ObservableObject
             summary += $"\n...and {allFiles.Count - maxShown} more";
         }
 
-        var result = MessageBox.Show(
+        var result = _dialogs.Confirm(
             $"Mark the following {installed.Count} plugin(s) as not a plugin?\n\n{summary}\n\n"
             + "They will be excluded from all future scans on this and any other machine running this app.",
             "Mark as Not a Plugin",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
+            DialogSeverity.Question);
 
-        if (result != MessageBoxResult.Yes)
+        if (!result)
         {
             return;
         }
@@ -2476,13 +2504,12 @@ public partial class MainViewModel : ObservableObject
         }
 
         var fileNames = string.Join("\n", vm.ActiveInstalls.Select(i => Path.GetFileName(i.Path)));
-        var result = MessageBox.Show(
+        var result = _dialogs.Confirm(
             $"Mark the following as not a plugin?\n\n{fileNames}\n\nThey will be excluded from all future scans on this and any other machine running this app.",
             "Mark as Not a Plugin",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
+            DialogSeverity.Question);
 
-        if (result != MessageBoxResult.Yes)
+        if (!result)
         {
             return false;
         }
@@ -2517,14 +2544,13 @@ public partial class MainViewModel : ObservableObject
         }
 
         var fileName = Path.GetFileName(path);
-        var result = MessageBox.Show(
+        var result = _dialogs.Confirm(
             $"Remove this location from scanning?\n\n{fileName}\n\nThe file stays on disk, but VST Manager will "
             + "skip it in all future scans on this and any other machine running this app.",
             "Remove from Scanning",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
+            DialogSeverity.Question);
 
-        if (result != MessageBoxResult.Yes)
+        if (!result)
         {
             return false;
         }
@@ -2561,51 +2587,40 @@ public partial class MainViewModel : ObservableObject
         var uninstaller = _uninstallerLookup.FindUninstaller(vm.Name, vm.Vendor);
         if (uninstaller is not null)
         {
-            var result = MessageBox.Show(
-                $"Run the uninstaller for \"{uninstaller.DisplayName}\"?",
+            var result = _dialogs.Confirm(
+            $"Run the uninstaller for \"{uninstaller.DisplayName}\"?",
                 "Uninstall Plugin",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
+            DialogSeverity.Question);
 
-            if (result != MessageBoxResult.Yes || !ConfirmFinalUninstall(vm.Name))
+            if (!result || !ConfirmFinalUninstall(vm.Name))
             {
                 return;
             }
 
             try
             {
-                var process = Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{uninstaller.UninstallCommand}\"") { UseShellExecute = true });
-
-                // Wait for the vendor uninstaller to finish, then rescan so the removed
-                // plugin disappears from the list without a manual Rescan. Best-effort: if
-                // the launched process hands off to another and exits early, the rescan
-                // simply finds nothing changed and the user can rescan again later.
-                if (process is not null)
-                {
-                    await process.WaitForExitAsync();
-                }
-
+                // Waits for the vendor uninstaller to finish, then rescans so the removed
+                // plugin disappears from the list without a manual Rescan.
+                await _platform.RunUninstallerAsync(uninstaller.UninstallCommand);
                 await LoadAndScanAsync();
             }
             catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException)
             {
-                MessageBox.Show(
-                    $"Couldn't launch the uninstaller for \"{uninstaller.DisplayName}\".\n\n{ex.Message}",
+                _dialogs.ShowMessage(
+                $"Couldn't launch the uninstaller for \"{uninstaller.DisplayName}\".\n\n{ex.Message}",
                     "Uninstall Failed",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                DialogSeverity.Error);
             }
 
             return;
         }
 
-        var deleteResult = MessageBox.Show(
+        var deleteResult = _dialogs.Confirm(
             $"No registered uninstaller was found for \"{vm.Name}\".\n\nDelete the plugin file(s) directly instead?\n\n{vm.Path}",
             "No Uninstaller Found",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
+            DialogSeverity.Warning);
 
-        if (deleteResult != MessageBoxResult.Yes || !ConfirmFinalUninstall(vm.Name))
+        if (!deleteResult || !ConfirmFinalUninstall(vm.Name))
         {
             return;
         }
@@ -2628,11 +2643,10 @@ public partial class MainViewModel : ObservableObject
 
         if (failures.Count > 0)
         {
-            MessageBox.Show(
+            _dialogs.ShowMessage(
                 $"Couldn't delete the following file(s) — they may be in use by another program (close any DAW using this plugin and try again) or require administrator rights:\n\n{string.Join("\n", failures)}",
                 "Uninstall Failed",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+                DialogSeverity.Error);
         }
 
         if (anyDeleted)
@@ -2654,16 +2668,14 @@ public partial class MainViewModel : ObservableObject
     private async Task UninstallBatchAsync(List<PluginDisplayViewModel> targets)
     {
         var names = string.Join("\n", targets.Select(v => v.Name));
-        var confirm = MessageBox.Show(
+        var confirm = _dialogs.Confirm(
             $"Uninstall these {targets.Count} plugins?\n\n{names}\n\n"
             + "Plugins with a registered uninstaller will open their installer window one at a time — "
             + "close each as it appears to continue to the next. This cannot be undone.",
             "Uninstall Plugins",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning,
-            MessageBoxResult.No);
+            DialogSeverity.Warning);
 
-        if (confirm != MessageBoxResult.Yes)
+        if (!confirm)
         {
             return;
         }
@@ -2679,12 +2691,7 @@ public partial class MainViewModel : ObservableObject
             {
                 try
                 {
-                    var process = Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{uninstaller.UninstallCommand}\"") { UseShellExecute = true });
-                    if (process is not null)
-                    {
-                        await process.WaitForExitAsync();
-                    }
-
+                    await _platform.RunUninstallerAsync(uninstaller.UninstallCommand);
                     anyChanged = true;
                 }
                 catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException)
@@ -2713,13 +2720,12 @@ public partial class MainViewModel : ObservableObject
 
         if (failures.Count > 0)
         {
-            MessageBox.Show(
+            _dialogs.ShowMessage(
                 "Some plugins couldn't be fully uninstalled — they may be in use by another program "
                 + "(close any DAW using them and try again) or require administrator rights:\n\n"
                 + string.Join("\n", failures),
                 "Uninstall Failed",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+                DialogSeverity.Error);
         }
 
         if (anyChanged)
@@ -2728,17 +2734,11 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private static bool ConfirmFinalUninstall(string pluginName)
-    {
-        var result = MessageBox.Show(
+    private bool ConfirmFinalUninstall(string pluginName) =>
+        _dialogs.Confirm(
             $"This will permanently uninstall \"{pluginName}\" from this computer.\n\nThis action cannot be undone. Are you sure you want to continue?",
             "Confirm Uninstall",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning,
-            MessageBoxResult.No);
-
-        return result == MessageBoxResult.Yes;
-    }
+            DialogSeverity.Warning);
 
     private static bool DeletePluginFile(string path)
     {

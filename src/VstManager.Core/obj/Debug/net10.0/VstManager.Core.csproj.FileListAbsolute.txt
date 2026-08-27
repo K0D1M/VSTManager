@@ -10,3 +10,4 @@ C:\Users\Konstantinos D\VstManager\src\VstManager.Core\obj\Debug\net10.0\VstMana
 C:\Users\Konstantinos D\VstManager\src\VstManager.Core\obj\Debug\net10.0\refint\VstManager.Core.dll
 C:\Users\Konstantinos D\VstManager\src\VstManager.Core\obj\Debug\net10.0\VstManager.Core.pdb
 C:\Users\Konstantinos D\VstManager\src\VstManager.Core\obj\Debug\net10.0\ref\VstManager.Core.dll
+C:\Users\Konstantinos D\VstManager\src\VstManager.Core\obj\Debug\net10.0\VstManager.Core.sourcelink.json
