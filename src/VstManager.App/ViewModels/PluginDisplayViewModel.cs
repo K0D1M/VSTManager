@@ -80,12 +80,13 @@ public partial class PluginDisplayViewModel : ObservableObject
     [ObservableProperty]
     private bool _isHidden;
 
-    /// <summary>
-    /// User-set suppression of the OUTDATED badge. <see cref="IsOutdated"/> is deliberately left
-    /// alone, so sorting and filtering by update status still see the real value.
-    /// </summary>
+    /// <summary>True when the user has chosen to suppress the OUTDATED badge for this plugin specifically. Does not affect IsOutdated itself, only its visibility.</summary>
     [ObservableProperty]
     private bool _ignoreVersionCheck;
+
+    /// <summary>True while Refresh Metadata is running for this specific plugin (context menu or detail window), drives the card/row's loading spinner.</summary>
+    [ObservableProperty]
+    private bool _isRefreshingMetadata;
 
     /// <summary>
     /// True if discovered by the most recent scan (not persisted — resets to false once a

@@ -60,6 +60,10 @@
             "CommunityToolkit.Mvvm": {
               "target": "Package",
               "version": "[8.4.2, )"
+            },
+            "MpCoding.WPF.LoadingAnimations": {
+              "target": "Package",
+              "version": "[1.0.2, )"
             }
           },
           "imports": [

@@ -1,4 +1,4 @@
-﻿<Window x:Class="VstManager.App.Views.PluginDetailWindow"
+<Window x:Class="VstManager.App.Views.PluginDetailWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -100,21 +100,19 @@
                         </Border>
                         <Border Style="{StaticResource TagBadge}" Padding="8,2"
                                 Background="{DynamicResource OutdatedBrush}"
-                                ToolTip="{Binding LatestVersion, StringFormat='A newer version (v{0}) is available'}"
-                                >
-                                <Border.Visibility>
-                                    <MultiBinding Converter="{StaticResource OutdatedBadgeVisibilityConverter}">
-                                        <Binding Path="IsOutdated" />
-                                        <Binding Path="IgnoreVersionCheck" />
-                                    </MultiBinding>
-                                </Border.Visibility>
+                                ToolTip="{Binding LatestVersion, StringFormat='A newer version (v{0}) is available'}">
+                            <Border.Visibility>
+                                <MultiBinding Converter="{StaticResource OutdatedBadgeVisibilityConverter}">
+                                    <Binding Path="IsOutdated" />
+                                    <Binding Path="IgnoreVersionCheck" />
+                                </MultiBinding>
+                            </Border.Visibility>
                             <TextBlock Text="OUTDATED" FontSize="11" FontWeight="Bold" Foreground="White" />
                         </Border>
                         <Button Style="{StaticResource GhostButton}" Padding="8,3" FontSize="11" Margin="6,0,0,0"
-                                VerticalAlignment="Center"
                                 Click="ToggleIgnoreVersionCheck_Click"
-                                ToolTip="Hide the OUTDATED badge for this plugin. The update check itself still runs."
-                                Content="{Binding IgnoreVersionCheck, Converter={StaticResource IgnoreVersionCheckMenuTextConverter}}" />
+                                Content="{Binding IgnoreVersionCheck, Converter={StaticResource IgnoreVersionCheckMenuTextConverter}}"
+                                Visibility="{Binding IsInstalled, Converter={StaticResource BoolToVisibilityConverter}}" />
                     </StackPanel>
                 </StackPanel>
             </DockPanel>

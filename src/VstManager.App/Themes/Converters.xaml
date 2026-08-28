@@ -25,9 +25,9 @@
     <conv:AnyTrueToVisibilityConverter x:Key="AnyTrueToVisibilityConverter" />
     <conv:FavoriteStarGlyphConverter x:Key="FavoriteStarGlyphConverter" />
     <conv:HideMenuTextConverter x:Key="HideMenuTextConverter" />
+    <conv:HiddenToOpacityConverter x:Key="HiddenToOpacityConverter" />
     <conv:IgnoreVersionCheckMenuTextConverter x:Key="IgnoreVersionCheckMenuTextConverter" />
     <conv:OutdatedBadgeVisibilityConverter x:Key="OutdatedBadgeVisibilityConverter" />
-    <conv:HiddenToOpacityConverter x:Key="HiddenToOpacityConverter" />
     <conv:FormatToLabelConverter x:Key="FormatToLabelConverter" />
     <conv:CloudStateToBrushConverter x:Key="CloudStateToBrushConverter" />
     <conv:CloudStateIsSyncingConverter x:Key="CloudStateIsSyncingConverter" />

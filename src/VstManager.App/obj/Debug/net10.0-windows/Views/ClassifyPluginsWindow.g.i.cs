@@ -55,7 +55,7 @@ namespace VstManager.App.Views {
                 return;
             }
             _contentLoaded = true;
-            System.Uri resourceLocater = new System.Uri("/VstManager.App;V1.7.0.0;component/views/classifypluginswindow.xaml", System.UriKind.Relative);
+            System.Uri resourceLocater = new System.Uri("/VstManager.App;component/views/classifypluginswindow.xaml", System.UriKind.Relative);
             
             #line 1 "..\..\..\..\Views\ClassifyPluginsWindow.xaml"
             System.Windows.Application.LoadComponent(this, resourceLocater);

@@ -50,9 +50,8 @@
                         <Border Style="{StaticResource SettingsCard}">
                             <DockPanel LastChildFill="True">
                                 <ToggleButton DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                              IsChecked="{Binding IsDarkTheme}" Style="{StaticResource GhostToggleButton}"
-                                              Padding="14,7" MinWidth="76"
-                                              Content="{Binding IsDarkTheme, Converter={StaticResource ThemeLabelConverter}}" />
+                                              IsChecked="{Binding IsDarkTheme}" Style="{StaticResource ToggleSwitch}"
+                                              ToolTip="{Binding IsDarkTheme, Converter={StaticResource ThemeLabelConverter}}" />
                                 <StackPanel>
                                     <TextBlock Text="Theme" Style="{StaticResource SettingsLabel}" />
                                     <TextBlock Style="{StaticResource SettingsHint}"
@@ -151,9 +150,8 @@
                         <Border Style="{StaticResource SettingsCard}">
                             <DockPanel LastChildFill="True">
                                 <ToggleButton DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                              IsChecked="{Binding AutostartEnabled}" Style="{StaticResource GhostToggleButton}"
-                                              Padding="14,7" MinWidth="60"
-                                              Content="{Binding AutostartEnabled, Converter={StaticResource BoolToOnOffConverter}}" />
+                                              IsChecked="{Binding AutostartEnabled}" Style="{StaticResource ToggleSwitch}"
+                                              ToolTip="{Binding AutostartEnabled, Converter={StaticResource BoolToOnOffConverter}}" />
                                 <StackPanel>
                                     <TextBlock Text="Start with Windows" Style="{StaticResource SettingsLabel}" />
                                     <TextBlock Style="{StaticResource SettingsHint}"
@@ -165,9 +163,8 @@
                         <Border Style="{StaticResource SettingsCard}">
                             <DockPanel LastChildFill="True">
                                 <ToggleButton DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                              IsChecked="{Binding StartMinimized}" Style="{StaticResource GhostToggleButton}"
-                                              Padding="14,7" MinWidth="60"
-                                              Content="{Binding StartMinimized, Converter={StaticResource BoolToOnOffConverter}}" />
+                                              IsChecked="{Binding StartMinimized}" Style="{StaticResource ToggleSwitch}"
+                                              ToolTip="{Binding StartMinimized, Converter={StaticResource BoolToOnOffConverter}}" />
                                 <StackPanel>
                                     <TextBlock Text="Start minimized" Style="{StaticResource SettingsLabel}" />
                                     <TextBlock Style="{StaticResource SettingsHint}"
@@ -180,9 +177,8 @@
                             <DockPanel LastChildFill="True">
                                 <ToggleButton DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"
                                               IsChecked="{Binding MinimizeToTray}"
-                                              Style="{StaticResource GhostToggleButton}"
-                                              Padding="14,7" MinWidth="60"
-                                              Content="{Binding MinimizeToTray, Converter={StaticResource BoolToOnOffConverter}}" />
+                                              Style="{StaticResource ToggleSwitch}"
+                                              ToolTip="{Binding MinimizeToTray, Converter={StaticResource BoolToOnOffConverter}}" />
                                 <StackPanel>
                                     <TextBlock Text="Minimize to tray" Style="{StaticResource SettingsLabel}" />
                                     <TextBlock Style="{StaticResource SettingsHint}"
@@ -195,9 +191,8 @@
                             <DockPanel LastChildFill="True">
                                 <ToggleButton DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"
                                               IsChecked="{Binding ShowNotifications}"
-                                              Style="{StaticResource GhostToggleButton}"
-                                              Padding="14,7" MinWidth="60"
-                                              Content="{Binding ShowNotifications, Converter={StaticResource BoolToOnOffConverter}}" />
+                                              Style="{StaticResource ToggleSwitch}"
+                                              ToolTip="{Binding ShowNotifications, Converter={StaticResource BoolToOnOffConverter}}" />
                                 <StackPanel>
                                     <TextBlock Text="Windows notifications" Style="{StaticResource SettingsLabel}" />
                                     <TextBlock Style="{StaticResource SettingsHint}"
@@ -374,9 +369,8 @@
                             <DockPanel LastChildFill="True">
                                 <ToggleButton DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"
                                               IsChecked="{Binding CheckForPluginUpdatesOnStartup}"
-                                              Style="{StaticResource GhostToggleButton}"
-                                              Padding="14,7" MinWidth="60"
-                                              Content="{Binding CheckForPluginUpdatesOnStartup, Converter={StaticResource BoolToOnOffConverter}}" />
+                                              Style="{StaticResource ToggleSwitch}"
+                                              ToolTip="{Binding CheckForPluginUpdatesOnStartup, Converter={StaticResource BoolToOnOffConverter}}" />
                                 <StackPanel>
                                     <TextBlock Text="Check plugins for updates on startup" Style="{StaticResource SettingsLabel}" />
                                     <TextBlock Style="{StaticResource SettingsHint}"
@@ -479,11 +473,29 @@
                             <DockPanel LastChildFill="True">
                                 <ToggleButton DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"
                                               IsChecked="{Binding CloudSyncEnabled}"
-                                              Style="{StaticResource GhostToggleButton}"
-                                              Padding="14,7" MinWidth="60"
-                                              Content="{Binding CloudSyncEnabled, Converter={StaticResource BoolToOnOffConverter}}" />
+                                              Style="{StaticResource ToggleSwitch}"
+                                              ToolTip="{Binding CloudSyncEnabled, Converter={StaticResource BoolToOnOffConverter}}" />
                                 <StackPanel>
-                                    <TextBlock Text="Sync settings to MEGA" Style="{StaticResource SettingsLabel}" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <Viewbox Width="18" Height="18" Margin="0,0,8,0">
+                                            <Grid Width="721" Height="721">
+                                                <Ellipse Fill="#FFD31B00" />
+                                                <Path Data="{StaticResource IconMegaGlyph}">
+                                                    <Path.Style>
+                                                        <Style TargetType="Path">
+                                                            <Setter Property="Fill" Value="Black" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                                                    <Setter Property="Fill" Value="White" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Path.Style>
+                                                </Path>
+                                            </Grid>
+                                        </Viewbox>
+                                        <TextBlock Text="Sync settings to MEGA" Style="{StaticResource SettingsLabel}" />
+                                    </StackPanel>
                                     <TextBlock Style="{StaticResource SettingsHint}"
                                                Text="Uploads the same data as an export — plugin tags, custom names and logos, scan folders and preferences. Changes upload a few seconds after you make them." />
                                 </StackPanel>

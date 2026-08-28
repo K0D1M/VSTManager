@@ -50,7 +50,7 @@ public class LibraryStore
     /// flagged uninstalled rather than dropped, so uninstalling a plugin no longer destroys
     /// its tag, kind, versions, favourite, hidden and ignore-version-check state.
     ///
-    /// Every user-set field has to be copied across explicitly below: a scan builds brand new
+    /// Every user-set field has to be copied across explicitly here: a scan builds brand new
     /// PluginInfo objects from disk, so anything not listed silently reverts to its default on
     /// the next rescan. Adding a user-settable property to PluginInfo means adding it here too.
     /// </summary>

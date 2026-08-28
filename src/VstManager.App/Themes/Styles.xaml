@@ -24,6 +24,14 @@
     <Geometry x:Key="IconDatabase">M4,6 C4,4.6 7.6,3.5 12,3.5 C16.4,3.5 20,4.6 20,6 C20,7.4 16.4,8.5 12,8.5 C7.6,8.5 4,7.4 4,6 Z M4,6 L4,18 C4,19.4 7.6,20.5 12,20.5 C16.4,20.5 20,19.4 20,18 L20,6 M4,12 C4,13.4 7.6,14.5 12,14.5 C16.4,14.5 20,13.4 20,12</Geometry>
     <Geometry x:Key="IconCloud">M7,18.5 C4.5,18.5 2.5,16.5 2.5,14 C2.5,11.7 4.2,9.9 6.4,9.6 C6.9,6.5 9.6,4.2 12.8,4.2 C16,4.2 18.6,6.6 19,9.7 C20.9,10.1 22.3,11.8 22.3,13.8 C22.3,16.2 20.4,18.1 18,18.1 L7,18.5 Z</Geometry>
 
+    <!-- MEGA logo, re-based from the brand SVGs (viewBox "119.5 239.5 721 721") into a local
+         0,0..721,721 space: the circle is centered exactly on that square (cx=480,cy=600,r=360.5
+         -> offset gives center 360.5,360.5, i.e. radius = half the square), and the "M" glyph
+         path had its two absolute anchors (V577.25/V747 and L500.334,682/L355,577.25) shifted by
+         the same -119.5,-239.5 offset; its relative h/l/v segments are untouched since a
+         relative delta doesn't move with the coordinate origin. -->
+    <Geometry x:Key="IconMegaGlyph">M147.5 214.5 h85 l128 130 129-130 h82 v293 h-86 V337.75 L380.834 442.5 h-40.668 L235.5 337.75 V507.5 h-88 z</Geometry>
+
     <Style x:Key="ButtonIcon" TargetType="Path">
         <Setter Property="Stroke" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="StrokeThickness" Value="1.8" />
@@ -566,6 +574,65 @@
         </Setter>
     </Style>
 
+    <!-- iOS-style sliding switch for boolean settings (Theme, notifications, etc.), replacing
+         the on/off pill-labeled GhostToggleButton those rows used to use. Same Track+Thumb+
+         TranslateTransform structure as the (currently unused) ModeToggleSwitch above, sized and
+         re-themed for a plain two-state switch rather than a two-icon segmented control. No
+         Content is rendered — the slide position and track color alone communicate the state,
+         so callers no longer need a BoolToOnOffConverter-bound Content on these rows. -->
+    <Style x:Key="ToggleSwitch" TargetType="ToggleButton">
+        <Setter Property="Width" Value="42" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Grid>
+                        <Border x:Name="Track" CornerRadius="12"
+                                Background="{DynamicResource SurfaceAltBrush}"
+                                BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="1" />
+                        <Ellipse x:Name="Thumb" Width="18" Height="18"
+                                 Fill="{DynamicResource SurfaceBrush}"
+                                 Stroke="{DynamicResource BorderBrush2}" StrokeThickness="1"
+                                 HorizontalAlignment="Left" Margin="2,0,0,0">
+                            <Ellipse.RenderTransform>
+                                <TranslateTransform x:Name="ThumbTransform" X="0" />
+                            </Ellipse.RenderTransform>
+                        </Ellipse>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Track" Property="Background" Value="{DynamicResource AccentBrush}" />
+                            <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            <Setter TargetName="Thumb" Property="Stroke" Value="{DynamicResource AccentBrush}" />
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="ThumbTransform"
+                                                         Storyboard.TargetProperty="X"
+                                                         To="18" Duration="0:0:0.13" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="ThumbTransform"
+                                                         Storyboard.TargetProperty="X"
+                                                         To="0" Duration="0:0:0.13" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="CardBorder" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush2}" />
@@ -631,6 +698,28 @@
                                 <Condition Property="IsMouseOver" Value="True" />
                             </MultiTrigger.Conditions>
                             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                        </MultiTrigger>
+
+                        <!-- Legit/Cracked segments (Management Mode toggle, and the Detail
+                             window's Status toggle, both use this style with this exact Content
+                             text) pick up the same green/red already used for their tag badges
+                             elsewhere in the app. "All" and any other content (e.g. the Kind
+                             toggle's Instrument/Effect) keep the neutral checked look above. -->
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsChecked" Value="True" />
+                                <Condition Property="Content" Value="Legit" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="Seg" Property="Background" Value="{DynamicResource LegitBrush}" />
+                            <Setter Property="Foreground" Value="White" />
+                        </MultiTrigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsChecked" Value="True" />
+                                <Condition Property="Content" Value="Cracked" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="Seg" Property="Background" Value="{DynamicResource CrackedBrush}" />
+                            <Setter Property="Foreground" Value="White" />
                         </MultiTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

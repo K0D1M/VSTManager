@@ -8,6 +8,8 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
+[assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("mpcodingdp.ico")]
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("a_clean_modern_app_icon_logo_design_on_a_dark_b-transparent.ico")]
+[assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("app-icon.ico")]
 
 

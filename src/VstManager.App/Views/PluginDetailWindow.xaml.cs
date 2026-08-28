@@ -108,13 +108,6 @@ public partial class PluginDetailWindow : Window
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
 
-    /// <summary>
-    /// Suppresses or restores the OUTDATED badge for this plugin. The command updates the bound
-    /// view model in place, so the badge and this button's own label both flip without a reload.
-    /// </summary>
-    private void ToggleIgnoreVersionCheck_Click(object sender, RoutedEventArgs e) =>
-        _mainViewModel.ToggleIgnoreVersionCheckCommand.Execute(_plugin);
-
     private void ShowInFolder_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { Tag: string path })
@@ -308,6 +301,11 @@ public partial class PluginDetailWindow : Window
         {
             Form.IsRefreshingMetadata = false;
         }
+    }
+
+    private void ToggleIgnoreVersionCheck_Click(object sender, RoutedEventArgs e)
+    {
+        _mainViewModel.ToggleIgnoreVersionCheckCommand.Execute(_plugin);
     }
 
     /// <summary>

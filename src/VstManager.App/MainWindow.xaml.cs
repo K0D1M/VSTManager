@@ -18,8 +18,7 @@ namespace VstManager.App;
 public partial class MainWindow : Window
 {
     private PluginDisplayViewModel? _lastClickedForRange;
-    private readonly TrayIconService _trayIconService = new(
-        Path.Combine(AppContext.BaseDirectory, "a_clean_modern_app_icon_logo_design_on_a_dark_b.ico"));
+    private readonly TrayIconService _trayIconService = new(AppIdentityService.IconPath);
     private bool _isExiting;
 
     public MainWindow()

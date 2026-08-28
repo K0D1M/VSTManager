@@ -2,6 +2,15 @@
 
   <ItemGroup>
     <Content Include="a_clean_modern_app_icon_logo_design_on_a_dark_b-transparent.ico" />
+    <!-- ApplicationIcon below only embeds an icon in the exe; the tray icon, notification
+         balloon, Action Center sender entry and WPF window icon all load one as a *file* at
+         runtime, so it has to exist next to the exe too. Without this they silently fell back to
+         the generic SystemIcons.Application (and notifications showed no icon at all).
+         app-icon.ico carries the same artwork with uncompressed 16..256px frames, which WPF's
+         ICO decoder accepts — unlike the fully PNG-compressed original, which it throws on. -->
+    <Content Include="app-icon.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
@@ -26,6 +35,7 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="MpCoding.WPF.LoadingAnimations" Version="1.0.2" />
   </ItemGroup>
 
   <ItemGroup>

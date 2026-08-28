@@ -93,7 +93,7 @@ namespace VstManager.App.Controls {
                 return;
             }
             _contentLoaded = true;
-            System.Uri resourceLocater = new System.Uri("/VstManager.App;V1.7.0.0;component/controls/customtitlebar.xaml", System.UriKind.Relative);
+            System.Uri resourceLocater = new System.Uri("/VstManager.App;component/controls/customtitlebar.xaml", System.UriKind.Relative);
             
             #line 1 "..\..\..\..\Controls\CustomTitleBar.xaml"
             System.Windows.Application.LoadComponent(this, resourceLocater);
