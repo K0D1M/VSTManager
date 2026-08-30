@@ -1987,8 +1987,17 @@ public partial class MainViewModel : ObservableObject
 
             foreach (var target in targets)
             {
+                // A hand-corrected installed version wins over anything re-detected from disk.
+                var hasManualCurrent =
+                    _manualMetadataOverrides.GetOverride(target.BaseName)?.CurrentVersion is not null;
+
                 foreach (var copy in target.ActiveInstalls)
                 {
+                    if (hasManualCurrent)
+                    {
+                        break;
+                    }
+
                     var detected = _versionDetector.DetectFromFile(copy.Path)
                         ?? UninstallerLookup.FindUninstaller(installedPrograms, target.Name, target.Vendor)?.DisplayVersion;
 
@@ -2042,6 +2051,12 @@ public partial class MainViewModel : ObservableObject
 
             foreach (var vm in targets)
             {
+                // A hand-corrected installed version is absolute — leave it alone.
+                if (_manualMetadataOverrides.GetOverride(vm.BaseName)?.CurrentVersion is not null)
+                {
+                    continue;
+                }
+
                 // Active copies only: reading a remembered copy's path would just be failed
                 // disk I/O for a file that's been uninstalled.
                 foreach (var copy in vm.ActiveInstalls)
@@ -2265,7 +2280,13 @@ public partial class MainViewModel : ObservableObject
                 continue;
             }
 
-            if (!string.IsNullOrWhiteSpace(result.LatestVersion))
+            // A manual version correction is absolute: lookup matches by name, and near-name
+            // collisions between different products are common (UADx 1176, the native plugin,
+            // versus UAD 1176, the DSP bundle versioned with the whole UAD suite). Once the user
+            // has fixed such a mismatch, no refresh may quietly undo it.
+            var manualLatest = _manualMetadataOverrides.GetOverride(vm.BaseName)?.LatestVersion;
+
+            if (!string.IsNullOrWhiteSpace(result.LatestVersion) && manualLatest is null)
             {
                 foreach (var copy in vm.Installs)
                 {
@@ -2331,6 +2352,11 @@ public partial class MainViewModel : ObservableObject
 
         var normalizedCurrent = string.IsNullOrWhiteSpace(currentVersion) ? null : currentVersion.Trim();
         var normalizedLatest = string.IsNullOrWhiteSpace(latestVersion) ? null : latestVersion.Trim();
+
+        // Persisted as an override, not just into the library: a metadata refresh recomputes
+        // LatestVersion from the KVR match, so without this record the correction would be
+        // silently overwritten the next time the user refreshed.
+        _manualMetadataOverrides.SetVersionOverride(vm.BaseName, normalizedCurrent, normalizedLatest);
 
         foreach (var copy in vm.Installs)
         {

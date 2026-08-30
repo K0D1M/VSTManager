@@ -89,6 +89,25 @@ public class PluginDisplayBuilder
             {
                 item.Vendor = overrideEntry.Vendor;
             }
+
+            // Versions live on each installed copy rather than the display item, so a corrected
+            // version has to be pushed back down onto them — otherwise a rescan, which rebuilds
+            // every copy from disk, would show the detected value again.
+            if (!string.IsNullOrWhiteSpace(overrideEntry.CurrentVersion))
+            {
+                foreach (var copy in item.Installs)
+                {
+                    copy.CurrentVersion = overrideEntry.CurrentVersion;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(overrideEntry.LatestVersion))
+            {
+                foreach (var copy in item.Installs)
+                {
+                    copy.LatestVersion = overrideEntry.LatestVersion;
+                }
+            }
         }
     }
 
