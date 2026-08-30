@@ -128,6 +128,24 @@ public class OutdatedBadgeVisibilityConverter : IMultiValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>
+/// Shows the "update ignored" indicator only when it is actually suppressing something — i.e. the
+/// plugin really is outdated and the user has silenced the badge. IgnoreVersionCheck alone (on a
+/// plugin that happens to be current) means nothing is being hidden, so no indicator is shown.
+/// </summary>
+public class IgnoredUpdateBadgeVisibilityConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var isOutdated = values.Length > 0 && values[0] is true;
+        var ignoreVersionCheck = values.Length > 1 && values[1] is true;
+        return isOutdated && ignoreVersionCheck ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 public class HiddenToOpacityConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
