@@ -1,4 +1,4 @@
-<Window x:Class="VstManager.App.Views.WelcomeWindow"
+﻿<Window x:Class="VstManager.App.Views.WelcomeWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -34,7 +34,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,20">
-            <TextBlock Text="&#x1F3B9;" FontSize="36" Margin="0,0,0,10" />
+            <TextBlock Text="&#x1F3B9;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="36" Margin="0,0,0,10" />
             <TextBlock Text="Welcome to VST Manager" FontSize="23" FontWeight="Bold"
                        Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
             <TextBlock Text="Let's find your plugins. We'll always scan the default locations below — if you keep plugins anywhere else, add those folders too."

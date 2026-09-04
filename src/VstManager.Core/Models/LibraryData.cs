@@ -53,6 +53,14 @@ public class LibraryData
     /// </summary>
     public List<TagDefinition> Tags { get; set; } = new();
 
+    /// <summary>
+    /// Every folder the user has made, stored flat with each entry naming its parent (see
+    /// <see cref="PluginFolder"/>). Lives here for the same reason the tags do: it exports and
+    /// cloud-syncs with the rest of the library without extra plumbing. The per-plugin filing is
+    /// separate (see PluginFolderService).
+    /// </summary>
+    public List<PluginFolder> Folders { get; set; } = new();
+
     /// <summary>How the plugin lists are ordered. Stored as the enum name.</summary>
     public string SortOption { get; set; } = "Name";
 

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
+using VstManager.App.Services;
 using VstManager.App.ViewModels;
 using VstManager.Core.Models;
 
@@ -133,6 +134,58 @@ public class OutdatedBadgeVisibilityConverter : IMultiValueConverter
 /// plugin really is outdated and the user has silenced the badge. IgnoreVersionCheck alone (on a
 /// plugin that happens to be current) means nothing is being hidden, so no indicator is shown.
 /// </summary>
+/// <summary>
+/// Pairs the right-clicked plugin with a "Move to Folder" entry, so a submenu item can carry both
+/// in the single CommandParameter a MenuItem allows. Mirrors how the tag submenu pairs a plugin
+/// with a tag. A null entry (or an "Unfiled" entry's null FolderId) means "unfile".
+/// </summary>
+public class FolderMoveRequestConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var plugin = values.ElementAtOrDefault(0) as PluginDisplayViewModel;
+        var entry = values.ElementAtOrDefault(1) as FolderMenuEntry;
+        return new FolderMoveRequest(plugin, entry?.FolderId);
+    }
+
+    public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>Visible only when every bound value is true — e.g. "expanded AND non-empty".</summary>
+public class AllTrueToVisibilityConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture) =>
+        values.All(v => v is true) ? Visibility.Visible : Visibility.Collapsed;
+
+    public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>A count as a bool ("has any"), for combining with other conditions in a MultiBinding.</summary>
+public class CountToBoolConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is int count && count > 0;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>
+/// Picks the right font for a folder's icon glyph — Segoe Fluent Icons for a vector preset,
+/// the emoji font otherwise. See FolderIconGlyphs for why a single icon string can need either.
+/// </summary>
+public class FolderIconFontConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        Application.Current.Resources[
+            FolderIconGlyphs.IsPreset(value as string) ? "IconGlyphFontFamily" : "EmojiFontFamily"];
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 public class IgnoredUpdateBadgeVisibilityConverter : IMultiValueConverter
 {
     public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture)

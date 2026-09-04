@@ -24,6 +24,8 @@
         <DataTemplate x:Key="PluginCardTemplate" DataType="{x:Type vm:PluginDisplayViewModel}">
             <Border x:Name="CardRoot" Style="{StaticResource CardBorder}" Width="190" Cursor="Hand"
                     PreviewMouseLeftButtonUp="PluginCard_PreviewMouseLeftButtonUp"
+                    PreviewMouseLeftButtonDown="DragSource_MouseLeftButtonDown"
+                    PreviewMouseMove="DragSource_MouseMove"
                     Opacity="{Binding IsHidden, Converter={StaticResource HiddenToOpacityConverter}}"
                     RenderTransformOrigin="0.5,0.5">
                 <Border.RenderTransform>
@@ -92,7 +94,7 @@
                         <Border Width="72" Height="72" CornerRadius="10" Background="{DynamicResource SurfaceAltBrush}"
                                 HorizontalAlignment="Center" Margin="0,0,0,10">
                             <Grid>
-                                <TextBlock Text="&#x1F3B9;" FontSize="29" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                <TextBlock Text="&#x1F3B9;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="29" HorizontalAlignment="Center" VerticalAlignment="Center"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            Visibility="{Binding LogoPath, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=Inverse}">
                                     <TextBlock.Opacity>
@@ -168,7 +170,7 @@
                                         <Binding Path="IgnoreVersionCheck" />
                                     </MultiBinding>
                                 </Border.Visibility>
-                                <TextBlock Text="&#x1F515; UPDATE IGNORED" FontSize="11" FontWeight="Bold"
+                                <TextBlock Text="&#x1F515; UPDATE IGNORED" FontFamily="{StaticResource EmojiFontFamily}" FontSize="11" FontWeight="Bold"
                                            Foreground="{DynamicResource TextPrimaryBrush}" />
                             </Border>
                         </WrapPanel>
@@ -224,7 +226,7 @@
                     <Border Style="{StaticResource SelectionBadge}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6"
                             IsHitTestVisible="False"
                             Visibility="{Binding DataContext.IsSelectionMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityConverter}}">
-                        <TextBlock Text="&#x2713;" FontSize="12" FontWeight="Bold" Foreground="White"
+                        <TextBlock Text="&#x2713;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="12" FontWeight="Bold" Foreground="White"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                    Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibilityConverter}}" />
                     </Border>
@@ -244,6 +246,8 @@
         <DataTemplate x:Key="PluginRowTemplate" DataType="{x:Type vm:PluginDisplayViewModel}">
             <Border x:Name="RowRoot" Style="{StaticResource CardBorder}" Margin="0,4" Padding="10,8" Cursor="Hand"
                     PreviewMouseLeftButtonUp="PluginCard_PreviewMouseLeftButtonUp"
+                    PreviewMouseLeftButtonDown="DragSource_MouseLeftButtonDown"
+                    PreviewMouseMove="DragSource_MouseMove"
                     Opacity="{Binding IsHidden, Converter={StaticResource HiddenToOpacityConverter}}">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -258,7 +262,7 @@
                     <Border Grid.Column="0" Style="{StaticResource SelectionBadge}" VerticalAlignment="Center" Margin="0,0,10,0"
                             IsHitTestVisible="False"
                             Visibility="{Binding DataContext.IsSelectionMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityConverter}}">
-                        <TextBlock Text="&#x2713;" FontSize="12" FontWeight="Bold" Foreground="White"
+                        <TextBlock Text="&#x2713;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="12" FontWeight="Bold" Foreground="White"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                    Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibilityConverter}}" />
                     </Border>
@@ -266,7 +270,7 @@
                     <Border Grid.Column="1" Width="40" Height="40" CornerRadius="8"
                             Background="{DynamicResource SurfaceAltBrush}" Margin="0,0,12,0">
                         <Grid>
-                            <TextBlock Text="&#x1F3B9;" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            <TextBlock Text="&#x1F3B9;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextSecondaryBrush}"
                                        Visibility="{Binding LogoPath, Converter={StaticResource StringToVisibilityConverter}, ConverterParameter=Inverse}">
                                 <TextBlock.Opacity>
@@ -341,7 +345,7 @@
                                         <Binding Path="IgnoreVersionCheck" />
                                     </MultiBinding>
                                 </Border.Visibility>
-                                <TextBlock Text="&#x1F515;" FontSize="10" FontWeight="Bold"
+                                <TextBlock Text="&#x1F515;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="10" FontWeight="Bold"
                                            Foreground="{DynamicResource TextPrimaryBrush}" />
                             </Border>
                         </Grid>
@@ -401,7 +405,7 @@
                                   Command="{Binding PlacementTarget.Tag.ToggleHideCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                             <MenuItem.Icon>
-                                <TextBlock Text="&#x1F441;" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" />
+                                <TextBlock Text="&#x1F441;" FontFamily="{StaticResource EmojiFontFamily}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Header="{Binding PlacementTarget.DataContext.IgnoreVersionCheck, Converter={StaticResource IgnoreVersionCheckMenuTextConverter}, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
@@ -409,16 +413,53 @@
                                   Command="{Binding PlacementTarget.Tag.ToggleIgnoreVersionCheckCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                             <MenuItem.Icon>
-                                <TextBlock Text="&#x1F51D;" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14" />
+                                <TextBlock Text="&#x1F51D;" FontFamily="{StaticResource EmojiFontFamily}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14" />
                             </MenuItem.Icon>
                         </MenuItem>
+                        <Separator />
+
+                        <!-- Move to folder. Driven purely by ItemsSource, for two reasons that
+                             both come from this ContextMenu living inside a Style setter:
+                             (1) a MenuItem cannot mix markup children with ItemsSource, so
+                             "Unfiled" is an ordinary entry in FolderMenuEntries rather than a
+                             hand-written item; (2) code-behind event handlers (SubmenuOpened,
+                             Click) cannot be wired on elements the style system instantiates —
+                             the connection id misfires and throws at load — so everything here
+                             is a Command binding, like every other item in this menu. -->
+                        <MenuItem Header="Move to Folder"
+                                  IsEnabled="{Binding PlacementTarget.Tag.HasFolders, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  ItemsSource="{Binding PlacementTarget.Tag.FolderMenuEntries, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                            <MenuItem.Icon>
+                                <TextBlock Text="&#x1F5C2;" FontFamily="{StaticResource EmojiFontFamily}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" />
+                            </MenuItem.Icon>
+                            <MenuItem.ItemContainerStyle>
+                                <Style TargetType="MenuItem">
+                                    <Setter Property="Header" Value="{Binding Label}" />
+                                    <!-- Via PlacementTarget.Tag, exactly as the Tags submenu does: a
+                                         submenu is its own popup, so a Window ancestor can't be
+                                         found from inside it and that binding would silently be null. -->
+                                    <Setter Property="Command"
+                                            Value="{Binding PlacementTarget.Tag.MovePluginToFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <Setter Property="CommandParameter">
+                                        <Setter.Value>
+                                            <MultiBinding Converter="{StaticResource FolderMoveRequestConverter}">
+                                                <Binding Path="PlacementTarget.DataContext"
+                                                         RelativeSource="{RelativeSource AncestorType=ContextMenu}" />
+                                                <Binding />
+                                            </MultiBinding>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </MenuItem.ItemContainerStyle>
+                        </MenuItem>
+
                         <Separator />
                         <MenuItem Header="Mark Legit"
                                   IsEnabled="{Binding PlacementTarget.DataContext.IsInstalled, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   Command="{Binding PlacementTarget.Tag.MarkLegitCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                             <MenuItem.Icon>
-                                <TextBlock Text="&#x2714;" Foreground="{DynamicResource LegitBrush}" FontSize="14" />
+                                <TextBlock Text="&#x2714;" FontFamily="{StaticResource EmojiFontFamily}" Foreground="{DynamicResource LegitBrush}" FontSize="14" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Header="Mark Cracked"
@@ -426,7 +467,7 @@
                                   Command="{Binding PlacementTarget.Tag.MarkCrackedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                             <MenuItem.Icon>
-                                <TextBlock Text="&#x2620;" Foreground="{DynamicResource CrackedBrush}" FontSize="14" />
+                                <TextBlock Text="&#x2620;" FontFamily="{StaticResource EmojiFontFamily}" Foreground="{DynamicResource CrackedBrush}" FontSize="14" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Header="Mark as Instrument"
@@ -434,7 +475,7 @@
                                   Command="{Binding PlacementTarget.Tag.MarkAsInstrumentCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                             <MenuItem.Icon>
-                                <TextBlock Text="&#x1F3B9;" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" />
+                                <TextBlock Text="&#x1F3B9;" FontFamily="{StaticResource EmojiFontFamily}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Header="Mark as Effect"
@@ -442,7 +483,7 @@
                                   Command="{Binding PlacementTarget.Tag.MarkAsEffectCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                             <MenuItem.Icon>
-                                <TextBlock Text="&#x1F39B;" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" />
+                                <TextBlock Text="&#x1F39B;" FontFamily="{StaticResource EmojiFontFamily}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" />
                             </MenuItem.Icon>
                         </MenuItem>
 
@@ -454,7 +495,7 @@
                                   IsEnabled="{Binding PlacementTarget.DataContext.IsInstalled, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   ItemsSource="{Binding PlacementTarget.Tag.AvailableTags, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                             <MenuItem.Icon>
-                                <TextBlock Text="&#x1F3F7;" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" />
+                                <TextBlock Text="&#x1F3F7;" FontFamily="{StaticResource EmojiFontFamily}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" />
                             </MenuItem.Icon>
                             <MenuItem.ItemContainerStyle>
                                 <Style TargetType="MenuItem">
@@ -496,7 +537,7 @@
                                   Command="{Binding PlacementTarget.Tag.OpenFixMetadataCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                             <MenuItem.Icon>
-                                <TextBlock Text="&#x2699;" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" />
+                                <TextBlock Text="&#x2699;" FontFamily="{StaticResource EmojiFontFamily}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Header="Show in Folder"
@@ -513,7 +554,7 @@
                                   Command="{Binding PlacementTarget.Tag.MarkAsNotAPluginCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                             <MenuItem.Icon>
-                                <TextBlock Text="&#x26A0;" Foreground="{DynamicResource CrackedBrush}" FontSize="14" />
+                                <TextBlock Text="&#x26A0;" FontFamily="{StaticResource EmojiFontFamily}" Foreground="{DynamicResource CrackedBrush}" FontSize="14" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <Separator />
@@ -522,7 +563,7 @@
                                   Command="{Binding PlacementTarget.Tag.UninstallCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                             <MenuItem.Icon>
-                                <TextBlock Text="&#x2716;" Foreground="{DynamicResource CrackedBrush}" FontSize="14" />
+                                <TextBlock Text="&#x2716;" FontFamily="{StaticResource EmojiFontFamily}" Foreground="{DynamicResource CrackedBrush}" FontSize="14" />
                             </MenuItem.Icon>
                         </MenuItem>
 
@@ -534,7 +575,7 @@
                                   CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   ToolTip="Stop remembering this uninstalled plugin's tag, type and versions">
                             <MenuItem.Icon>
-                                <TextBlock Text="&#x1F5D1;" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14" />
+                                <TextBlock Text="&#x1F5D1;" FontFamily="{StaticResource EmojiFontFamily}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14" />
                             </MenuItem.Icon>
                         </MenuItem>
                     </ContextMenu>
@@ -707,7 +748,7 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Column="0" Text="&#x1F50D;" FontSize="13" IsHitTestVisible="False"
+                    <TextBlock Grid.Column="0" Text="&#x1F50D;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="13" IsHitTestVisible="False"
                                Margin="14,0,8,0" VerticalAlignment="Center"
                                Foreground="{DynamicResource TextSecondaryBrush}" />
 
@@ -752,7 +793,7 @@
                             <RadioButton GroupName="Layout" Style="{StaticResource LayoutSegment}"
                                          ToolTip="List view"
                                          IsChecked="{Binding LayoutMode, Converter={StaticResource EnumEqualsConverter}, ConverterParameter={x:Static vm:LayoutMode.List}}">
-                                <TextBlock Text="&#x2630;" FontSize="16" />
+                                <TextBlock Text="&#x2630;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="16" />
                             </RadioButton>
                         </StackPanel>
                     </Border>
@@ -885,7 +926,7 @@
                                   Padding="10,5" IsChecked="{Binding IsSelectionMode}"
                                   ToolTip="Select multiple plugins to edit at once (Ctrl+Click or Shift+Click also work anytime)">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#x2611;" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="&#x2611;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
                             <TextBlock Text="Multi-Select" VerticalAlignment="Center" />
                         </StackPanel>
                     </ToggleButton>
@@ -917,7 +958,7 @@
                         <Button Style="{StaticResource GhostButton}" HorizontalContentAlignment="Left"
                                 Command="{Binding SelectAllLegitCommand}" ToolTip="Select every visible plugin marked Legit">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x2713;" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"
+                                <TextBlock Text="&#x2713;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"
                                            Foreground="{DynamicResource LegitBrush}" />
                                 <TextBlock Text="Select All Legit" VerticalAlignment="Center" />
                             </StackPanel>
@@ -926,7 +967,7 @@
                         <Button Style="{StaticResource GhostButton}" HorizontalContentAlignment="Left" Margin="0,4,0,0"
                                 Command="{Binding SelectAllCrackedCommand}" ToolTip="Select every visible plugin marked Cracked">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x2620;" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"
+                                <TextBlock Text="&#x2620;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"
                                            Foreground="{DynamicResource CrackedBrush}" />
                                 <TextBlock Text="Select All Cracked" VerticalAlignment="Center" />
                             </StackPanel>
@@ -956,7 +997,7 @@
                         <Button Style="{StaticResource GhostButton}" HorizontalContentAlignment="Left"
                                 Command="{Binding MarkAllLegitCommand}" ToolTip="Mark all visible installed plugins as Legit">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x2713;" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="&#x2713;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
                                 <TextBlock Text="Mark All Legit" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -964,13 +1005,24 @@
                         <Button Style="{StaticResource GhostButton}" HorizontalContentAlignment="Left" Margin="0,4,0,0"
                                 Command="{Binding MarkAllCrackedCommand}" ToolTip="Mark all visible installed plugins as Cracked">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x2620;" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="&#x2620;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
                                 <TextBlock Text="Mark All Cracked" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </StackPanel>
                 </Border>
             </Popup>
+
+            <!-- Lives in the toolbar rather than only inside the Folders section, so the very
+                 first folder can be created when that section is still hidden. -->
+            <Button Margin="0,0,10,6" Style="{StaticResource GhostButton}" Padding="10,5"
+                    Command="{Binding CreateFolderCommand}"
+                    ToolTip="Create a folder to organise plugins into">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#x1F5C2;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                    <TextBlock Text="New Folder" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
 
             <Border Style="{StaticResource ToolbarSeparator}" />
 
@@ -1027,7 +1079,7 @@
                 <Button Style="{StaticResource IconButton}" Width="Auto" Height="30" Padding="10,5" Margin="8,0,0,0"
                         Click="SettingsButton_Click" ToolTip="App settings">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#x2699;" FontSize="13" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock Text="&#x2699;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="13" Margin="0,0,6,0" VerticalAlignment="Center" />
                         <TextBlock Text="Settings" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
@@ -1049,28 +1101,28 @@
                 <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="10,5" FontSize="13" Margin="8,0,0,0"
                         Command="{Binding BatchMarkEffectCommand}" ToolTip="Set type to Effect for all selected">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#x1F39B;" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center" />
+                        <TextBlock Text="&#x1F39B;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center" />
                         <TextBlock Text="Effect" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
                 <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="10,5" FontSize="13" Margin="8,0,0,0"
                         Command="{Binding BatchMarkInstrumentCommand}" ToolTip="Set type to Instrument for all selected">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#x1F3B9;" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center" />
+                        <TextBlock Text="&#x1F3B9;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center" />
                         <TextBlock Text="Instrument" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
                 <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="10,5" FontSize="13" Margin="8,0,0,0"
                         Command="{Binding BatchMarkCrackedCommand}" ToolTip="Set tag to Cracked for all selected">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#x2620;" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center" />
+                        <TextBlock Text="&#x2620;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center" />
                         <TextBlock Text="Cracked" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
                 <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="10,5" FontSize="13" Margin="14,0,0,0"
                         Command="{Binding BatchMarkLegitCommand}" ToolTip="Set tag to Legit for all selected">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#x2713;" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center" />
+                        <TextBlock Text="&#x2713;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center" />
                         <TextBlock Text="Legit" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
@@ -1103,7 +1155,7 @@
                 <DockPanel LastChildFill="True">
                     <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="6,2" Margin="10,0,0,0"
                             Command="{Binding DismissStartupNewPluginsSummaryCommand}" ToolTip="Dismiss">
-                        <TextBlock Text="&#x2715;" FontSize="11" />
+                        <TextBlock Text="&#x2715;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="11" />
                     </Button>
                     <TextBlock VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"
                                Text="{Binding StartupNewPluginsText, Mode=OneWay}" />
@@ -1143,7 +1195,7 @@
                     <DockPanel LastChildFill="True">
                         <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="6,2" Margin="10,0,0,0"
                                 Command="{Binding DismissStartupUpdateSummaryCommand}" ToolTip="Dismiss">
-                            <TextBlock Text="&#x2715;" FontSize="11" />
+                            <TextBlock Text="&#x2715;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="11" />
                         </Button>
                         <TextBlock VerticalAlignment="Center" FontSize="13">
                             <Run Text="&#x21BB; " Foreground="{DynamicResource OutdatedBrush}" FontWeight="Bold" />
@@ -1198,12 +1250,176 @@
 
         <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
             <StackPanel>
+
+                <!-- ============ Folders ============
+                     The user's own structure, so it leads. Rendered as a flattened list indented
+                     by depth rather than a TreeView: each folder hosts the same plugin card grid
+                     the other sections use, which a TreeView's item containers make awkward. -->
+                <Expander IsExpanded="{Binding IsFoldersSectionExpanded}" Style="{StaticResource SectionExpander}"
+                          Margin="0,0,0,16"
+                          Visibility="{Binding HasFolders, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Expander.Header>
+                        <DockPanel LastChildFill="True">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}"
+                                    Padding="8,3" FontSize="12" Margin="8,0,10,0"
+                                    Command="{Binding CreateFolderCommand}"
+                                    ToolTip="Create a new top-level folder">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#x002B;" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="New Folder" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#x1F5C2;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="15" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Folders" FontWeight="SemiBold" FontSize="17"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Expander.Header>
+
+                    <ItemsControl ItemsSource="{Binding VisibleFolders}" Margin="0,10,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:FolderNodeViewModel}">
+                                <StackPanel Margin="{Binding Indent}">
+
+                                    <!-- Folder row: drop target for plugins and other folders,
+                                         and itself draggable so the tree can be rearranged. -->
+                                    <Border x:Name="FolderRow" CornerRadius="8" Padding="10,8" Margin="0,0,0,6"
+                                            Background="{DynamicResource SurfaceBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="1"
+                                            Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            AllowDrop="True"
+                                            DragOver="FolderDropTarget_DragOver"
+                                            DragLeave="FolderDropTarget_DragLeave"
+                                            Drop="FolderDropTarget_Drop"
+                                            MouseLeftButtonDown="DragSource_MouseLeftButtonDown"
+                                            MouseMove="DragSource_MouseMove"
+                                            MouseLeftButtonUp="DragSource_MouseLeftButtonUp">
+                                        <Border.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="New Sub-folder"
+                                                          Command="{Binding PlacementTarget.Tag.CreateFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                          CommandParameter="{Binding PlacementTarget.DataContext.Id, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                <MenuItem Header="Edit…"
+                                                          Command="{Binding PlacementTarget.Tag.EditFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                          CommandParameter="{Binding PlacementTarget.DataContext.Folder, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                <Separator />
+                                                <MenuItem Header="Move to Top Level"
+                                                          Command="{Binding PlacementTarget.Tag.MoveFolderToRootCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                          CommandParameter="{Binding PlacementTarget.DataContext.Id, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                                <Separator />
+                                                <MenuItem Header="Delete Folder"
+                                                          Command="{Binding PlacementTarget.Tag.DeleteFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                          CommandParameter="{Binding PlacementTarget.DataContext.Folder, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                            </ContextMenu>
+                                        </Border.ContextMenu>
+
+                                        <DockPanel LastChildFill="True">
+                                            <ToggleButton DockPanel.Dock="Left" IsChecked="{Binding IsExpanded}"
+                                                          Focusable="False" Cursor="Hand" Margin="0,0,8,0"
+                                                          VerticalAlignment="Center">
+                                                <ToggleButton.Template>
+                                                    <ControlTemplate TargetType="ToggleButton">
+                                                        <TextBlock x:Name="Chev" Text="&#x25BE;" FontSize="12"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsChecked" Value="False">
+                                                                <Setter TargetName="Chev" Property="Text" Value="&#x25B8;" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </ToggleButton.Template>
+                                            </ToggleButton>
+
+                                            <!-- Colour stripe: the folder's personalization, read
+                                                 at a glance down the left edge of the tree. -->
+                                            <Border DockPanel.Dock="Left" Width="4" CornerRadius="2" Margin="0,0,10,0"
+                                                    Background="{Binding ColorHex, Converter={StaticResource HexToBrushConverter}}" />
+
+                                            <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" FontSize="12"
+                                                       Margin="8,0,0,0"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       Text="{Binding TotalCount, StringFormat='{}{0} plugin(s)'}" />
+
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding DisplayIcon}" FontSize="15"
+                                                           FontFamily="{Binding DisplayIcon, Converter={StaticResource FolderIconFontConverter}}"
+                                                           Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Border>
+
+                                    <!-- Plugins filed directly here. Sub-folders render as their
+                                         own rows in the flattened list, not nested inside this. -->
+                                    <ItemsControl ItemsSource="{Binding Plugins}" Style="{StaticResource PluginItemsHost}"
+                                                  Margin="14,0,0,10">
+                                        <ItemsControl.Visibility>
+                                            <MultiBinding Converter="{StaticResource AllTrueToVisibilityConverter}">
+                                                <Binding Path="IsExpanded" />
+                                                <Binding Path="Plugins.Count" Converter="{StaticResource CountToBoolConverter}" />
+                                            </MultiBinding>
+                                        </ItemsControl.Visibility>
+                                    </ItemsControl>
+
+                                    <TextBlock Margin="26,0,0,10" FontSize="12" FontStyle="Italic"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               Text="Empty — drag plugins here to file them.">
+                                        <TextBlock.Visibility>
+                                            <MultiBinding Converter="{StaticResource AllTrueToVisibilityConverter}">
+                                                <Binding Path="IsExpanded" />
+                                                <Binding Path="IsEmpty" />
+                                            </MultiBinding>
+                                        </TextBlock.Visibility>
+                                    </TextBlock>
+                                </StackPanel>
+
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsDropTarget}" Value="True">
+                                        <Setter TargetName="FolderRow" Property="BorderBrush"
+                                                Value="{DynamicResource AccentBrush}" />
+                                        <Setter TargetName="FolderRow" Property="BorderThickness" Value="2" />
+                                        <Setter TargetName="FolderRow" Property="Background"
+                                                Value="{DynamicResource SurfaceAltBrush}" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Expander>
+
+                <!-- Unfiled: everything not in a folder. Also the drop target for taking a
+                     plugin back out of one. Only shown once folders exist, so users who never
+                     make any never see an extra section. -->
+                <Expander IsExpanded="{Binding IsUnfiledSectionExpanded}" Style="{StaticResource SectionExpander}"
+                          Margin="0,0,0,16"
+                          Visibility="{Binding HasFolders, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Expander.Header>
+                        <Border Background="Transparent" AllowDrop="True"
+                                DragOver="UnfiledDropTarget_DragOver"
+                                Drop="UnfiledDropTarget_Drop">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#x1F4C4;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="15" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Unfiled" FontWeight="SemiBold" FontSize="17"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding UnfiledCount, StringFormat=' ({0})'}" FontSize="15"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                    </Expander.Header>
+                    <Grid Margin="0,10,0,0">
+                        <ItemsControl ItemsSource="{Binding UnfiledView}" Style="{StaticResource PluginItemsHost}" />
+                    </Grid>
+                </Expander>
+
                 <Expander IsExpanded="{Binding IsFavoritesSectionExpanded}" Style="{StaticResource SectionExpander}"
                           Margin="0,0,0,16"
                           Visibility="{Binding FavoritesCount, Converter={StaticResource CountToVisibilityConverter}}">
                     <Expander.Header>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#x2605;" FontSize="15" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="#FFFBBF24" />
+                            <TextBlock Text="&#x2605;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="15" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="#FFFBBF24" />
                             <TextBlock Text="Favorites" FontWeight="SemiBold" FontSize="17"
                                        Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding FavoritesCount, StringFormat=' ({0})'}" FontSize="15"
@@ -1219,7 +1435,7 @@
                           Visibility="{Binding InstrumentsCount, Converter={StaticResource CountToVisibilityConverter}}">
                     <Expander.Header>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#x1F3B9;" FontSize="15" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="&#x1F3B9;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="15" Margin="0,0,8,0" VerticalAlignment="Center" />
                             <TextBlock Text="Instruments" FontWeight="SemiBold" FontSize="17"
                                        Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding InstrumentsCount, StringFormat=' ({0})'}" FontSize="15"
@@ -1236,7 +1452,7 @@
                           Visibility="{Binding EffectsCount, Converter={StaticResource CountToVisibilityConverter}}">
                     <Expander.Header>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#x1F39B;" FontSize="15" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="&#x1F39B;" FontFamily="{StaticResource EmojiFontFamily}" FontSize="15" Margin="0,0,8,0" VerticalAlignment="Center" />
                             <TextBlock Text="Effects" FontWeight="SemiBold" FontSize="17"
                                        Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding EffectsCount, StringFormat=' ({0})'}" FontSize="15"

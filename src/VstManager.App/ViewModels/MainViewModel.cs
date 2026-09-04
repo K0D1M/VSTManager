@@ -59,6 +59,20 @@ public enum SortOption
 /// </summary>
 public sealed record TagCommandArgs(PluginDisplayViewModel? Plugin, TagDefinition? Tag);
 
+/// <summary>
+/// One entry in the "Move to Folder" submenu. The submenu is driven purely by ItemsSource — it
+/// lives inside a Style-hosted ContextMenu, where neither static child items nor code-behind
+/// event handlers can be used — so "Unfiled" has to be an ordinary entry here (null FolderId)
+/// rather than a hand-written MenuItem.
+/// </summary>
+public sealed record FolderMenuEntry(string Label, string? FolderId);
+
+/// <summary>
+/// Carries both halves of a "file this plugin here" action, for the same reason as
+/// <see cref="TagCommandArgs"/>. A null FolderId means "unfile".
+/// </summary>
+public sealed record FolderMoveRequest(PluginDisplayViewModel? Plugin, string? FolderId);
+
 public partial class MainViewModel : ObservableObject
 {
     private readonly ScanPathProvider _scanPathProvider = new();
@@ -79,6 +93,7 @@ public partial class MainViewModel : ObservableObject
     private readonly DataPortabilityService _dataPortability = new();
     private readonly LookupCacheService _lookupCache = new();
     private readonly PluginTagService _pluginTags = new();
+    private readonly PluginFolderService _pluginFolders = new();
     /// <summary>
     /// False until the first scan has finished writing the real plugin list to disk. Nothing
     /// may be uploaded before then — see QueueCloudSync.
@@ -97,6 +112,9 @@ public partial class MainViewModel : ObservableObject
     public ICollectionView InstrumentsView { get; }
     public ICollectionView EffectsView { get; }
     public ICollectionView UnclassifiedView { get; }
+
+    /// <summary>Plugins in no folder. Only surfaced once the user has made at least one folder.</summary>
+    public ICollectionView UnfiledView { get; }
 
     [ObservableProperty]
     private bool _isFavoritesSectionExpanded = true;
@@ -752,6 +770,13 @@ public partial class MainViewModel : ObservableObject
             Filter = obj => MatchesFilters(obj) && obj is PluginDisplayViewModel { Kind: PluginKind.Unclassified }
         };
 
+        UnfiledView = new ListCollectionView(Plugins)
+        {
+            Filter = obj => MatchesFilters(obj)
+                            && obj is PluginDisplayViewModel vm
+                            && _pluginFolders.GetFolderId(vm.BaseName) is null
+        };
+
         _isInitializing = true;
         var settings = _libraryStore.Load();
         _isDarkTheme = settings.IsDarkTheme;
@@ -943,12 +968,18 @@ public partial class MainViewModel : ObservableObject
         InstrumentsView.Refresh();
         EffectsView.Refresh();
         UnclassifiedView.Refresh();
+        UnfiledView.Refresh();
         FavoritesCount = FavoritesView.Cast<object>().Count();
         InstrumentsCount = InstrumentsView.Cast<object>().Count();
         EffectsCount = EffectsView.Cast<object>().Count();
         UnclassifiedCount = UnclassifiedView.Cast<object>().Count();
 
         RefreshInstalledTotals();
+
+        // Folders hold plugin view models directly rather than a ListCollectionView, so they are
+        // rebuilt here — this is the one place every filter/search change already funnels through,
+        // which keeps folder contents in step with the rest of the list for free.
+        RebuildFolderTree();
     }
 
     /// <summary>
@@ -1080,6 +1111,11 @@ public partial class MainViewModel : ObservableObject
                 var displayItems = _displayBuilder.Build(_catalog.Entries, merged);
                 _displayBuilder.ApplyManualOverrides(displayItems, _manualMetadataOverrides);
                 _displayBuilder.ApplyTags(displayItems, _pluginTags, _library.Tags);
+
+                // A folder deleted on another machine (or by an import) would leave plugins
+                // filed into an id nothing renders — i.e. invisible. Dropping those puts them
+                // back under Unfiled instead.
+                _pluginFolders.PruneMissingFolders(_library.Folders);
                 return (displayItems, newPaths, badgePaths);
             });
 
@@ -1292,6 +1328,276 @@ public partial class MainViewModel : ObservableObject
         SelectedTagFilterIds.Clear();
         OnPropertyChanged(nameof(HasTagFilter));
         RefreshViews();
+    }
+
+    // ---- folders ------------------------------------------------------------
+
+    /// <summary>
+    /// The folder tree, rebuilt from <see cref="LibraryData.Folders"/> whenever it or the filing
+    /// changes. Only root folders live here; children hang off each node.
+    /// </summary>
+    public ObservableCollection<FolderNodeViewModel> FolderTree { get; } = new();
+
+    /// <summary>
+    /// Flattened tree in display order, so the view can render nesting with a plain ItemsControl
+    /// (indented by depth) instead of a TreeView — the plugin rows inside each folder make a real
+    /// TreeView's item containers awkward, and flattening keeps the existing card host reusable.
+    /// </summary>
+    public ObservableCollection<FolderNodeViewModel> VisibleFolders { get; } = new();
+
+    /// <summary>True once the user has made at least one folder — hides the whole section until then.</summary>
+    [ObservableProperty]
+    private bool _hasFolders;
+
+    /// <summary>Plugins in no folder at all, shown under "Unfiled" so nothing goes missing.</summary>
+    [ObservableProperty]
+    private int _unfiledCount;
+
+    [ObservableProperty]
+    private bool _isFoldersSectionExpanded = true;
+
+    [ObservableProperty]
+    private bool _isUnfiledSectionExpanded;
+
+    /// <summary>Every folder flat, ordered by path.</summary>
+    public ObservableCollection<PluginFolder> AllFolders { get; } = new();
+
+    /// <summary>
+    /// What the "Move to Folder" submenu shows: "Unfiled" first, then every folder by path.
+    /// Rebuilt alongside the tree so the menu never offers a folder that no longer exists.
+    /// </summary>
+    public ObservableCollection<FolderMenuEntry> FolderMenuEntries { get; } = new();
+
+    /// <summary>
+    /// Rebuilds the tree and refills it from the current filing. Cheap enough to run on any
+    /// change (folders number in the tens), and rebuilding wholesale is what keeps counts,
+    /// nesting and ordering consistent after a move or delete.
+    /// </summary>
+    private void RebuildFolderTree()
+    {
+        FolderTree.Clear();
+        VisibleFolders.Clear();
+
+        AllFolders.Clear();
+        FolderMenuEntries.Clear();
+        FolderMenuEntries.Add(new FolderMenuEntry("Unfiled", null));
+        foreach (var folder in _library.Folders.OrderBy(f => PluginFolderService.GetPath(_library.Folders, f.Id), StringComparer.CurrentCultureIgnoreCase))
+        {
+            AllFolders.Add(folder);
+
+            // The full path rather than the bare name, so same-named folders in different
+            // branches ("Mixing / EQ" versus "Mastering / EQ") stay tellable apart.
+            FolderMenuEntries.Add(new FolderMenuEntry(PluginFolderService.GetPath(_library.Folders, folder.Id), folder.Id));
+        }
+
+        foreach (var root in PluginFolderService.GetChildren(_library.Folders, null))
+        {
+            FolderTree.Add(BuildFolderNode(root, depth: 0));
+        }
+
+        foreach (var node in FolderTree.SelectMany(n => n.SelfAndDescendants()))
+        {
+            node.NotifyCountsChanged();
+            VisibleFolders.Add(node);
+        }
+
+        HasFolders = _library.Folders.Count > 0;
+        UnfiledCount = Plugins.Count(p => _pluginFolders.GetFolderId(p.BaseName) is null && MatchesFilters(p));
+    }
+
+    private FolderNodeViewModel BuildFolderNode(PluginFolder folder, int depth)
+    {
+        var node = new FolderNodeViewModel(folder, depth);
+
+        foreach (var child in PluginFolderService.GetChildren(_library.Folders, folder.Id))
+        {
+            node.Children.Add(BuildFolderNode(child, depth + 1));
+        }
+
+        // Filed plugins still obey the search box and filters, so a folder shows only what
+        // matches — otherwise searching would appear to do nothing inside folders.
+        foreach (var plugin in Plugins.Where(p => string.Equals(_pluginFolders.GetFolderId(p.BaseName), folder.Id, StringComparison.OrdinalIgnoreCase))
+                                      .Where(MatchesFilters)
+                                      .OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            node.Plugins.Add(plugin);
+        }
+
+        return node;
+    }
+
+    [RelayCommand]
+    private void CreateFolder(string? parentId)
+    {
+        var folder = new PluginFolder
+        {
+            Name = NextUntitledFolderName(),
+            ParentId = string.IsNullOrWhiteSpace(parentId) ? null : parentId,
+            ColorHex = AccentColor.ToString(),
+            SortOrder = _library.Folders.Count
+        };
+
+        _library.Folders.Add(folder);
+        SaveLibrary();
+        RebuildFolderTree();
+
+        EditFolder(folder);
+    }
+
+    /// <summary>Picks "New Folder", "New Folder 2", … so repeated adds don't all share a name.</summary>
+    private string NextUntitledFolderName()
+    {
+        const string baseName = "New Folder";
+        if (!_library.Folders.Any(f => string.Equals(f.Name, baseName, StringComparison.OrdinalIgnoreCase)))
+        {
+            return baseName;
+        }
+
+        for (var i = 2; ; i++)
+        {
+            var candidate = $"{baseName} {i}";
+            if (!_library.Folders.Any(f => string.Equals(f.Name, candidate, StringComparison.OrdinalIgnoreCase)))
+            {
+                return candidate;
+            }
+        }
+    }
+
+    /// <summary>Raised so the window can open the folder editor; the view model stays dialog-free.</summary>
+    public event EventHandler<PluginFolder>? FolderEditRequested;
+
+    [RelayCommand]
+    private void EditFolder(PluginFolder? folder)
+    {
+        if (folder is not null)
+        {
+            FolderEditRequested?.Invoke(this, folder);
+        }
+    }
+
+    /// <summary>Persists edits made in the folder editor and redraws.</summary>
+    public void ApplyFolderEdit(PluginFolder folder, string name, string colorHex, string icon)
+    {
+        folder.Name = string.IsNullOrWhiteSpace(name) ? folder.Name : name.Trim();
+        folder.ColorHex = string.IsNullOrWhiteSpace(colorHex) ? folder.ColorHex : colorHex.Trim();
+        folder.Icon = icon.Trim();
+
+        SaveLibrary();
+        RebuildFolderTree();
+    }
+
+    /// <summary>
+    /// Deletes a folder and everything nested inside it. The plugins are only unfiled, never
+    /// touched — a folder is a label on where something sits, so deleting one must not look like
+    /// it deleted the user's plugins.
+    /// </summary>
+    [RelayCommand]
+    private void DeleteFolder(PluginFolder? folder)
+    {
+        if (folder is null)
+        {
+            return;
+        }
+
+        var subtree = PluginFolderService.GetSubtree(_library.Folders, folder.Id);
+        var affected = subtree.Sum(f => _pluginFolders.CountFor(f.Id));
+
+        var message = subtree.Count > 1
+            ? $"Delete \"{folder.Name}\" and its {subtree.Count - 1} sub-folder(s)?"
+            : $"Delete \"{folder.Name}\"?";
+
+        if (affected > 0)
+        {
+            message += $"\n\n{affected} plugin(s) will move back to Unfiled. The plugins themselves aren't touched.";
+        }
+
+        if (MessageBox.Show(message, "Delete Folder", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        foreach (var doomed in subtree)
+        {
+            _pluginFolders.ClearFolder(doomed.Id, save: false);
+            _library.Folders.RemoveAll(f => string.Equals(f.Id, doomed.Id, StringComparison.OrdinalIgnoreCase));
+        }
+
+        _pluginFolders.Save();
+        SaveLibrary();
+        RebuildFolderTree();
+    }
+
+    /// <summary>Promotes a nested folder back to the top level, for people who'd rather not drag.</summary>
+    [RelayCommand]
+    private void MoveFolderToRoot(string? folderId)
+    {
+        if (!string.IsNullOrWhiteSpace(folderId))
+        {
+            MoveFolder(folderId, null);
+        }
+    }
+
+    /// <summary>
+    /// Whether a re-parent would be legal, without performing it — lets a drag show "no entry"
+    /// while hovering rather than only refusing on drop.
+    /// </summary>
+    public bool CanMoveFolder(string folderId, string? newParentId) =>
+        !PluginFolderService.WouldCreateCycle(_library.Folders, folderId, newParentId);
+
+    /// <summary>
+    /// Re-parents a folder. Refuses a move that would make the folder its own ancestor — easy to
+    /// do by accident when dragging onto a descendant, and it would detach the whole branch.
+    /// </summary>
+    public bool MoveFolder(string folderId, string? newParentId)
+    {
+        if (PluginFolderService.WouldCreateCycle(_library.Folders, folderId, newParentId))
+        {
+            return false;
+        }
+
+        var folder = _library.Folders.FirstOrDefault(f => string.Equals(f.Id, folderId, StringComparison.OrdinalIgnoreCase));
+        if (folder is null)
+        {
+            return false;
+        }
+
+        folder.ParentId = string.IsNullOrWhiteSpace(newParentId) ? null : newParentId;
+        SaveLibrary();
+        RebuildFolderTree();
+        return true;
+    }
+
+    /// <summary>
+    /// Files plugins into a folder (null unfiles them). Applies to the whole selection when the
+    /// dragged plugin is part of one, matching every other bulk action in the app.
+    /// </summary>
+    public void MovePluginsToFolder(PluginDisplayViewModel? clicked, string? folderId)
+    {
+        if (clicked is null)
+        {
+            return;
+        }
+
+        foreach (var target in ResolveTargets(clicked))
+        {
+            _pluginFolders.SetFolder(target.BaseName, folderId, save: false);
+        }
+
+        _pluginFolders.Save();
+        RebuildFolderTree();
+    }
+
+    /// <summary>
+    /// The "Move to Folder" submenu's command. Takes a <see cref="FolderMoveRequest"/> because a
+    /// MenuItem has one CommandParameter and this needs both the plugin and the destination.
+    /// </summary>
+    [RelayCommand]
+    private void MovePluginToFolder(object? parameter)
+    {
+        if (parameter is FolderMoveRequest request)
+        {
+            MovePluginsToFolder(request.Plugin, request.FolderId);
+        }
     }
 
     private void RebuildAvailableTags()

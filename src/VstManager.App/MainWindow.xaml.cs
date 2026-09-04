@@ -1,6 +1,7 @@
 using System.Collections;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -11,6 +12,7 @@ using VstManager.App.Controls;
 using VstManager.App.Services;
 using VstManager.App.ViewModels;
 using VstManager.App.Views;
+using VstManager.Core.Models;
 using VstManager.Core.Services;
 
 namespace VstManager.App;
@@ -35,6 +37,14 @@ public partial class MainWindow : Window
 
         var vm = new MainViewModel();
         vm.FixMetadataRequested += (_, plugin) => OpenDetailWindow(vm, plugin);
+        vm.FolderEditRequested += (_, folder) =>
+        {
+            var editor = new FolderEditWindow(folder) { Owner = this };
+            if (editor.ShowDialog() == true)
+            {
+                vm.ApplyFolderEdit(folder, editor.FolderName, editor.FolderColorHex, editor.FolderIcon);
+            }
+        };
         vm.NewMultiCopyPluginsFound += (_, plugins) =>
         {
             Dispatcher.InvokeAsync(() =>
@@ -121,6 +131,160 @@ public partial class MainWindow : Window
         }
 
         OpenDetailWindow(vm, plugin);
+    }
+
+    // ---- folder drag and drop ----------------------------------------------
+    // Plugins are dragged onto folder rows to file them, and folders onto other folders to
+    // nest them. Both use the same drop targets, so the payload type decides what happens.
+
+    private Point _dragStart;
+    private object? _dragCandidate;
+
+    /// <summary>
+    /// Records where a press started. The drag itself only begins once the pointer has moved past
+    /// the system threshold (see <see cref="DragSource_MouseMove"/>) — starting one on mouse-down
+    /// would swallow ordinary clicks, which on a plugin card open the detail window.
+    /// </summary>
+    private void DragSource_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _dragStart = e.GetPosition(null);
+        _dragCandidate = (sender as FrameworkElement)?.DataContext;
+    }
+
+    private void DragSource_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (e.LeftButton != MouseButtonState.Pressed || _dragCandidate is null)
+        {
+            return;
+        }
+
+        var moved = e.GetPosition(null) - _dragStart;
+        if (Math.Abs(moved.X) < SystemParameters.MinimumHorizontalDragDistance
+            && Math.Abs(moved.Y) < SystemParameters.MinimumVerticalDragDistance)
+        {
+            return;
+        }
+
+        var payload = _dragCandidate;
+        _dragCandidate = null;
+
+        // Cancelling a drag (Escape, or dropping on nothing) is a normal outcome, not an error.
+        try
+        {
+            DragDrop.DoDragDrop((DependencyObject)sender, payload, DragDropEffects.Move);
+        }
+        catch (COMException)
+        {
+            // The shell occasionally refuses to start a drag if another one is still unwinding.
+        }
+    }
+
+    private void DragSource_MouseLeftButtonUp(object sender, MouseButtonEventArgs e) => _dragCandidate = null;
+
+    /// <summary>
+    /// Highlights a folder row while something droppable hovers over it, and refuses drops that
+    /// would nest a folder inside itself.
+    /// </summary>
+    private void FolderDropTarget_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = IsDropAllowed(sender, e) ? DragDropEffects.Move : DragDropEffects.None;
+
+        if (sender is FrameworkElement { DataContext: FolderNodeViewModel node })
+        {
+            node.IsDropTarget = e.Effects != DragDropEffects.None;
+        }
+
+        e.Handled = true;
+    }
+
+    private void FolderDropTarget_DragLeave(object sender, DragEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: FolderNodeViewModel node })
+        {
+            node.IsDropTarget = false;
+        }
+    }
+
+    private void FolderDropTarget_Drop(object sender, DragEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: FolderNodeViewModel node }
+            || DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        node.IsDropTarget = false;
+        e.Handled = true;
+
+        if (TryGetPayload<PluginDisplayViewModel>(e, out var plugin))
+        {
+            vm.MovePluginsToFolder(plugin, node.Id);
+            return;
+        }
+
+        if (TryGetPayload<FolderNodeViewModel>(e, out var dragged) && !vm.MoveFolder(dragged.Id, node.Id))
+        {
+            // Only reachable by dropping a folder onto its own descendant. Saying so is better
+            // than silently doing nothing, which reads as the app being broken.
+            MessageBox.Show(this,
+                $"\"{dragged.Name}\" can't be moved inside itself.",
+                "Move Folder", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+    }
+
+    /// <summary>Dropping onto the "Unfiled" header takes a plugin back out of its folder.</summary>
+    private void UnfiledDropTarget_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = TryGetPayload<PluginDisplayViewModel>(e, out _) || TryGetPayload<FolderNodeViewModel>(e, out _)
+            ? DragDropEffects.Move
+            : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void UnfiledDropTarget_Drop(object sender, DragEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        if (TryGetPayload<PluginDisplayViewModel>(e, out var plugin))
+        {
+            vm.MovePluginsToFolder(plugin, null);
+        }
+        else if (TryGetPayload<FolderNodeViewModel>(e, out var folder))
+        {
+            // Dropping a folder out here promotes it to the top level.
+            vm.MoveFolder(folder.Id, null);
+        }
+    }
+
+    private bool IsDropAllowed(object sender, DragEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: FolderNodeViewModel node }
+            || DataContext is not MainViewModel vm)
+        {
+            return false;
+        }
+
+        if (TryGetPayload<PluginDisplayViewModel>(e, out _))
+        {
+            return true;
+        }
+
+        // A folder can't land on itself or on anything beneath it.
+        return TryGetPayload<FolderNodeViewModel>(e, out var dragged)
+               && !string.Equals(dragged.Id, node.Id, StringComparison.OrdinalIgnoreCase)
+               && vm.CanMoveFolder(dragged.Id, node.Id);
+    }
+
+    private static bool TryGetPayload<T>(DragEventArgs e, out T payload) where T : class
+    {
+        payload = (e.Data.GetDataPresent(typeof(T)) ? e.Data.GetData(typeof(T)) : null) as T
+                  ?? default!;
+        return payload is not null;
     }
 
     private void PluginCard_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)

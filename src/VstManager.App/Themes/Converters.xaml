@@ -29,6 +29,10 @@
     <conv:IgnoreVersionCheckMenuTextConverter x:Key="IgnoreVersionCheckMenuTextConverter" />
     <conv:OutdatedBadgeVisibilityConverter x:Key="OutdatedBadgeVisibilityConverter" />
     <conv:IgnoredUpdateBadgeVisibilityConverter x:Key="IgnoredUpdateBadgeVisibilityConverter" />
+    <conv:AllTrueToVisibilityConverter x:Key="AllTrueToVisibilityConverter" />
+    <conv:CountToBoolConverter x:Key="CountToBoolConverter" />
+    <conv:FolderIconFontConverter x:Key="FolderIconFontConverter" />
+    <conv:FolderMoveRequestConverter x:Key="FolderMoveRequestConverter" />
     <conv:FormatToLabelConverter x:Key="FormatToLabelConverter" />
     <conv:CloudStateToBrushConverter x:Key="CloudStateToBrushConverter" />
     <conv:CloudStateIsSyncingConverter x:Key="CloudStateIsSyncingConverter" />

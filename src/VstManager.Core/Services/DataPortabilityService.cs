@@ -17,19 +17,22 @@ public class DataPortabilityService
     private readonly string _manualLogoOverridesPath;
     private readonly string _manualMetadataOverridesPath;
     private readonly string _pluginTagsPath;
+    private readonly string _pluginFoldersPath;
 
     public DataPortabilityService(
         string? libraryPath = null,
         string? excludedFilesPath = null,
         string? manualLogoOverridesPath = null,
         string? manualMetadataOverridesPath = null,
-        string? pluginTagsPath = null)
+        string? pluginTagsPath = null,
+        string? pluginFoldersPath = null)
     {
         _libraryPath = libraryPath ?? LibraryStore.GetDefaultPath();
         _excludedFilesPath = excludedFilesPath ?? ExclusionListService.GetDefaultLocalOverridePath();
         _manualLogoOverridesPath = manualLogoOverridesPath ?? ManualLogoOverrideService.GetDefaultPath();
         _manualMetadataOverridesPath = manualMetadataOverridesPath ?? ManualMetadataOverrideService.GetDefaultPath();
         _pluginTagsPath = pluginTagsPath ?? PluginTagService.GetDefaultPath();
+        _pluginFoldersPath = pluginFoldersPath ?? PluginFolderService.GetDefaultPath();
     }
 
     public string ExportBundle()
@@ -41,7 +44,8 @@ public class DataPortabilityService
             ExcludedFiles = ReadRawJson(_excludedFilesPath),
             ManualLogoOverrides = ReadRawJson(_manualLogoOverridesPath),
             ManualMetadataOverrides = ReadRawJson(_manualMetadataOverridesPath),
-            PluginTags = ReadRawJson(_pluginTagsPath)
+            PluginTags = ReadRawJson(_pluginTagsPath),
+            PluginFolders = ReadRawJson(_pluginFoldersPath)
         };
 
         return JsonSerializer.Serialize(bundle, SerializerOptions);
@@ -65,6 +69,7 @@ public class DataPortabilityService
         WriteRawJsonIfPresent(_manualLogoOverridesPath, bundle.ManualLogoOverrides);
         WriteRawJsonIfPresent(_manualMetadataOverridesPath, bundle.ManualMetadataOverrides);
         WriteRawJsonIfPresent(_pluginTagsPath, bundle.PluginTags);
+        WriteRawJsonIfPresent(_pluginFoldersPath, bundle.PluginFolders);
     }
 
     private static JsonElement? ReadRawJson(string path)

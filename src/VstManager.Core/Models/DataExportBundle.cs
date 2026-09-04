@@ -22,4 +22,10 @@ public class DataExportBundle
     /// of the tag system move together.
     /// </summary>
     public JsonElement? PluginTags { get; set; }
+
+    /// <summary>
+    /// Which folder each plugin is filed in. As with tags, the folder *definitions* travel inside
+    /// Library, so both halves of the folder system move together.
+    /// </summary>
+    public JsonElement? PluginFolders { get; set; }
 }
