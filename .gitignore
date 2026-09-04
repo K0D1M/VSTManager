@@ -1,3 +1,5 @@
 VstManager.WinUI/
 .vs/
 VstManager.Ui/
+src/bin/
+src/obj/
