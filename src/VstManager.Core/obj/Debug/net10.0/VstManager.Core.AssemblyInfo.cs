@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("VstManager.Core")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3e3ab8057bfdc0400f1c12077e4ed3acffcadcfa")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bdc337a27f7bb5e74355df201ac208e29e2590cd")]
 [assembly: System.Reflection.AssemblyProductAttribute("VstManager.Core")]
 [assembly: System.Reflection.AssemblyTitleAttribute("VstManager.Core")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

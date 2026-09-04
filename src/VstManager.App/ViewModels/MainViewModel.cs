@@ -224,9 +224,36 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string? _refreshProgressText;
 
-    /// <summary>Dismissible banner text summarizing the results of the startup version check.</summary>
+    /// <summary>
+    /// Plain summary line for newly-discovered plugins (e.g. "3 new plugins were found."). Kept
+    /// separate from the outdated-plugins panel below: there's no per-item detail worth expanding
+    /// for "found on disk", unlike "has a newer version available".
+    /// </summary>
+    [ObservableProperty]
+    private string? _startupNewPluginsText;
+
+    /// <summary>Header text for the outdated-plugins panel (e.g. "16 plugins have newer versions available").</summary>
     [ObservableProperty]
     private string? _startupUpdateSummaryText;
+
+    /// <summary>
+    /// The outdated plugins behind <see cref="StartupUpdateSummaryText"/>, for the expandable
+    /// panel that lists them by name with their current/latest versions. Kept separate from
+    /// <see cref="Plugins"/> (which changes with search/filter/sort) so the panel's contents stay
+    /// fixed to what the startup check actually found until it is dismissed or re-run.
+    /// </summary>
+    public ObservableCollection<PluginDisplayViewModel> StartupOutdatedPlugins { get; } = new();
+
+    /// <summary>How many outdated plugins are past the cap and rolled up into a "+N more" line.</summary>
+    [ObservableProperty]
+    private int _startupOutdatedOverflowCount;
+
+    /// <summary>
+    /// Row cap for <see cref="StartupOutdatedPlugins"/> — a machine with many outdated plugins
+    /// shouldn't turn a startup notice into a scrolling list; the toolbar's "sort by Updates"
+    /// already covers seeing every one.
+    /// </summary>
+    private const int StartupOutdatedPluginsCap = 8;
 
     [ObservableProperty]
     private LayoutMode _layoutMode = LayoutMode.Grid;
@@ -840,6 +867,14 @@ public partial class MainViewModel : ObservableObject
 
         var outdated = Plugins.Where(p => p.IsInstalled && p.IsOutdated).ToList();
 
+        StartupOutdatedPlugins.Clear();
+        foreach (var plugin in outdated.Take(StartupOutdatedPluginsCap))
+        {
+            StartupOutdatedPlugins.Add(plugin);
+        }
+
+        StartupOutdatedOverflowCount = Math.Max(0, outdated.Count - StartupOutdatedPluginsCap);
+
         var newPart = newlyFoundCount switch
         {
             0 => null,
@@ -854,7 +889,12 @@ public partial class MainViewModel : ObservableObject
             _ => $"{outdated.Count} plugins have newer versions available"
         };
 
-        StartupUpdateSummaryText = (newPart, outdatedPart) switch
+        StartupNewPluginsText = newPart is null ? null : $"{newPart}.";
+        StartupUpdateSummaryText = outdatedPart is null ? null : $"{outdatedPart}.";
+
+        // The toast is a single notification regardless: combining both halves there still reads
+        // naturally, even though the two are now shown separately in the window itself.
+        var toastText = (newPart, outdatedPart) switch
         {
             (null, null) => null,
             (not null, null) => $"{newPart}.",
@@ -862,14 +902,22 @@ public partial class MainViewModel : ObservableObject
             _ => $"{newPart}, and {outdatedPart}."
         };
 
-        if (ShowNotifications && StartupUpdateSummaryText is not null)
+        if (ShowNotifications && toastText is not null)
         {
-            _notificationService.Show("VST Manager", StartupUpdateSummaryText);
+            _notificationService.Show("VST Manager", toastText);
         }
     }
 
     [RelayCommand]
-    private void DismissStartupUpdateSummary() => StartupUpdateSummaryText = null;
+    private void DismissStartupUpdateSummary()
+    {
+        StartupUpdateSummaryText = null;
+        StartupOutdatedPlugins.Clear();
+        StartupOutdatedOverflowCount = 0;
+    }
+
+    [RelayCommand]
+    private void DismissStartupNewPluginsSummary() => StartupNewPluginsText = null;
 
     partial void OnModeChanged(ManagementMode value) => RefreshViews();
     partial void OnSearchTextChanged(string value) => RefreshViews();

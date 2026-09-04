@@ -544,6 +544,58 @@
         </Setter>
     </Style>
 
+    <!-- Same shape and behavior as SectionExpander (used for Favorites/Instruments/Effects), but
+         with OutdatedBrush accents — reserved for panels that need attention, like the startup
+         "updates available" notice, so they read as distinct from the app's neutral sections
+         without inventing a new visual language. -->
+    <Style x:Key="SectionExpanderAlert" TargetType="Expander">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Expander">
+                    <StackPanel>
+                        <ToggleButton IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
+                                      Cursor="Hand" Focusable="False">
+                            <ToggleButton.Content>
+                                <ContentPresenter Content="{Binding Header, RelativeSource={RelativeSource AncestorType=Expander}}" />
+                            </ToggleButton.Content>
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border Background="{DynamicResource SurfaceAltBrush}"
+                                            BorderBrush="{DynamicResource OutdatedBrush}" BorderThickness="1"
+                                            CornerRadius="10" Padding="14,10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <ContentPresenter Grid.Column="0" Content="{TemplateBinding Content}" />
+                                            <TextBlock x:Name="Chevron" Grid.Column="1" Text="&#x25BE;" FontSize="15"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       VerticalAlignment="Center" Margin="8,0,0,0" />
+                                        </Grid>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsChecked" Value="False">
+                                            <Setter TargetName="Chevron" Property="Text" Value="&#x25B8;" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+                        <ContentPresenter x:Name="ExpandSite" Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          Visibility="Collapsed" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsExpanded" Value="True">
+                            <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="GhostToggleButton" TargetType="ToggleButton">
         <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />

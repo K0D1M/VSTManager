@@ -109,6 +109,20 @@ public partial class MainWindow : Window
         settingsWindow.ShowDialog();
     }
 
+    /// <summary>
+    /// A row in the startup "updates available" panel. No multi-select/range-click here — unlike
+    /// the main grid, these rows exist only to jump straight to the plugin's detail window.
+    /// </summary>
+    private void StartupOutdatedRow_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm || sender is not FrameworkElement { DataContext: PluginDisplayViewModel plugin })
+        {
+            return;
+        }
+
+        OpenDetailWindow(vm, plugin);
+    }
+
     private void PluginCard_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         if (DataContext is not MainViewModel vm || sender is not FrameworkElement { DataContext: PluginDisplayViewModel plugin } element)

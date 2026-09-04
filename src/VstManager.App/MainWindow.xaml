@@ -1094,16 +1094,33 @@
                            Foreground="{DynamicResource TextSecondaryBrush}" />
             </StackPanel>
 
-            <Border Margin="0,0,0,14" Padding="12,9" CornerRadius="8"
+            <!-- Plain summary line for newly-discovered plugins: no per-item detail worth
+                 expanding here, unlike the outdated panel below. -->
+            <Border Margin="0,0,0,10" Padding="12,9" CornerRadius="8"
                     Background="{DynamicResource SurfaceAltBrush}"
-                    BorderBrush="{DynamicResource OutdatedBrush}" BorderThickness="1"
-                    RenderTransformOrigin="0.5,0.5"
-                    Visibility="{Binding StartupUpdateSummaryText, Converter={StaticResource StringToVisibilityConverter}}">
-                <Border.RenderTransform>
+                    BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="1"
+                    Visibility="{Binding StartupNewPluginsText, Converter={StaticResource StringToVisibilityConverter}}">
+                <DockPanel LastChildFill="True">
+                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="6,2" Margin="10,0,0,0"
+                            Command="{Binding DismissStartupNewPluginsSummaryCommand}" ToolTip="Dismiss">
+                        <TextBlock Text="&#x2715;" FontSize="11" />
+                    </Button>
+                    <TextBlock VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"
+                               Text="{Binding StartupNewPluginsText, Mode=OneWay}" />
+                </DockPanel>
+            </Border>
+
+            <!-- Outdated-plugins panel: expanded by default so the list is visible immediately,
+                 with the toolbar's "sort by Updates" still available for the full list beyond
+                 the cap below. -->
+            <Expander IsExpanded="True"
+                      Margin="0,0,0,14" RenderTransformOrigin="0.5,0.5"
+                      Visibility="{Binding StartupUpdateSummaryText, Converter={StaticResource StringToVisibilityConverter}}">
+                <Expander.RenderTransform>
                     <TranslateTransform Y="0" />
-                </Border.RenderTransform>
-                <Border.Style>
-                    <Style TargetType="Border">
+                </Expander.RenderTransform>
+                <Expander.Style>
+                    <Style TargetType="Expander" BasedOn="{StaticResource SectionExpanderAlert}">
                         <Style.Triggers>
                             <Trigger Property="IsVisible" Value="True">
                                 <Trigger.EnterActions>
@@ -1121,18 +1138,62 @@
                             </Trigger>
                         </Style.Triggers>
                     </Style>
-                </Border.Style>
-                <DockPanel LastChildFill="True">
-                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="6,2" Margin="10,0,0,0"
-                            Command="{Binding DismissStartupUpdateSummaryCommand}" ToolTip="Dismiss">
-                        <TextBlock Text="&#x2715;" FontSize="11" />
-                    </Button>
-                    <TextBlock VerticalAlignment="Center" FontSize="13">
-                        <Run Text="&#x21BB; " Foreground="{DynamicResource OutdatedBrush}" FontWeight="Bold" />
-                        <Run Text="{Binding StartupUpdateSummaryText, Mode=OneWay}" />
-                    </TextBlock>
-                </DockPanel>
-            </Border>
+                </Expander.Style>
+                <Expander.Header>
+                    <DockPanel LastChildFill="True">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="6,2" Margin="10,0,0,0"
+                                Command="{Binding DismissStartupUpdateSummaryCommand}" ToolTip="Dismiss">
+                            <TextBlock Text="&#x2715;" FontSize="11" />
+                        </Button>
+                        <TextBlock VerticalAlignment="Center" FontSize="13">
+                            <Run Text="&#x21BB; " Foreground="{DynamicResource OutdatedBrush}" FontWeight="Bold" />
+                            <Run Text="{Binding StartupUpdateSummaryText, Mode=OneWay}" />
+                        </TextBlock>
+                    </DockPanel>
+                </Expander.Header>
+                <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush2}"
+                        BorderThickness="1,0,1,1" CornerRadius="0,0,10,10" Padding="14,8" Margin="0,-1,0,0">
+                    <StackPanel>
+                        <ItemsControl ItemsSource="{Binding StartupOutdatedPlugins}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:PluginDisplayViewModel}">
+                                    <Border Padding="0,7" Cursor="Hand"
+                                            MouseLeftButtonUp="StartupOutdatedRow_MouseLeftButtonUp">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="Transparent" />
+                                            </Style>
+                                        </Border.Style>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Vendor}" FontSize="12" Margin="8,0,0,0"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" FontSize="12" VerticalAlignment="Center">
+                                                <Run Text="{Binding CurrentVersion, Mode=OneWay}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                <Run Text=" &#x2192; " Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                <Run Text="{Binding LatestVersion, Mode=OneWay}" Foreground="{DynamicResource OutdatedBrush}" FontWeight="SemiBold" />
+                                            </TextBlock>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Margin="0,4,0,2" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                                   Visibility="{Binding StartupOutdatedOverflowCount, Converter={StaticResource CountToVisibilityConverter}}"
+                                   Text="{Binding StartupOutdatedOverflowCount, StringFormat='+{0} more — sort by Updates to see all'}" />
+                    </StackPanel>
+                </Border>
+            </Expander>
         </StackPanel>
 
         <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
