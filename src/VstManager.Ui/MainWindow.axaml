@@ -1,0 +1,364 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:VstManager.Ui.ViewModels"
+        xmlns:conv="using:VstManager.Ui.Converters"
+        xmlns:notif="using:Avalonia.Controls.Notifications"
+        x:Class="VstManager.Ui.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="VST Manager"
+        Icon="avares://VstManager.Ui/Assets/app-icon.ico"
+        Width="1180" Height="760"
+        MinWidth="640" MinHeight="440"
+        KeyDown="OnLibraryKeyDown"
+        Background="{DynamicResource WindowBackgroundGradient}">
+
+    <Window.Resources>
+        <conv:CloudStateBrushConverter x:Key="CloudStateBrush" />
+
+        <!-- One menu definition, attached to both templates below, so the grid and list can
+             never offer different actions. Commands are reached through the window rather than
+             the item's own DataContext, which is the card; ContextFlyout sits outside the
+             ItemsControl's visual tree, so $parent[ItemsControl] does not resolve from here. -->
+        <MenuFlyout x:Key="PluginMenu" x:DataType="vm:PluginCardViewModel">
+            <MenuItem Header="Details…"
+                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).OpenDetailsCommand}"
+                      CommandParameter="{Binding}" />
+
+            <Separator />
+
+            <MenuItem Header="Toggle Favourite"
+                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleFavoriteCommand}"
+                      CommandParameter="{Binding}" />
+            <MenuItem Header="{Binding HideMenuLabel}"
+                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleHiddenCommand}"
+                      CommandParameter="{Binding}" />
+
+            <Separator />
+
+            <MenuItem Header="Mark Legit"
+                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).MarkLegitCommand}"
+                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}" />
+            <MenuItem Header="Mark Cracked"
+                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).MarkCrackedCommand}"
+                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}" />
+            <MenuItem Header="Clear Classification"
+                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).MarkUnclassifiedCommand}"
+                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}" />
+
+            <Separator />
+
+            <MenuItem Header="Mark as Instrument"
+                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).MarkInstrumentCommand}"
+                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}" />
+            <MenuItem Header="Mark as Effect"
+                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).MarkEffectCommand}"
+                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}" />
+
+
+            <Separator />
+
+            <MenuItem Header="Re-detect Version"
+                      ToolTip.Tip="Re-reads the installed version from the plugin file"
+                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RefreshMetadataCommand}"
+                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}" />
+        </MenuFlyout>
+
+        <!-- Card body, shared by the grid and list templates so the two layouts can never
+             drift apart in what they show. -->
+        <DataTemplate x:Key="CardTemplate" x:DataType="vm:PluginCardViewModel">
+            <Border Classes="card" Classes.selected="{Binding IsSelected}" Width="252"
+                    DoubleTapped="OnPluginDoubleTapped"
+                    Focusable="True"
+                    ContextFlyout="{StaticResource PluginMenu}"
+                    PointerPressed="OnPluginPointerPressed">
+                <StackPanel Spacing="10">
+
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Border Grid.Column="0" Width="34" Height="34" Margin="0,0,10,0"
+                                CornerRadius="{DynamicResource RadiusMedium}"
+                                Background="{DynamicResource SurfaceAltBrush}"
+                                ClipToBounds="True">
+                            <Panel>
+                                <TextBlock Text="{Binding Initial}"
+                                           IsVisible="{Binding Logo, Converter={x:Static ObjectConverters.IsNull}}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           FontSize="15" FontWeight="Bold"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                                <Image Source="{Binding Logo}" Stretch="UniformToFill" />
+                            </Panel>
+                        </Border>
+
+                        <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+                            <TextBlock Classes="title" Text="{Binding Name}"
+                                       ToolTip.Tip="{Binding Name}" />
+                            <TextBlock Classes="subtitle" Text="{Binding Vendor}" />
+                        </StackPanel>
+
+                        <ToggleButton Grid.Column="2" Classes="star"
+                                      IsChecked="{Binding IsFavorite, Mode=OneWay}"
+                                      Command="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).ToggleFavoriteCommand}"
+                                      CommandParameter="{Binding}"
+                                      ToolTip.Tip="Favourite" />
+                    </Grid>
+
+                    <TextBlock Classes="meta" Text="{Binding SummaryLine}" />
+
+                    <WrapPanel ItemSpacing="6" LineSpacing="6">
+                        <Border Classes="chip status"
+                                Classes.legit="{Binding IsLegit}"
+                                Classes.cracked="{Binding IsCracked}"
+                                Classes.muted="{Binding IsUnclassified}">
+                            <TextBlock Text="{Binding TagLabel}" />
+                        </Border>
+
+                        <Border Classes="chip status new" IsVisible="{Binding IsNew}">
+                            <TextBlock Text="NEW" />
+                        </Border>
+
+                        <Border Classes="chip status outdated" IsVisible="{Binding ShowOutdatedBadge}"
+                                ToolTip.Tip="{Binding UpdateTooltip}">
+                            <TextBlock Text="OUTDATED" />
+                        </Border>
+
+                        <ItemsControl ItemsSource="{Binding Tags}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel ItemSpacing="6" LineSpacing="6" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Border Classes="chip">
+                                        <TextBlock Text="{Binding}" />
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </WrapPanel>
+
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="RowTemplate" x:DataType="vm:PluginCardViewModel">
+            <Border Classes="row" Classes.selected="{Binding IsSelected}"
+                    DoubleTapped="OnPluginDoubleTapped"
+                    Focusable="True"
+                    ContextFlyout="{StaticResource PluginMenu}"
+                    PointerPressed="OnPluginPointerPressed">
+                <!-- Star-sized name/vendor with a capped vendor column: at wide window sizes a
+                     pure 2*/1.4* split pushed the vendor into the middle of empty space. -->
+                <Grid ColumnDefinitions="Auto,*,220,150,Auto" VerticalAlignment="Center">
+
+                    <Border Grid.Column="0" Width="26" Height="26" Margin="0,0,12,0"
+                            CornerRadius="{DynamicResource RadiusSmall}"
+                            Background="{DynamicResource SurfaceAltBrush}" ClipToBounds="True">
+                        <Panel>
+                            <TextBlock Text="{Binding Initial}"
+                                       IsVisible="{Binding Logo, Converter={x:Static ObjectConverters.IsNull}}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontSize="12" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" />
+                            <Image Source="{Binding Logo}" Stretch="UniformToFill" />
+                        </Panel>
+                    </Border>
+
+                    <TextBlock Grid.Column="1" Classes="title" Text="{Binding Name}"
+                               ToolTip.Tip="{Binding Name}"
+                               VerticalAlignment="Center" Margin="0,0,12,0" />
+                    <TextBlock Grid.Column="2" Classes="subtitle" Text="{Binding Vendor}"
+                               VerticalAlignment="Center" Margin="0,0,12,0" />
+                    <TextBlock Grid.Column="3" Classes="meta" Text="{Binding SummaryLine}"
+                               VerticalAlignment="Center" Margin="0,0,12,0" />
+
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6"
+                                VerticalAlignment="Center">
+                        <Border Classes="chip status"
+                                Classes.legit="{Binding IsLegit}"
+                                Classes.cracked="{Binding IsCracked}"
+                                Classes.muted="{Binding IsUnclassified}">
+                            <TextBlock Text="{Binding TagLabel}" />
+                        </Border>
+                        <Border Classes="chip status outdated" IsVisible="{Binding ShowOutdatedBadge}"
+                                ToolTip.Tip="{Binding UpdateTooltip}">
+                            <TextBlock Text="OUTDATED" />
+                        </Border>
+                        <ToggleButton Classes="star"
+                                      IsChecked="{Binding IsFavorite, Mode=OneWay}"
+                                      Command="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).ToggleFavoriteCommand}"
+                                      CommandParameter="{Binding}"
+                                      ToolTip.Tip="Favourite" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*">
+
+        <!-- Header ......................................................... -->
+        <Grid Grid.Row="0" Margin="20,18,20,10" ColumnDefinitions="*,Auto">
+            <StackPanel Grid.Column="0" Spacing="2">
+                <TextBlock Text="VST Manager" FontSize="22" FontWeight="Bold"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                <TextBlock Classes="subtitle" Text="{Binding StatusLine}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                        VerticalAlignment="Center">
+                <Button Classes="ghost" Command="{Binding ToggleThemeCommand}"
+                        ToolTip.Tip="Switch between light and dark">
+                    <TextBlock Text="◐" FontSize="15" />
+                </Button>
+                <!-- Cloud indicator. Only shown once sync is on, so a user who never enables it
+                     never sees a permanently grey icon asking to be explained. -->
+                <Border Width="10" Height="10" CornerRadius="5" VerticalAlignment="Center"
+                        Margin="0,0,4,0"
+                        IsVisible="{Binding CloudSyncEnabled}"
+                        Background="{Binding CloudState, Converter={StaticResource CloudStateBrush}}"
+                        ToolTip.Tip="{Binding CloudStatusMessage}" />
+
+                <Button Classes="ghost" Command="{Binding OpenSettingsCommand}"
+                        ToolTip.Tip="Settings">
+                    <TextBlock Text="⚙" FontSize="15" />
+                </Button>
+                <Button Classes="accent" Command="{Binding RescanCommand}"
+                        IsEnabled="{Binding !IsScanning}" Content="Rescan" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Toolbar. Wraps rather than clips, so a narrow window stacks its groups. -->
+        <WrapPanel Grid.Row="1" Margin="20,0,20,10" ItemSpacing="10" LineSpacing="10">
+
+            <TextBox Classes="search" Width="280"
+                     PlaceholderText="Search plugins or vendors…"
+                     Text="{Binding SearchText}" />
+
+            <Border Classes="segmentGroup">
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <RadioButton Classes="segment all" GroupName="mode" Content="All"
+                                 IsChecked="{Binding IsModeAll}" />
+                    <RadioButton Classes="segment legit" GroupName="mode" Content="Legit"
+                                 IsChecked="{Binding IsModeLegit}" />
+                    <RadioButton Classes="segment cracked" GroupName="mode" Content="Cracked"
+                                 IsChecked="{Binding IsModeCracked}" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="segmentGroup">
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <!-- Two-way IsChecked rather than a Command: RadioButton does not invoke
+                         Command on a programmatic Select(), and a OneWay binding fights the
+                         click. Binding the state directly makes both paths agree. -->
+                    <RadioButton Classes="segment plain" GroupName="layout" Content="▦"
+                                 IsChecked="{Binding IsGrid}"
+                                 ToolTip.Tip="Grid view" />
+                    <RadioButton Classes="segment plain" GroupName="layout" Content="☰"
+                                 IsChecked="{Binding IsList}"
+                                 ToolTip.Tip="List view" />
+                </StackPanel>
+            </Border>
+
+            <ComboBox SelectedIndex="0" MinWidth="150" VerticalAlignment="Center"
+                      ToolTip.Tip="Sort order"
+                      SelectionChanged="OnSortChanged">
+                <ComboBoxItem Content="Sort: Name" Tag="Name" />
+                <ComboBoxItem Content="Sort: Vendor" Tag="Vendor" />
+                <ComboBoxItem Content="Sort: Type" Tag="Type" />
+                <ComboBoxItem Content="Sort: Updates" Tag="UpdateStatus" />
+            </ComboBox>
+
+            <Button Classes="ghost" Command="{Binding SetSortCommand}"
+                    CommandParameter="{Binding Sort}"
+                    ToolTip.Tip="Reverse sort direction">
+                <TextBlock Text="⇅" FontSize="14" />
+            </Button>
+
+            <ToggleButton Classes="filterToggle" Content="★ Favourites"
+                          IsChecked="{Binding FavoritesOnly}" />
+            <ToggleButton Classes="filterToggle" Content="↻ Updates"
+                          IsChecked="{Binding OutdatedOnly}" />
+            <ToggleButton Classes="filterToggle" Content="👁 Hidden"
+                          IsChecked="{Binding ShowHidden}" />
+        </WrapPanel>
+
+        <!-- Selection bar, only while something is selected. ................ -->
+        <Border Grid.Row="2" Margin="20,0,20,10" Padding="12,8"
+                IsVisible="{Binding HasSelection}"
+                Background="{DynamicResource SurfaceAltBrush}"
+                CornerRadius="{DynamicResource RadiusMedium}">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           Text="{Binding SelectedCount, StringFormat='{}{0} selected'}" />
+
+                <!-- These pass the *anchor* card; ApplyToTargets then expands to the whole
+                     selection, so one command serves both the menu and this bar. -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <Button Classes="ghost" Content="Legit"
+                            Command="{Binding MarkLegitCommand}"
+                            CommandParameter="{Binding SelectionAnchor}" />
+                    <Button Classes="ghost" Content="Cracked"
+                            Command="{Binding MarkCrackedCommand}"
+                            CommandParameter="{Binding SelectionAnchor}" />
+                    <Button Classes="ghost" Content="Hide"
+                            Command="{Binding ToggleHiddenCommand}"
+                            CommandParameter="{Binding SelectionAnchor}" />
+                    <Button Classes="ghost" Content="Clear"
+                            Command="{Binding ClearSelectionCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Library ........................................................ -->
+        <Panel Grid.Row="3">
+
+            <ScrollViewer Padding="20,0,20,20" HorizontalScrollBarVisibility="Disabled"
+                          IsVisible="{Binding IsGrid}">
+                <ItemsControl ItemsSource="{Binding Plugins}"
+                              ItemTemplate="{StaticResource CardTemplate}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <!-- Reflows by available width rather than a fixed column count,
+                                 so the same layout works maximised and at ~1024px. -->
+                            <WrapPanel ItemSpacing="14" LineSpacing="14" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <ScrollViewer Padding="20,0,20,20" HorizontalScrollBarVisibility="Disabled"
+                          IsVisible="{Binding IsList}">
+                <ItemsControl ItemsSource="{Binding Plugins}"
+                              ItemTemplate="{StaticResource RowTemplate}" />
+            </ScrollViewer>
+
+            <!-- Designed loading and empty states rather than a blank panel. -->
+            <StackPanel IsVisible="{Binding IsScanning}"
+                        HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                <TextBlock Text="Scanning your plugin folders…" Classes="sectionHeader"
+                           HorizontalAlignment="Center" />
+                <ProgressBar IsIndeterminate="True" Width="220" />
+            </StackPanel>
+
+            <StackPanel IsVisible="{Binding IsEmpty}"
+                        HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+                <TextBlock Text="Nothing matches those filters" Classes="sectionHeader"
+                           HorizontalAlignment="Center" />
+                <TextBlock Classes="subtitle" HorizontalAlignment="Center"
+                           Text="Try a different search, or clear the filters." />
+                <Button Classes="accent" Content="Clear filters" HorizontalAlignment="Center"
+                        Command="{Binding ClearFiltersCommand}" />
+            </StackPanel>
+
+        </Panel>
+
+        <!-- Toast host. Declared here rather than constructed in code-behind: the manager is a
+             TemplatedControl and only renders once it is a child of the window's visual tree.
+             Spans every row so notifications float above the library rather than sitting in
+             the header's row. -->
+        <notif:WindowNotificationManager x:Name="Notifications"
+                                         Grid.Row="0" Grid.RowSpan="4"
+                                         Position="BottomRight" MaxItems="3" />
+    </Grid>
+</Window>

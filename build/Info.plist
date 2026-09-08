@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>VST Manager</string>
+
+    <key>CFBundleDisplayName</key>
+    <string>VST Manager</string>
+
+    <!-- Must match the executable's filename inside Contents/MacOS/, which is the assembly name
+         the .NET publish produces. -->
+    <key>CFBundleExecutable</key>
+    <string>VstManager.Ui</string>
+
+    <key>CFBundleIdentifier</key>
+    <string>com.vstmanager.app</string>
+
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+
+    <!-- __VERSION__ is substituted by build/make-app.py from the csproj's <Version>, so the
+         bundle can never drift from the assembly it wraps. -->
+    <key>CFBundleShortVersionString</key>
+    <string>__VERSION__</string>
+
+    <key>CFBundleVersion</key>
+    <string>__VERSION__</string>
+
+    <!-- Without the .icns extension; Finder appends it. -->
+    <key>CFBundleIconFile</key>
+    <string>app-icon</string>
+
+    <!-- Apple silicon and Intel; the publish RID decides which is actually present. -->
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+
+    <!-- The app draws its own light/dark palette from the OS appearance, so it must not be
+         forced into legacy light-only mode. -->
+    <key>NSRequiresAquaSystemAppearance</key>
+    <false/>
+
+    <key>NSHighResolutionCapable</key>
+    <true/>
+
+    <!-- A normal windowed app with a Dock entry, not a background agent. -->
+    <key>LSUIElement</key>
+    <false/>
+
+    <key>NSHumanReadableCopyright</key>
+    <string>VST Manager</string>
+</dict>
+</plist>

@@ -1,0 +1,94 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:VstManager.Ui.ViewModels"
+        x:Class="VstManager.Ui.Views.WelcomeWindow"
+        x:DataType="vm:WelcomeViewModel"
+        Title="Welcome to VST Manager"
+        Width="620" Height="600"
+        MinWidth="520" MinHeight="460"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource WindowBackgroundGradient}">
+
+    <Window.Styles>
+        <Style Selector="Border.section">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
+            <Setter Property="Padding" Value="16" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="26,24,26,22">
+
+        <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,18">
+            <TextBlock Text="VST Manager" FontSize="24" FontWeight="Bold"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
+            <TextBlock Classes="subtitle" TextWrapping="Wrap"
+                       Text="Your plugins are about to be catalogued. These folders are searched automatically — add any others you keep plugins in." />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="14">
+
+                <TextBlock Classes="sectionHeader" Text="Searched automatically" />
+                <Border Classes="section">
+                    <StackPanel Spacing="4">
+                        <ItemsControl ItemsSource="{Binding DefaultVst3Paths}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <TextBlock Classes="meta" Text="{Binding}" TextTrimming="CharacterEllipsis"
+                                               ToolTip.Tip="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <ItemsControl ItemsSource="{Binding DefaultVst2Paths}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <TextBlock Classes="meta" Text="{Binding}" TextTrimming="CharacterEllipsis"
+                                               ToolTip.Tip="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Classes="sectionHeader" Text="Your own folders" />
+                <Border Classes="section">
+                    <StackPanel Spacing="10">
+                        <Button Classes="accent" HorizontalAlignment="Left" Padding="14,7"
+                                Content="Add Folder…" Click="AddFolder_Click" />
+
+                        <TextBlock Classes="meta" IsVisible="{Binding !CustomScanFolders.Count}"
+                                   Text="None added — that's fine, the standard locations cover most setups." />
+
+                        <ItemsControl ItemsSource="{Binding CustomScanFolders}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                                        <TextBlock Grid.Column="0" Classes="meta" Text="{Binding}"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding}" />
+                                        <Button Grid.Column="1" Classes="ghost" Padding="8,4" Margin="8,0,0,0"
+                                                Command="{Binding $parent[Window].((vm:WelcomeViewModel)DataContext).RemoveFolderCommand}"
+                                                CommandParameter="{Binding}">
+                                            <TextBlock Text="✕" Foreground="{DynamicResource CrackedBrush}" />
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,18,0,0">
+            <TextBlock Grid.Column="0" Classes="meta" VerticalAlignment="Center"
+                       Text="You can change these later in Settings." />
+            <Button Grid.Column="1" Classes="accent" Content="Get Started" Padding="24,9"
+                    Click="GetStarted_Click" />
+        </Grid>
+    </Grid>
+</Window>

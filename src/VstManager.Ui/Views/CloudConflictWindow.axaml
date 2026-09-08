@@ -1,0 +1,45 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="VstManager.Ui.Views.CloudConflictWindow"
+        Title="Cloud Sync Conflict"
+        Width="520" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackgroundGradient}">
+
+    <StackPanel Margin="26,22,26,22" Spacing="16">
+
+        <StackPanel Spacing="4">
+            <TextBlock Classes="sectionHeader" Text="Both copies changed" />
+            <TextBlock Classes="subtitle" TextWrapping="Wrap"
+                       Text="This machine and the cloud copy have both been edited since the last sync. Keeping one discards the other's changes." />
+        </StackPanel>
+
+        <Border Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="1"
+                CornerRadius="{DynamicResource RadiusLarge}" Padding="14">
+            <StackPanel Spacing="10">
+                <StackPanel Spacing="2">
+                    <TextBlock Text="This machine" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <TextBlock x:Name="LocalTimestampText" Classes="meta" />
+                </StackPanel>
+                <StackPanel Spacing="2">
+                    <TextBlock Text="Cloud copy" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <TextBlock x:Name="RemoteTimestampText" Classes="meta" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- No default button on purpose: whichever side loses is gone, so the choice stays the
+             user's rather than a timestamp heuristic's. -->
+        <StackPanel Spacing="8">
+            <Button Classes="accent" HorizontalAlignment="Stretch" Padding="14,9"
+                    Content="Keep this machine's copy" Click="KeepLocal_Click" />
+            <Button Classes="ghost" HorizontalAlignment="Stretch" Padding="14,9"
+                    Content="Keep the cloud copy" Click="KeepRemote_Click" />
+            <Button Classes="ghost" HorizontalAlignment="Stretch" Padding="14,9"
+                    Content="Decide later — change nothing" Click="DecideLater_Click" />
+        </StackPanel>
+    </StackPanel>
+</Window>

@@ -1,7 +1,10 @@
-VstManager.WinUI/
 .vs/
-VstManager.Ui/
 /src/VstManager.App/bin
 /src/VstManager.App/obj
 /src/VstManager.Core/bin
 /src/VstManager.Core/obj
+/src/VstManager.Ui/obj
+/src/VstManager.Ui/bin
+
+# macOS bundle output from build/make-app.py — self-contained publishes, ~120MB per RID.
+/artifacts

@@ -1,0 +1,307 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:VstManager.Ui.ViewModels"
+        xmlns:model="using:VstManager.Core.Models"
+        xmlns:conv="using:VstManager.Ui.Converters"
+        x:Class="VstManager.Ui.Views.PluginDetailWindow"
+        x:DataType="vm:PluginDetailViewModel"
+        Title="{Binding Plugin.Name}"
+        Width="720" Height="640"
+        MinWidth="580" MinHeight="460"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackgroundGradient}">
+
+    <Window.Resources>
+        <conv:FormatLabelConverter x:Key="FormatLabel" />
+        <conv:HexToBrushConverter x:Key="HexToBrush" />
+    </Window.Resources>
+
+    <Window.Styles>
+        <!-- A quieter card than Border.card: that one lifts and glows on hover, which suits a
+             grid of plugins but not a settings-style form section. -->
+        <Style Selector="Border.section">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
+            <Setter Property="Padding" Value="16" />
+        </Style>
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+        <!-- Fluent's default tab headers are display-sized; bring them down to the app's scale. -->
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="MinHeight" Value="36" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="20,18,20,16">
+
+        <!-- Header: identity at a glance ................................... -->
+        <Border Grid.Row="0" Classes="section" Padding="14,12" Margin="0,0,0,14">
+            <Grid ColumnDefinitions="Auto,*">
+                <Border Grid.Column="0" Width="60" Height="60" Margin="0,0,14,0"
+                        CornerRadius="{DynamicResource RadiusMedium}"
+                        Background="{DynamicResource SurfaceAltBrush}" ClipToBounds="True">
+                    <Panel>
+                        <TextBlock Text="{Binding Plugin.Initial}"
+                                   IsVisible="{Binding Plugin.Logo, Converter={x:Static ObjectConverters.IsNull}}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontSize="24" FontWeight="Bold"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                        <Image Source="{Binding Plugin.Logo}" Stretch="UniformToFill" />
+                    </Panel>
+                </Border>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                    <TextBlock Text="{Binding Plugin.Name}" FontSize="20" FontWeight="Bold"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <TextBlock Classes="subtitle" Text="{Binding Plugin.Vendor}" />
+                    <WrapPanel ItemSpacing="6" LineSpacing="6" Margin="0,4,0,0">
+                        <Border Classes="chip status"
+                                Classes.legit="{Binding Plugin.IsLegit}"
+                                Classes.cracked="{Binding Plugin.IsCracked}"
+                                Classes.muted="{Binding Plugin.IsUnclassified}">
+                            <TextBlock Text="{Binding Plugin.TagLabel}" />
+                        </Border>
+                        <Border Classes="chip" IsVisible="{Binding Plugin.IsInstalled}">
+                            <TextBlock Text="{Binding Plugin.Formats}" />
+                        </Border>
+                        <Border Classes="chip status outdated"
+                                IsVisible="{Binding Plugin.ShowOutdatedBadge}"
+                                ToolTip.Tip="{Binding Plugin.UpdateTooltip}">
+                            <TextBlock Text="OUTDATED" />
+                        </Border>
+                        <Button Classes="ghost" Padding="8,3" FontSize="11"
+                                Content="{Binding IgnoreLabel}"
+                                Command="{Binding ToggleIgnoreVersionCheckCommand}"
+                                IsVisible="{Binding Plugin.IsInstalled}" />
+                    </WrapPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <TabControl Grid.Row="1">
+
+            <!-- Details ........................................................ -->
+            <TabItem Header="Details">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Spacing="14" Margin="0,10,4,0">
+
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="sectionHeader" Text="Identity" />
+                            <TextBlock Classes="subtitle" Text="How this plugin is shown in your library." />
+                        </StackPanel>
+                        <Border Classes="section">
+                            <Grid ColumnDefinitions="*,12,*">
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Classes="label" Text="Name" />
+                                    <TextBox Classes="search" Text="{Binding Form.Name}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Classes="label" Text="Vendor" />
+                                    <TextBox Classes="search" Text="{Binding Form.Vendor}" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="sectionHeader" Text="Classification" />
+                            <TextBlock Classes="subtitle"
+                                       Text="Used by the Instruments / Effects grouping and the Legit / Cracked filter." />
+                        </StackPanel>
+                        <Border Classes="section">
+                            <Grid ColumnDefinitions="Auto,16,Auto">
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Classes="label" Text="Type" />
+                                    <Border Classes="segmentGroup" HorizontalAlignment="Left">
+                                        <StackPanel Orientation="Horizontal" Spacing="2">
+                                            <RadioButton Classes="segment plain" GroupName="kind" Content="Instrument"
+                                                         IsChecked="{Binding Form.IsInstrument}"
+                                                         IsEnabled="{Binding Plugin.IsInstalled}" />
+                                            <RadioButton Classes="segment plain" GroupName="kind" Content="Effect"
+                                                         IsChecked="{Binding Form.IsEffect}"
+                                                         IsEnabled="{Binding Plugin.IsInstalled}" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Classes="label" Text="Status" />
+                                    <Border Classes="segmentGroup" HorizontalAlignment="Left">
+                                        <StackPanel Orientation="Horizontal" Spacing="2">
+                                            <RadioButton Classes="segment legit" GroupName="status" Content="Legit"
+                                                         IsChecked="{Binding Form.IsLegit}"
+                                                         IsEnabled="{Binding Plugin.IsInstalled}" />
+                                            <RadioButton Classes="segment cracked" GroupName="status" Content="Cracked"
+                                                         IsChecked="{Binding Form.IsCracked}"
+                                                         IsEnabled="{Binding Plugin.IsInstalled}" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="sectionHeader" Text="Tags" />
+                            <TextBlock Classes="subtitle"
+                                       Text="What kind of plugin this is. Tags marked auto were detected from KVR — change any of them and your choice sticks." />
+                        </StackPanel>
+                        <Border Classes="section">
+                            <!-- Applies as you click, no Save needed — see TagPickerItemViewModel. -->
+                            <ItemsControl ItemsSource="{Binding TagItems}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel ItemSpacing="6" LineSpacing="6" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:TagPickerItemViewModel">
+                                        <ToggleButton Classes="filterToggle" Padding="9,4"
+                                                      IsChecked="{Binding IsApplied}"
+                                                      ToolTip.Tip="{Binding Hint}">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <Border Width="9" Height="9" CornerRadius="4.5" VerticalAlignment="Center"
+                                                        Background="{Binding ColorHex, Converter={StaticResource HexToBrush}}" />
+                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                                <TextBlock Text="auto" FontSize="9" VerticalAlignment="Center"
+                                                           IsVisible="{Binding IsAuto}"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                                            </StackPanel>
+                                        </ToggleButton>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="sectionHeader" Text="Version" />
+                            <TextBlock Classes="subtitle"
+                                       Text="An OUTDATED badge appears when the latest release is newer than what you have installed." />
+                        </StackPanel>
+                        <Border Classes="section">
+                            <StackPanel Spacing="10">
+                                <Grid ColumnDefinitions="*,12,*">
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Classes="label" Text="Installed" />
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBox Grid.Column="0" Classes="search"
+                                                     Text="{Binding Form.CurrentVersion}"
+                                                     IsEnabled="{Binding Plugin.IsInstalled}" />
+                                            <Button Grid.Column="1" Classes="ghost" Margin="6,0,0,0"
+                                                    Width="34" Height="34" Padding="0"
+                                                    Command="{Binding DetectCurrentVersionCommand}"
+                                                    IsEnabled="{Binding !Form.IsDetectingCurrentVersion}"
+                                                    ToolTip.Tip="Re-read the installed version from the plugin file">
+                                                <TextBlock Text="↻" FontSize="15"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Button>
+                                        </Grid>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Classes="label" Text="Latest available" />
+                                        <!-- Detected online only; not hand-editable. -->
+                                        <Border Background="{DynamicResource SurfaceAltBrush}"
+                                                BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="1"
+                                                CornerRadius="{DynamicResource RadiusMedium}" Padding="10,8">
+                                            <Panel>
+                                                <TextBlock Text="{Binding Form.LatestVersion}"
+                                                           IsVisible="{Binding Form.HasLatestVersion}"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                <TextBlock Text="Unknown"
+                                                           IsVisible="{Binding !Form.HasLatestVersion}"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                                            </Panel>
+                                        </Border>
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Classes="meta" TextWrapping="Wrap"
+                                           Text="{Binding Form.StatusText}"
+                                           IsVisible="{Binding Form.HasStatus}" />
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Files .......................................................... -->
+            <TabItem Header="Files">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Spacing="14" Margin="0,10,4,0">
+
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="sectionHeader" Text="Install Locations" />
+                            <TextBlock Classes="subtitle"
+                                       Text="Every copy of this plugin found on disk. .vst3 files are VST3 format; .dll files are VST2." />
+                        </StackPanel>
+
+                        <Border Classes="section" IsVisible="{Binding !Plugin.IsInstalled}">
+                            <TextBlock Text="This plugin is not installed on this machine."
+                                       TextWrapping="Wrap" Foreground="{DynamicResource CrackedBrush}" />
+                        </Border>
+
+                        <!-- ActiveInstalls, not Installs: a plugin with one live copy and one
+                             uninstalled copy must not list the removed file as present. -->
+                        <ItemsControl ItemsSource="{Binding Plugin.ActiveInstalls}"
+                                      IsVisible="{Binding Plugin.IsInstalled}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="model:PluginInfo">
+                                    <Border Classes="section" Padding="12,9" Margin="0,0,0,8">
+                                        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                                            <Border Grid.Column="0" Classes="chip" Margin="0,0,10,0"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Format, Converter={StaticResource FormatLabel}}" />
+                                            </Border>
+                                            <TextBlock Grid.Column="1" Classes="meta" Text="{Binding Path}"
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{Binding Path}" />
+                                            <Button Grid.Column="2" Classes="ghost" Padding="10,5" Margin="10,0,0,0"
+                                                    Content="Show in Folder" Tag="{Binding Path}"
+                                                    Click="ShowInFolder_Click" />
+                                            <Button Grid.Column="3" Classes="ghost" Padding="8,5" Margin="6,0,0,0"
+                                                    Tag="{Binding Path}" Click="RemoveFromScanning_Click"
+                                                    ToolTip.Tip="Remove from scanning (keeps the file on disk)">
+                                                <TextBlock Text="✕" Foreground="{DynamicResource CrackedBrush}" />
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="sectionHeader" Text="Remove From Library" />
+                            <TextBlock Classes="subtitle"
+                                       Text="If this file is not really a plugin, exclude it so future scans skip it." />
+                        </StackPanel>
+                        <Border Classes="section" IsVisible="{Binding Plugin.IsInstalled}">
+                            <Button Classes="ghost" Padding="12,7" HorizontalAlignment="Left"
+                                    Click="MarkAsNotAPlugin_Click"
+                                    ToolTip.Tip="Excludes this file by name from future scans, on this and any other machine">
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <TextBlock Text="⚠" Foreground="{DynamicResource CrackedBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Mark as Not a Plugin" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+
+        <!-- Footer .......................................................... -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="0,14,0,0">
+            <Button Grid.Column="1" Classes="ghost" Content="Cancel" Padding="20,7" Margin="0,0,8,0"
+                    Click="Cancel_Click" />
+            <Button Grid.Column="2" Classes="accent" Content="Save Changes" Padding="22,8"
+                    Click="Save_Click" />
+        </Grid>
+    </Grid>
+</Window>

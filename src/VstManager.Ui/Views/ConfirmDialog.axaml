@@ -1,0 +1,20 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="VstManager.Ui.Views.ConfirmDialog"
+        Width="440" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackgroundGradient}">
+
+    <!-- Avalonia has no MessageBox; this is the app's own, so confirmations match the rest of
+         the window instead of dropping to a bare OS dialog. Also doubles as a plain message
+         box when the No button is hidden. -->
+    <StackPanel Margin="24" Spacing="14">
+        <TextBlock x:Name="TitleText" Classes="sectionHeader" />
+        <TextBlock x:Name="MessageText" TextWrapping="Wrap"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,6,0,0">
+            <Button x:Name="NoButton" Classes="ghost" Content="Cancel" Click="No_Click" />
+            <Button x:Name="YesButton" Classes="accent" Content="Yes" Click="Yes_Click" />
+        </StackPanel>
+    </StackPanel>
+</Window>

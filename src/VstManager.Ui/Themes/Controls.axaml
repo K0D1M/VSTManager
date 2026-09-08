@@ -1,0 +1,334 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Control styling layered over FluentTheme. Everything binds to the semantic tokens in
+        Palette.axaml via DynamicResource, so light/dark and a custom accent all flow through
+        without per-style duplication.
+    -->
+
+    <!-- Plugin card. The elevation and lift on hover are what make the grid feel modern;
+         the 150ms transitions keep it from feeling twitchy. -->
+    <Style Selector="Border.card">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush2}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="BoxShadow" Value="0 1 3 0 #14000000" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15" />
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+                <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.15" />
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <Style Selector="Border.card:pointerover">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="BoxShadow" Value="0 6 20 0 #33000000" />
+    </Style>
+
+    <Style Selector="Border.card.selected">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="BorderThickness" Value="2" />
+    </Style>
+
+    <!-- List row. Flatter than a card — rows are scanned vertically, so heavy borders and
+         shadows on every one would be visual noise. -->
+    <Style Selector="Border.row">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush2}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
+        <Setter Property="Padding" Value="12,10" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15" />
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <Style Selector="Border.row:pointerover">
+        <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
+    <Style Selector="Border.row.selected">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="BorderThickness" Value="2" />
+    </Style>
+
+    <!-- Keyboard focus. Deliberately a *shadow* ring rather than a border colour: selection
+         already owns the accent border, and reusing it here would make "focused" and "selected"
+         indistinguishable — the two are independent, since arrows move focus without selecting.
+         :focus-visible only matches keyboard focus, so clicking never paints this. -->
+    <Style Selector="Border.card:focus-visible">
+        <Setter Property="BoxShadow" Value="0 0 0 3 #8A5CF6" />
+    </Style>
+
+    <Style Selector="Border.row:focus-visible">
+        <Setter Property="BoxShadow" Value="0 0 0 3 #8A5CF6" />
+    </Style>
+
+    <!-- Tag / status chips -->
+    <Style Selector="Border.chip">
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusPill}" />
+        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+    </Style>
+
+    <Style Selector="Border.chip > TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+
+    <!--
+        Status chips carry a filled colour, so their label has to be white in BOTH variants —
+        inheriting the muted foreground above left "OUTDATED" nearly illegible on light amber.
+        Declared as a style rather than set per-card so every status chip stays consistent.
+    -->
+    <Style Selector="Border.chip.status > TextBlock">
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
+        <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+
+    <Style Selector="Border.chip.outdated">
+        <Setter Property="Background" Value="{DynamicResource OutdatedBrush}" />
+    </Style>
+
+    <Style Selector="Border.chip.legit">
+        <Setter Property="Background" Value="{DynamicResource LegitBrush}" />
+    </Style>
+
+    <Style Selector="Border.chip.cracked">
+        <Setter Property="Background" Value="{DynamicResource CrackedBrush}" />
+    </Style>
+
+    <!-- Unclassified is the absence of a classification, so it stays quiet rather than
+         shouting in white on a filled background like Legit and Cracked do. -->
+    <Style Selector="Border.chip.status.muted">
+        <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+    </Style>
+
+    <Style Selector="Border.chip.status.muted > TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="Border.chip.new">
+        <Setter Property="Background" Value="{DynamicResource TealAccentBrush}" />
+    </Style>
+
+    <!-- Favourite star. Quiet and grey until set, then accent-coloured. -->
+    <Style Selector="ToggleButton.star">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="4" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Content" Value="★" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{DynamicResource BorderBrush2}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        CornerRadius="{DynamicResource RadiusSmall}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      Foreground="{TemplateBinding Foreground}"
+                                      FontSize="{TemplateBinding FontSize}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Foreground" Duration="0:0:0.15" />
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <Style Selector="ToggleButton.star:pointerover">
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+
+    <Style Selector="ToggleButton.star:checked">
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
+    <!-- Toolbar filter toggles: outlined when off, filled accent when on, so the active
+         filters are readable at a glance instead of needing to be hunted for. -->
+    <Style Selector="ToggleButton.filterToggle">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush2}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
+        <Setter Property="Padding" Value="12,7" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15" />
+                <BrushTransition Property="Foreground" Duration="0:0:0.15" />
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <Style Selector="ToggleButton.filterToggle:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}" />
+    </Style>
+
+    <Style Selector="ToggleButton.filterToggle:checked /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="TextElement.Foreground" Value="#FFFFFFFF" />
+    </Style>
+
+    <!-- Container that groups segmented radio buttons. -->
+    <Style Selector="Border.segmentGroup">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush2}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
+        <Setter Property="Padding" Value="3" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Text roles -->
+    <Style Selector="TextBlock.title">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style Selector="TextBlock.subtitle">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style Selector="TextBlock.meta">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style Selector="TextBlock.sectionHeader">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+
+    <!-- Toolbar buttons: quiet until hovered, so the toolbar reads as content not chrome. -->
+    <Style Selector="Button.ghost">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15" />
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
+    </Style>
+
+    <Style Selector="Button.ghost:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OverlayPressedBrush}" />
+    </Style>
+
+    <Style Selector="Button.accent">
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
+        <Setter Property="Padding" Value="14,7" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}" />
+    </Style>
+
+    <!-- Mode segments (All / Legit / Cracked) keep the colour coding from the WPF app. -->
+    <Style Selector="RadioButton.segment">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="Padding" Value="14,6" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="root"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="{DynamicResource RadiusMedium}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15" />
+                <BrushTransition Property="Foreground" Duration="0:0:0.15" />
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <Style Selector="RadioButton.segment:pointerover">
+        <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}" />
+    </Style>
+
+    <Style Selector="RadioButton.segment.all:checked">
+        <Setter Property="Background" Value="{DynamicResource UnclassifiedBrush}" />
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
+    </Style>
+
+    <Style Selector="RadioButton.segment.legit:checked">
+        <Setter Property="Background" Value="{DynamicResource LegitBrush}" />
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
+    </Style>
+
+    <Style Selector="RadioButton.segment.cracked:checked">
+        <Setter Property="Background" Value="{DynamicResource CrackedBrush}" />
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
+    </Style>
+
+    <!-- Segments with no semantic colour of their own (grid/list) use the accent. -->
+    <Style Selector="RadioButton.segment.plain:checked">
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
+    </Style>
+
+    <Style Selector="RadioButton.segment.plain">
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+
+    <!-- Search field -->
+    <Style Selector="TextBox.search">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush2}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
+        <Setter Property="Padding" Value="10,7" />
+        <Setter Property="MinHeight" Value="0" />
+    </Style>
+
+    <Style Selector="TextBox.search:focus /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
+</Styles>

@@ -1,0 +1,21 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="VstManager.Ui.App"
+             RequestedThemeVariant="Default">
+
+    <!-- Default means "follow the OS", which Avalonia then tracks live on Windows and macOS.
+         ThemeService overrides it when the user picks Light or Dark explicitly. -->
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://VstManager.Ui/Themes/Palette.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="avares://VstManager.Ui/Themes/Controls.axaml" />
+    </Application.Styles>
+</Application>

@@ -1,0 +1,99 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        The semantic colour vocabulary carried over from the WPF app's Dark.xaml / Light.xaml.
+        Both variants live in one file here: Avalonia resolves the right one from the window's
+        ThemeVariant, so there is no dictionary swapping and "System" can follow the OS live.
+
+        Every token MUST be defined in BOTH variants. A colour defined only under Dark silently
+        falls back to nothing in light mode, which is how you end up with invisible text.
+
+        The accent tokens are seeded for first paint and then overwritten at runtime by
+        AccentManager when the user picks a colour.
+    -->
+    <ResourceDictionary.ThemeDictionaries>
+
+        <ResourceDictionary x:Key="Dark">
+            <Color x:Key="WindowBackgroundColor">#FF121218</Color>
+            <Color x:Key="WindowBackgroundColor2">#FF16161F</Color>
+            <Color x:Key="SurfaceColor">#FF1C1C24</Color>
+            <Color x:Key="SurfaceAltColor">#FF25252F</Color>
+            <Color x:Key="BorderColor">#FF32323E</Color>
+            <Color x:Key="TextPrimaryColor">#FFEDEDF2</Color>
+            <Color x:Key="TextSecondaryColor">#FFA0A0AE</Color>
+            <Color x:Key="AccentColor">#FF8A5CF6</Color>
+            <Color x:Key="AccentColorHover">#FF9D74F8</Color>
+            <Color x:Key="TealAccentColor">#FF2DD4BF</Color>
+            <Color x:Key="LegitColor">#FF34D399</Color>
+            <Color x:Key="CrackedColor">#FFF87171</Color>
+            <Color x:Key="UnclassifiedColor">#FF64748B</Color>
+            <Color x:Key="OutdatedColor">#FFF59E0B</Color>
+
+            <!-- Hover/pressed washes. Light-on-dark here, dark-on-light in the other variant,
+                 so the same key reads correctly in both rather than needing per-view triggers. -->
+            <Color x:Key="OverlayHoverColor">#14FFFFFF</Color>
+            <Color x:Key="OverlayPressedColor">#22FFFFFF</Color>
+            <Color x:Key="ShadowColor">#66000000</Color>
+        </ResourceDictionary>
+
+        <ResourceDictionary x:Key="Light">
+            <Color x:Key="WindowBackgroundColor">#FFF3F3F8</Color>
+            <Color x:Key="WindowBackgroundColor2">#FFEAEAF3</Color>
+            <Color x:Key="SurfaceColor">#FFFFFFFF</Color>
+            <Color x:Key="SurfaceAltColor">#FFEDEDF5</Color>
+            <Color x:Key="BorderColor">#FFDCDCE6</Color>
+            <Color x:Key="TextPrimaryColor">#FF1B1B23</Color>
+            <Color x:Key="TextSecondaryColor">#FF6B6B7A</Color>
+            <Color x:Key="AccentColor">#FF6D28D9</Color>
+            <Color x:Key="AccentColorHover">#FF7C3AED</Color>
+            <Color x:Key="TealAccentColor">#FF0D9488</Color>
+            <Color x:Key="LegitColor">#FF059669</Color>
+            <Color x:Key="CrackedColor">#FFDC2626</Color>
+            <Color x:Key="UnclassifiedColor">#FF64748B</Color>
+            <Color x:Key="OutdatedColor">#FFD97706</Color>
+
+            <Color x:Key="OverlayHoverColor">#0F000000</Color>
+            <Color x:Key="OverlayPressedColor">#1A000000</Color>
+            <Color x:Key="ShadowColor">#22000000</Color>
+        </ResourceDictionary>
+
+    </ResourceDictionary.ThemeDictionaries>
+
+    <!--
+        Brushes sit outside the theme dictionaries and reference the colours above, so a single
+        brush definition automatically resolves to whichever variant is active.
+    -->
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="{DynamicResource WindowBackgroundColor}" />
+    <SolidColorBrush x:Key="SurfaceBrush" Color="{DynamicResource SurfaceColor}" />
+    <SolidColorBrush x:Key="SurfaceAltBrush" Color="{DynamicResource SurfaceAltColor}" />
+    <SolidColorBrush x:Key="BorderBrush2" Color="{DynamicResource BorderColor}" />
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{DynamicResource TextPrimaryColor}" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{DynamicResource TextSecondaryColor}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{DynamicResource AccentColor}" />
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="{DynamicResource AccentColorHover}" />
+    <SolidColorBrush x:Key="TealAccentBrush" Color="{DynamicResource TealAccentColor}" />
+    <SolidColorBrush x:Key="LegitBrush" Color="{DynamicResource LegitColor}" />
+    <SolidColorBrush x:Key="CrackedBrush" Color="{DynamicResource CrackedColor}" />
+    <SolidColorBrush x:Key="UnclassifiedBrush" Color="{DynamicResource UnclassifiedColor}" />
+    <SolidColorBrush x:Key="OutdatedBrush" Color="{DynamicResource OutdatedColor}" />
+    <SolidColorBrush x:Key="OverlayHoverBrush" Color="{DynamicResource OverlayHoverColor}" />
+    <SolidColorBrush x:Key="OverlayPressedBrush" Color="{DynamicResource OverlayPressedColor}" />
+
+    <LinearGradientBrush x:Key="WindowBackgroundGradient" StartPoint="0%,0%" EndPoint="100%,100%">
+        <GradientStop Color="{DynamicResource WindowBackgroundColor}" Offset="0" />
+        <GradientStop Color="{DynamicResource WindowBackgroundColor2}" Offset="1" />
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+        <GradientStop Color="{DynamicResource AccentColor}" Offset="0" />
+        <GradientStop Color="{DynamicResource AccentColorHover}" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Spacing rhythm and corner radii, so the whole UI stays on one scale. -->
+    <CornerRadius x:Key="RadiusSmall">4</CornerRadius>
+    <CornerRadius x:Key="RadiusMedium">8</CornerRadius>
+    <CornerRadius x:Key="RadiusLarge">12</CornerRadius>
+    <CornerRadius x:Key="RadiusPill">999</CornerRadius>
+
+</ResourceDictionary>
