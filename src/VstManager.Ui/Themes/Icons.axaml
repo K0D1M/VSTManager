@@ -1,0 +1,19 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Vector icons that don't fit the plain Unicode-glyph TextBlocks used everywhere else in
+        this project — cloud sync and MEGA branding both need a specific silhouette a font glyph
+        can't give. Path data is ported verbatim from the WPF app's Themes/Styles.xaml, which is
+        itself the source of truth for both shapes.
+    -->
+
+    <!-- Cloud silhouette, from VstManager.App/MainWindow.xaml's toolbar sync indicator. -->
+    <StreamGeometry x:Key="CloudGlyph">M6.5,19 A4.5,4.5 0 0,1 6.5,10 A6,6 0 0,1 18,8.5 A4.25,4.25 0 0,1 17.5,19 Z</StreamGeometry>
+
+    <!-- MEGA's "M" wordmark glyph, re-based into a 0,0..721,721 space — see the identical note in
+         VstManager.App/Themes/Styles.xaml, which this is ported from verbatim. Drawn over a red
+         circle the same size (see the MEGA badge in Views/SettingsWindow.axaml's Cloud tab). -->
+    <StreamGeometry x:Key="MegaGlyph">M147.5 214.5 h85 l128 130 129-130 h82 v293 h-86 V337.75 L380.834 442.5 h-40.668 L235.5 337.75 V507.5 h-88 z</StreamGeometry>
+
+</ResourceDictionary>

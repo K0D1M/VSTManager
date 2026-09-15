@@ -41,6 +41,50 @@ public partial class PluginEditFormViewModel : ObservableObject
     [ObservableProperty]
     private string? _statusText;
 
+    // ---- online lookup / artwork staging -----------------------------------
+    // Each long-running action gets its own busy flag rather than sharing one: they can be
+    // started independently, and a single flag would grey out the other buttons for no reason.
+
+    /// <summary>Artwork URL, either typed or filled in by a lookup. Cleared when a local file is chosen.</summary>
+    [ObservableProperty]
+    private string? _logoUrl;
+
+    /// <summary>Product-page URL for "Get Info".</summary>
+    [ObservableProperty]
+    private string? _infoUrl;
+
+    /// <summary>Set when the user picked an image off disk; mutually exclusive with <see cref="LogoUrl"/>.</summary>
+    [ObservableProperty]
+    private string? _localLogoFilePath;
+
+    /// <summary>Temp file backing the preview image, deleted when the window closes.</summary>
+    [ObservableProperty]
+    private string? _logoPreviewLocalPath;
+
+    /// <summary>Whether the preview actually decoded — Save only commits artwork that displayed.</summary>
+    [ObservableProperty]
+    private bool _isLogoPreviewValid;
+
+    [ObservableProperty]
+    private bool _isAutoDetecting;
+
+    [ObservableProperty]
+    private bool _isSearchingManually;
+
+    [ObservableProperty]
+    private bool _isFetchingInfo;
+
+    [ObservableProperty]
+    private bool _isRefreshingMetadata;
+
+    /// <summary>Result line for Auto-Detect / Search Manually, shown on the Details tab.</summary>
+    [ObservableProperty]
+    private string? _autoDetectStatusText;
+
+    /// <summary>Result line for the artwork and URL actions, shown on the Web Info tab.</summary>
+    [ObservableProperty]
+    private string? _logoStatusText;
+
     public PluginEditFormViewModel(PluginCardViewModel card)
     {
         _name = card.Name;
@@ -102,4 +146,37 @@ public partial class PluginEditFormViewModel : ObservableObject
     partial void OnLatestVersionChanged(string? value) => OnPropertyChanged(nameof(HasLatestVersion));
 
     partial void OnStatusTextChanged(string? value) => OnPropertyChanged(nameof(HasStatus));
+
+    public bool HasAutoDetectStatus => !string.IsNullOrWhiteSpace(AutoDetectStatusText);
+
+    public bool HasLogoStatus => !string.IsNullOrWhiteSpace(LogoStatusText);
+
+    /// <summary>True while any lookup is running, so Save can be held back mid-flight.</summary>
+    public bool IsBusy => IsAutoDetecting || IsSearchingManually || IsFetchingInfo
+                          || IsRefreshingMetadata || IsDetectingCurrentVersion;
+
+    partial void OnAutoDetectStatusTextChanged(string? value) => OnPropertyChanged(nameof(HasAutoDetectStatus));
+
+    partial void OnLogoStatusTextChanged(string? value) => OnPropertyChanged(nameof(HasLogoStatus));
+
+    partial void OnIsAutoDetectingChanged(bool value) => OnPropertyChanged(nameof(IsBusy));
+
+    partial void OnIsSearchingManuallyChanged(bool value) => OnPropertyChanged(nameof(IsBusy));
+
+    partial void OnIsFetchingInfoChanged(bool value) => OnPropertyChanged(nameof(IsBusy));
+
+    partial void OnIsRefreshingMetadataChanged(bool value) => OnPropertyChanged(nameof(IsBusy));
+
+    partial void OnIsDetectingCurrentVersionChanged(bool value) => OnPropertyChanged(nameof(IsBusy));
+
+    /// <summary>
+    /// Re-reads the versions from the card after something wrote them directly rather than through
+    /// the form — currently only "Refresh Metadata", which persists immediately. Without this the
+    /// stale staged values would be written straight back over the fresh ones on Save.
+    /// </summary>
+    public void SyncVersionsFrom(PluginCardViewModel card)
+    {
+        CurrentVersion = card.CurrentVersion;
+        LatestVersion = card.LatestVersion;
+    }
 }

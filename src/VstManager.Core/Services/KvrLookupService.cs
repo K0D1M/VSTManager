@@ -823,9 +823,17 @@ public class KvrLookupService
         }
     }
 
+    /// <summary>
+    /// The curl binary to launch. Windows ships it as curl.exe (10 1803+); macOS and Linux have it
+    /// as plain "curl". Getting this wrong is silent and expensive: the launch fails, the code
+    /// falls back to HttpClient, and KVR's Cloudflare rules answer that with a 403 every time — so
+    /// lookups would appear to run while always finding nothing.
+    /// </summary>
+    private static readonly string CurlExecutable = OperatingSystem.IsWindows() ? "curl.exe" : "curl";
+
     private static async Task<FetchResult?> TryFetchViaCurlAsync(string url)
     {
-        var startInfo = new ProcessStartInfo("curl.exe")
+        var startInfo = new ProcessStartInfo(CurlExecutable)
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -924,7 +932,7 @@ public class KvrLookupService
 
     private static async Task<IReadOnlyList<FetchResult?>?> TryFetchManyViaCurlAsync(IReadOnlyList<string> urls)
     {
-        var startInfo = new ProcessStartInfo("curl.exe")
+        var startInfo = new ProcessStartInfo(CurlExecutable)
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,

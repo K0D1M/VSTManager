@@ -1,0 +1,68 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:VstManager.Ui.ViewModels"
+        x:Class="VstManager.Ui.Views.MatchPickerWindow"
+        Title="Choose the right match"
+        Width="540" Height="540"
+        MinWidth="440" MinHeight="380"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackgroundGradient}">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="24,20,24,20">
+
+        <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,14">
+            <TextBlock Classes="sectionHeader" Text="Which one is this?" />
+            <TextBlock x:Name="SubtitleText" Classes="subtitle" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl x:Name="CandidateList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:MatchCandidateViewModel">
+
+                        <!-- The whole row is the radio, so clicking anywhere in the card selects
+                             it rather than only the small circle. -->
+                        <RadioButton GroupName="Candidate"
+                                     IsChecked="{Binding IsSelected}"
+                                     HorizontalAlignment="Stretch"
+                                     Margin="0,0,0,8"
+                                     Padding="0"
+                                     Classes="candidate">
+                            <Border Classes="card" Padding="14,12">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold"
+                                               TextWrapping="Wrap"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Classes="meta" Text="{Binding VendorText}" />
+                                        <TextBlock Classes="meta" Text="·" />
+                                        <TextBlock Classes="meta" Text="{Binding VersionText}" />
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <TextBlock Classes="meta" FontStyle="Italic"
+                                                   Text="{Binding ConfidenceText}" />
+                                        <Button Classes="ghost" Padding="8,2" FontSize="11"
+                                                Content="View page"
+                                                Tag="{Binding SourceUrl}"
+                                                IsVisible="{Binding HasSourceUrl}"
+                                                Click="ViewPage_Click" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </RadioButton>
+
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,14,0,0">
+            <Button Grid.Column="0" Classes="ghost" Content="None of these" Padding="16,8"
+                    Click="NoneOfThese_Click" />
+            <Button Grid.Column="2" Classes="accent" Content="Use this one" Padding="20,8"
+                    Click="Apply_Click" />
+        </Grid>
+    </Grid>
+</Window>

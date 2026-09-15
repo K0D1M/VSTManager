@@ -8,3 +8,5 @@
 
 # macOS bundle output from build/make-app.py — self-contained publishes, ~120MB per RID.
 /artifacts
+/src/VstManager.Ui.WindowsNotifications/bin
+/src/VstManager.Ui.WindowsNotifications/obj

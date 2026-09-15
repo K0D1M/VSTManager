@@ -35,6 +35,11 @@
             <Color x:Key="OverlayHoverColor">#14FFFFFF</Color>
             <Color x:Key="OverlayPressedColor">#22FFFFFF</Color>
             <Color x:Key="ShadowColor">#66000000</Color>
+
+            <!-- The MEGA badge's "M" glyph sits on MEGA's own red circle, not on the app's
+                 surface colour, so it needs its own token rather than TextPrimaryColor: white
+                 reads on that red in dark mode, matching WPF's IsDarkTheme trigger. -->
+            <Color x:Key="MegaGlyphFillColor">#FFFFFFFF</Color>
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Light">
@@ -56,6 +61,8 @@
             <Color x:Key="OverlayHoverColor">#0F000000</Color>
             <Color x:Key="OverlayPressedColor">#1A000000</Color>
             <Color x:Key="ShadowColor">#22000000</Color>
+
+            <Color x:Key="MegaGlyphFillColor">#FF000000</Color>
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>
@@ -79,6 +86,7 @@
     <SolidColorBrush x:Key="OutdatedBrush" Color="{DynamicResource OutdatedColor}" />
     <SolidColorBrush x:Key="OverlayHoverBrush" Color="{DynamicResource OverlayHoverColor}" />
     <SolidColorBrush x:Key="OverlayPressedBrush" Color="{DynamicResource OverlayPressedColor}" />
+    <SolidColorBrush x:Key="MegaGlyphFillBrush" Color="{DynamicResource MegaGlyphFillColor}" />
 
     <LinearGradientBrush x:Key="WindowBackgroundGradient" StartPoint="0%,0%" EndPoint="100%,100%">
         <GradientStop Color="{DynamicResource WindowBackgroundColor}" Offset="0" />

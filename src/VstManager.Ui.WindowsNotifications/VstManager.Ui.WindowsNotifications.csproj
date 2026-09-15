@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A satellite assembly, not part of VstManager.Ui itself, deliberately: real Windows toast
+    notifications (via DesktopNotifications.Windows, which wraps the WinRT toast API) only
+    activate correctly when built against a Windows-versioned TFM — confirmed by an isolated
+    reproduction: the identical code and package versions threw a TypeLoadException loading
+    Microsoft.Toolkit.Uwp.Notifications.ToastNotificationManagerCompat under plain net10.0, and
+    completed cleanly under net10.0-windows10.0.19041.0. VstManager.Ui itself has to stay plain
+    net10.0, since that is what makes it buildable for macOS — see its own csproj comment. This
+    project exists solely to give the Windows notification code the TFM it actually needs,
+    referenced back into VstManager.Ui via a SetTargetFramework project reference override (see
+    VstManager.Ui.csproj), which lets an otherwise-incompatible-looking reference build and run
+    correctly: the reference is a compile-time/NuGet-restore concern only, and this assembly is
+    ordinary managed IL once built — nothing about loading it requires the *host* process to also
+    target a Windows TFM, only this assembly's own code does.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- A class library does not normally flatten its own NuGet dependency closure into its
+         output folder — only an executable's final output gets that treatment, since a library
+         expects whatever eventually hosts it to supply its dependencies. VstManager.Ui reaches
+         this project via a raw file Reference (see its csproj), not a ProjectReference, so
+         nothing does that supplying automatically; this makes the dependency closure — this
+         project's own DLL plus DesktopNotifications(.Windows) and Microsoft.Toolkit.Uwp.
+         Notifications — appear right here, so VstManager.Ui can glob-copy the whole folder. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DesktopNotifications" Version="1.3.1" />
+    <PackageReference Include="DesktopNotifications.Windows" Version="1.3.1" />
+  </ItemGroup>
+
+</Project>

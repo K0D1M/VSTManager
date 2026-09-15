@@ -1,74 +1,21 @@
-using Microsoft.Win32;
 using VstManager.Core.Services;
 
 namespace VstManager.App.Services;
 
-public record UninstallEntry(string DisplayName, string UninstallCommand, string? DisplayVersion);
-
+/// <summary>
+/// The registry-backed installed-programs lookup. The implementation now lives in Core as
+/// <see cref="InstalledProgramsProvider"/> so the Avalonia head shares it rather than carrying a
+/// second copy; this stays as the WPF app's existing entry point so its call sites are unchanged.
+/// </summary>
 public class UninstallerLookup
 {
-    private static readonly string[] RegistryPaths =
-    {
-        @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
-        @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
-    };
-
-    // Many plugin installers register per-user rather than machine-wide.
-    private static readonly (RegistryKey Root, string Path)[] RegistryLocations =
-        RegistryPaths.Select(p => (Registry.LocalMachine, p))
-            .Append((Registry.CurrentUser, RegistryPaths[0]))
-            .ToArray();
+    private readonly InstalledProgramsProvider _provider = new();
 
     public UninstallEntry? FindUninstaller(string pluginName, string? vendor) =>
         FindUninstaller(EnumerateInstalledPrograms().ToList(), pluginName, vendor);
 
-    public static UninstallEntry? FindUninstaller(IReadOnlyList<UninstallEntry> installedPrograms, string pluginName, string? vendor)
-    {
-        var targetName = PluginNameMatcher.Normalize(pluginName);
-        var targetVendor = vendor is null ? null : PluginNameMatcher.Normalize(vendor);
+    public static UninstallEntry? FindUninstaller(IReadOnlyList<UninstallEntry> installedPrograms, string pluginName, string? vendor) =>
+        InstalledProgramsProvider.FindUninstaller(installedPrograms, pluginName, vendor);
 
-        foreach (var entry in installedPrograms)
-        {
-            var normalizedDisplayName = PluginNameMatcher.Normalize(entry.DisplayName);
-
-            if (normalizedDisplayName.Contains(targetName) || targetName.Contains(normalizedDisplayName))
-            {
-                return entry;
-            }
-
-            if (targetVendor is not null &&
-                normalizedDisplayName.Contains(targetVendor) &&
-                normalizedDisplayName.Contains(targetName))
-            {
-                return entry;
-            }
-        }
-
-        return null;
-    }
-
-    public IEnumerable<UninstallEntry> EnumerateInstalledPrograms()
-    {
-        foreach (var (root, basePath) in RegistryLocations)
-        {
-            using var baseKey = root.OpenSubKey(basePath);
-            if (baseKey is null)
-            {
-                continue;
-            }
-
-            foreach (var subKeyName in baseKey.GetSubKeyNames())
-            {
-                using var subKey = baseKey.OpenSubKey(subKeyName);
-                var displayName = subKey?.GetValue("DisplayName") as string;
-                var uninstallString = subKey?.GetValue("UninstallString") as string;
-                var displayVersion = subKey?.GetValue("DisplayVersion") as string;
-
-                if (!string.IsNullOrWhiteSpace(displayName) && !string.IsNullOrWhiteSpace(uninstallString))
-                {
-                    yield return new UninstallEntry(displayName, uninstallString, string.IsNullOrWhiteSpace(displayVersion) ? null : displayVersion);
-                }
-            }
-        }
-    }
+    public IEnumerable<UninstallEntry> EnumerateInstalledPrograms() => _provider.EnumerateInstalledPrograms();
 }

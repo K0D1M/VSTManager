@@ -12,6 +12,50 @@
 
   <ItemGroup>
     <ProjectReference Include="..\VstManager.Core\VstManager.Core.csproj" />
+
+    <!-- A plain net10.0 project referencing a net10.0-windows10.0.19041.0 one is normally refused
+         outright at restore time (NU1201) — NuGet's TFM compatibility graph has no notion of
+         "reference it anyway, I only ever touch it through a portable interface type." Worked
+         around in two parts: this ProjectReference builds the satellite project and keeps it in
+         the dependency graph (so it's always up to date) but, via ReferenceOutputAssembly="false",
+         never asks NuGet to validate or add its output as a compile-time reference, which is
+         exactly the step NU1201 would otherwise block. The actual reference is the plain
+         <Reference> below, pointed at that project's known build output by HintPath — a raw file
+         reference is outside NuGet's compatibility graph entirely, the same mechanism used for
+         referencing any prebuilt third-party DLL regardless of its own TFM. Safe here because
+         nothing in this project ever names the satellite's own Windows-specific types — see
+         NotificationService, which only ever holds the portable
+         DesktopNotifications.INotificationManager interface. -->
+    <!-- Not a ProjectReference: even with ReferenceOutputAssembly="false", MSBuild's own
+         target-framework compatibility check (Microsoft.Common.CurrentVersion.targets,
+         independent of NuGet's NU1201) refuses a plain net10.0 project referencing a
+         net10.0-windows one outright. Built instead via the BeforeBuild target below, which
+         invokes it out-of-band as a plain `dotnet build` — invisible to that compatibility check
+         — and consumed purely as a prebuilt file Reference by HintPath. -->
+    <Reference Include="VstManager.Ui.WindowsNotifications" Condition="'$(OS)' == 'Windows_NT'">
+      <HintPath>..\VstManager.Ui.WindowsNotifications\bin\$(Configuration)\net10.0-windows10.0.19041.0\VstManager.Ui.WindowsNotifications.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="BuildWindowsNotificationsSatellite" BeforeTargets="BeforeBuild" Condition="'$(OS)' == 'Windows_NT'">
+    <Exec Command="dotnet build &quot;..\VstManager.Ui.WindowsNotifications\VstManager.Ui.WindowsNotifications.csproj&quot; -c $(Configuration)"
+          WorkingDirectory="$(MSBuildProjectDirectory)" />
+  </Target>
+
+  <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
+    <!-- VstManager.Ui.WindowsNotifications is reached via a raw file Reference above, not a
+         ProjectReference, so nothing copies its transitive dependency closure into this project's
+         own output automatically the way an ordinary project-to-project reference would. That
+         satellite project's CopyLocalLockFileAssemblies flattens the whole closure into its own
+         bin folder; glob-copy everything from there except its own DLL/PDB, which the explicit
+         Reference above already brings in. Condition on Windows_NT so an osx-arm64 build (where
+         that folder never gets built) doesn't fail globbing a path that doesn't exist. -->
+    <None Include="..\VstManager.Ui.WindowsNotifications\bin\$(Configuration)\net10.0-windows10.0.19041.0\**\*.*"
+          Exclude="..\VstManager.Ui.WindowsNotifications\bin\$(Configuration)\net10.0-windows10.0.19041.0\VstManager.Ui.WindowsNotifications.dll;..\VstManager.Ui.WindowsNotifications\bin\$(Configuration)\net10.0-windows10.0.19041.0\VstManager.Ui.WindowsNotifications.pdb;..\VstManager.Ui.WindowsNotifications\bin\$(Configuration)\net10.0-windows10.0.19041.0\VstManager.Ui.WindowsNotifications.deps.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
@@ -31,5 +75,10 @@
       <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
+    <!-- Windows toast support comes in via VstManager.Ui.WindowsNotifications instead of a
+         direct DesktopNotifications.Windows reference here — see that project reference's
+         comment above for why. -->
+    <PackageReference Include="DesktopNotifications" Version="1.3.1" />
+    <PackageReference Include="DesktopNotifications.Apple" Version="1.3.1" />
   </ItemGroup>
 </Project>

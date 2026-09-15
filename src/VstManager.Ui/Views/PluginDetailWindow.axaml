@@ -99,16 +99,46 @@
                             <TextBlock Classes="subtitle" Text="How this plugin is shown in your library." />
                         </StackPanel>
                         <Border Classes="section">
-                            <Grid ColumnDefinitions="*,12,*">
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Classes="label" Text="Name" />
-                                    <TextBox Classes="search" Text="{Binding Form.Name}" />
+                            <StackPanel Spacing="10">
+                                <Grid ColumnDefinitions="*,12,*">
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Classes="label" Text="Name" />
+                                        <TextBox Classes="search" Text="{Binding Form.Name}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Classes="label" Text="Vendor" />
+                                        <TextBox Classes="search" Text="{Binding Form.Vendor}" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Both look the plugin up online; Auto-Detect uses the name as
+                                     scanned, Search Manually uses whatever is typed above, and
+                                     always offers the choice rather than deciding again. -->
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button Classes="ghost" Padding="12,7"
+                                            Command="{Binding AutoDetectCommand}"
+                                            IsEnabled="{Binding !Form.IsBusy}"
+                                            ToolTip.Tip="Look this plugin up online and fill in what is found">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="✨" FontSize="12" VerticalAlignment="Center" />
+                                            <TextBlock Text="Auto-Detect" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="ghost" Padding="12,7"
+                                            Command="{Binding SearchManuallyCommand}"
+                                            IsEnabled="{Binding !Form.IsBusy}"
+                                            ToolTip.Tip="Search using the name above and choose from the results">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="🔍" FontSize="12" VerticalAlignment="Center" />
+                                            <TextBlock Text="Search Manually" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
                                 </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Classes="label" Text="Vendor" />
-                                    <TextBox Classes="search" Text="{Binding Form.Vendor}" />
-                                </StackPanel>
-                            </Grid>
+
+                                <TextBlock Classes="meta" TextWrapping="Wrap"
+                                           Text="{Binding Form.AutoDetectStatusText}"
+                                           IsVisible="{Binding Form.HasAutoDetectStatus}" />
+                            </StackPanel>
                         </Border>
 
                         <StackPanel Spacing="2">
@@ -223,6 +253,79 @@
                                 <TextBlock Classes="meta" TextWrapping="Wrap"
                                            Text="{Binding Form.StatusText}"
                                            IsVisible="{Binding Form.HasStatus}" />
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Web Info ....................................................... -->
+            <TabItem Header="Web Info">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Spacing="14" Margin="0,10,4,0">
+
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="sectionHeader" Text="Look up by address" />
+                            <TextBlock Classes="subtitle" TextWrapping="Wrap"
+                                       Text="Paste the plugin's product page and VST Manager will read the name, vendor, latest version and artwork from it. Useful when searching can't find it." />
+                        </StackPanel>
+                        <Border Classes="section">
+                            <StackPanel Spacing="10">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBox Grid.Column="0" Classes="search"
+                                             Text="{Binding Form.InfoUrl}"
+                                             PlaceholderText="https://www.kvraudio.com/product/..." />
+                                    <Button Grid.Column="1" Classes="accent" Margin="8,0,0,0" Padding="16,8"
+                                            Content="Get Info"
+                                            Command="{Binding FetchInfoCommand}"
+                                            IsEnabled="{Binding !Form.IsBusy}" />
+                                </Grid>
+                                <TextBlock Classes="meta" TextWrapping="Wrap"
+                                           Text="{Binding Form.LogoStatusText}"
+                                           IsVisible="{Binding Form.HasLogoStatus}" />
+                            </StackPanel>
+                        </Border>
+
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="sectionHeader" Text="Artwork" />
+                            <TextBlock Classes="subtitle" TextWrapping="Wrap"
+                                       Text="Drop an image here or browse for one if the artwork is wrong or missing. PNG, JPG, BMP and GIF." />
+                        </StackPanel>
+
+                        <!-- The drop target is the whole card, so there is a generous area to
+                             aim at rather than just the preview thumbnail. -->
+                        <Border Classes="section"
+                                DragDrop.AllowDrop="True"
+                                DragDrop.DragOver="ImageDropTarget_DragOver"
+                                DragDrop.Drop="ImageDropTarget_Drop">
+                            <StackPanel Spacing="12">
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <Border Grid.Column="0"
+                                            Width="72" Height="72"
+                                            Background="{DynamicResource SurfaceAltBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="1"
+                                            CornerRadius="{DynamicResource RadiusMedium}"
+                                            ClipToBounds="True">
+                                        <Panel>
+                                            <TextBlock Text="No preview"
+                                                       Classes="meta"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       IsVisible="{Binding !Form.IsLogoPreviewValid}" />
+                                            <Image x:Name="LogoPreviewImage" Stretch="UniformToFill"
+                                                   IsVisible="{Binding Form.IsLogoPreviewValid}" />
+                                        </Panel>
+                                    </Border>
+
+                                    <StackPanel Grid.Column="1" Margin="14,0,0,0" Spacing="8"
+                                                VerticalAlignment="Center">
+                                        <Button Classes="ghost" Padding="12,7" HorizontalAlignment="Left"
+                                                Content="Browse for Image…"
+                                                Click="BrowseForImage_Click" />
+                                        <TextBlock Classes="meta" TextWrapping="Wrap"
+                                                   Text="Whatever you choose here replaces the artwork for every copy of this plugin." />
+                                    </StackPanel>
+                                </Grid>
                             </StackPanel>
                         </Border>
 

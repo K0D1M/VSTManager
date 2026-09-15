@@ -282,9 +282,21 @@
                         </StackPanel>
                         <Border Classes="section">
                             <StackPanel Spacing="12">
-                                <CheckBox Content="Keep this machine in sync"
-                                          IsChecked="{Binding CloudSyncEnabled}"
-                                          Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <!-- MEGA's badge: brand red circle behind the wordmark glyph,
+                                         so "which cloud" reads at a glance rather than only from
+                                         the text next to it — matches the WPF Settings window. -->
+                                    <Viewbox Width="18" Height="18">
+                                        <Panel Width="721" Height="721">
+                                            <Ellipse Fill="#FFD31B00" />
+                                            <Path Data="{StaticResource MegaGlyph}"
+                                                  Fill="{DynamicResource MegaGlyphFillBrush}" />
+                                        </Panel>
+                                    </Viewbox>
+                                    <CheckBox Content="Keep this machine in sync with MEGA"
+                                              IsChecked="{Binding CloudSyncEnabled}"
+                                              Foreground="{DynamicResource TextPrimaryBrush}" />
+                                </StackPanel>
                                 <TextBlock Classes="meta" TextWrapping="Wrap"
                                            Text="{Binding CloudStatusMessage}" />
                                 <StackPanel Orientation="Horizontal" Spacing="8">

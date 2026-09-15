@@ -292,6 +292,35 @@
         <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}" />
     </Style>
 
+    <!-- A whole card acting as one radio: the circle is dropped entirely and selection is shown
+         by the border, so clicking anywhere on the row picks it. Used by the match picker, where
+         the rows are large and a small circle would be a fiddly target. -->
+    <Style Selector="RadioButton.candidate">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="root"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        BorderThickness="2"
+                        CornerRadius="{DynamicResource RadiusLarge}">
+                    <ContentPresenter Content="{TemplateBinding Content}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="RadioButton.candidate:checked /template/ Border#root">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
+    <Style Selector="RadioButton.candidate:pointerover /template/ Border#root">
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush2}" />
+    </Style>
+
+    <Style Selector="RadioButton.candidate:checked:pointerover /template/ Border#root">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
     <Style Selector="RadioButton.segment.all:checked">
         <Setter Property="Background" Value="{DynamicResource UnclassifiedBrush}" />
         <Setter Property="Foreground" Value="#FFFFFFFF" />

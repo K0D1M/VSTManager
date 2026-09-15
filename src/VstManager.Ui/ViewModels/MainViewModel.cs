@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Diagnostics;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -6,10 +7,18 @@ using CommunityToolkit.Mvvm.Input;
 using VstManager.Core.Models;
 using VstManager.Core.Services;
 using VstManager.Core.Services.Cloud;
+using VstManager.Ui.Converters;
 using VstManager.Ui.Services;
 using VstManager.Ui.Themes;
 
 namespace VstManager.Ui.ViewModels;
+
+/// <summary>
+/// One entry in the "Move to Folder" submenu — "Unfiled" (null FolderId) plus every real folder
+/// by its full path. A plain bindable entry rather than PluginFolder directly, so same-named
+/// folders in different branches ("Mixing / EQ" vs "Mastering / EQ") stay tellable apart.
+/// </summary>
+public sealed record FolderMenuEntry(string Label, string? FolderId);
 
 /// <summary>Which tag bucket the library list is filtered to.</summary>
 public enum ManagementMode
@@ -62,8 +71,13 @@ public partial class MainViewModel : ObservableObject
     private readonly PluginDisplayBuilder _displayBuilder = new();
     private readonly ManualMetadataOverrideService _manualMetadataOverrides = new();
     private readonly PluginTagService _pluginTags = new();
+    private readonly PluginFolderService _pluginFolders = new();
     private readonly LogoCache _logoCache = new();
+    private readonly ManualLogoOverrideService _manualLogoOverrides = new();
     private readonly PluginVersionDetector _versionDetector = new();
+    private readonly KvrLookupService _kvrLookup = new();
+    private readonly LookupCacheService _lookupCache = new();
+    private readonly InstalledProgramsProvider _installedPrograms = new();
     private readonly DataPortabilityService _dataPortability = new();
     private readonly ICloudSyncProvider _cloudProvider;
     private readonly CloudSyncService _cloudSync;
@@ -140,6 +154,44 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<TagDefinition> AvailableTags { get; } = new();
 
+    // ---- folders ------------------------------------------------------------
+    // A place, not a label — a plugin sits in exactly one, unlike tags which stack freely. See
+    // PluginFolder's own doc comment in Core for the fuller reasoning.
+
+    /// <summary>Root folders only; each node holds its own children. Kept for the tree shape.</summary>
+    public ObservableCollection<FolderNodeViewModel> FolderTree { get; } = new();
+
+    /// <summary>
+    /// Every node flattened depth-first, indent carrying the nesting — bound to a single
+    /// ItemsControl rather than a tree control, since each folder hosts a plugin list the same
+    /// way every other filter section does, which a tree control's item containers make awkward.
+    /// </summary>
+    public ObservableCollection<FolderNodeViewModel> VisibleFolders { get; } = new();
+
+    /// <summary>Every folder flat, ordered by path.</summary>
+    public ObservableCollection<PluginFolder> AllFolders { get; } = new();
+
+    /// <summary>
+    /// What the "Move to Folder" submenu shows: "Unfiled" first, then every folder by path.
+    /// Rebuilt alongside the tree so the menu never offers a folder that no longer exists.
+    /// </summary>
+    public ObservableCollection<FolderMenuEntry> FolderMenuEntries { get; } = new();
+
+    /// <summary>True once the user has made at least one folder — hides the whole section until then.</summary>
+    [ObservableProperty]
+    private bool _hasFolders;
+
+    /// <summary>Plugins in no folder at all, matching the current filters.</summary>
+    [ObservableProperty]
+    private int _unfiledCount;
+
+    /// <summary>Whether the folder list is shown under its header. Defaults open so a new folder is visible right after creating it.</summary>
+    [ObservableProperty]
+    private bool _isFoldersExpanded = true;
+
+    [RelayCommand]
+    private void ClearFolderFilter() => SelectedFolderId = null;
+
     [ObservableProperty]
     private bool _isScanning;
 
@@ -166,6 +218,24 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _outdatedOnly;
+
+    /// <summary>
+    /// Which folder the main list is narrowed to, or null for every plugin. This project's
+    /// single-column card grid has no room for WPF's per-folder inline grids, so a folder acts as
+    /// one more filter alongside search/tag/favourite rather than a separate nested view.
+    /// </summary>
+    [ObservableProperty]
+    private string? _selectedFolderId;
+
+    /// <summary>The chosen folder's own view model, for the header ("Showing: Bass ✕") — null means "All plugins".</summary>
+    public FolderNodeViewModel? SelectedFolder =>
+        SelectedFolderId is null ? null : VisibleFolders.FirstOrDefault(f => f.Id == SelectedFolderId);
+
+    partial void OnSelectedFolderIdChanged(string? value)
+    {
+        OnPropertyChanged(nameof(SelectedFolder));
+        ApplyFilters();
+    }
 
     [ObservableProperty]
     private string _statusLine = "Loading…";
@@ -450,13 +520,12 @@ public partial class MainViewModel : ObservableObject
     /// own opposite — matching how the WPF app's tag submenu behaves.
     /// </summary>
     /// <summary>
-    /// Re-reads the installed version from disk for the resolved targets.
+    /// Re-reads the installed version from disk for the resolved targets, then asks KVR for each
+    /// one's latest published version — the two halves of what "refresh metadata" means.
     ///
-    /// Deliberately narrower than the WPF app's refresh, which also asks KVR for the latest
-    /// version: that path reaches the installed version through UninstallerLookup, which lives in
-    /// VstManager.App and reads the Windows registry — unreferenceable from this project's plain
-    /// net10.0 target, and meaningless on macOS. Only the file-based detection is portable, so
-    /// that is all this does; the menu item is labelled accordingly.
+    /// The installed half falls back to the Windows uninstall registry when the plugin files
+    /// carry no version, matching the WPF app; off Windows that step reports nothing and the
+    /// chain simply ends earlier (see InstalledProgramsProvider).
     /// </summary>
     [RelayCommand]
     private async Task RefreshMetadataAsync(PluginCardViewModel? card)
@@ -477,6 +546,10 @@ public partial class MainViewModel : ObservableObject
             var changed = await Task.Run(() =>
             {
                 var stored = _library.Plugins.ToDictionary(p => p.Path, StringComparer.OrdinalIgnoreCase);
+
+                // Enumerated once for the whole batch rather than per plugin: on Windows this
+                // walks three registry hives, which is far too expensive to repeat per target.
+                var installedPrograms = _installedPrograms.EnumerateInstalledPrograms();
                 var any = false;
 
                 foreach (var target in targets)
@@ -490,7 +563,10 @@ public partial class MainViewModel : ObservableObject
 
                     foreach (var copy in target.Item.ActiveInstalls)
                     {
-                        var detected = _versionDetector.DetectFromFile(copy.Path);
+                        var detected = _versionDetector.DetectFromFile(copy.Path)
+                                       ?? InstalledProgramsProvider
+                                           .FindUninstaller(installedPrograms, target.Name, target.Vendor)?.DisplayVersion;
+
                         if (string.IsNullOrWhiteSpace(detected)
                             || string.Equals(detected, copy.CurrentVersion, StringComparison.OrdinalIgnoreCase))
                         {
@@ -520,6 +596,11 @@ public partial class MainViewModel : ObservableObject
                 SaveLibrary();
                 ApplyFilters();
             }
+
+            // The online half. Deliberately after the local pass and not inside the Task.Run
+            // above: it is network-bound rather than CPU-bound, and it writes through the same
+            // library objects, so it must not run concurrently with the file walk.
+            await EnrichFromWebAsync(targets, ignoreCache: true);
         }
         finally
         {
@@ -531,6 +612,164 @@ public partial class MainViewModel : ObservableObject
 
         Notify("Metadata refresh complete.");
     }
+
+    // ---- online lookup -----------------------------------------------------
+
+    /// <summary>
+    /// Asks KVR for the latest published version of each target and applies what comes back.
+    /// Grouped by BaseName because a VST2 and VST3 copy of the same plugin are one product to
+    /// KVR — looking both up would double the requests for an identical answer.
+    /// </summary>
+    private async Task EnrichFromWebAsync(IReadOnlyList<PluginCardViewModel> targets, bool ignoreCache)
+    {
+        var byBaseName = targets
+            .GroupBy(t => t.BaseName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        var results = new Dictionary<string, KvrLookupResult?>(StringComparer.OrdinalIgnoreCase);
+        var pending = new List<(string Key, string Name, string? Vendor)>();
+
+        foreach (var (baseName, card) in byBaseName)
+        {
+            // A cached answer is used unless the user explicitly asked to refresh: a normal launch
+            // should cost no network at all.
+            if (!ignoreCache && _lookupCache.IsFresh(baseName))
+            {
+                results[baseName] = LookupCacheService.ToResult(_lookupCache.Get(baseName));
+                continue;
+            }
+
+            pending.Add((baseName, card.Name, card.Vendor));
+        }
+
+        if (pending.Count > 0)
+        {
+            try
+            {
+                var fetched = await _kvrLookup.SearchManyAsync(pending);
+
+                foreach (var (key, result) in fetched)
+                {
+                    results[key] = result;
+
+                    if (result is not null)
+                    {
+                        _lookupCache.Set(key, result);
+                    }
+                    else
+                    {
+                        _lookupCache.SetNotFound(key);
+                    }
+                }
+
+                // One write for the whole batch rather than per result.
+                _lookupCache.Save();
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+            {
+                // Offline, or KVR unreachable. The local half of the refresh already succeeded,
+                // so this is a partial result rather than a failure worth interrupting the user.
+            }
+        }
+
+        ApplyLookupResults(byBaseName, results);
+    }
+
+    /// <summary>
+    /// Writes lookup results through to the cards and the library: latest version, auto tags from
+    /// the product's categories, and — for plugins the local catalog doesn't know — the product's
+    /// name, vendor and artwork.
+    /// </summary>
+    private void ApplyLookupResults(
+        IReadOnlyDictionary<string, PluginCardViewModel> byBaseName,
+        IReadOnlyDictionary<string, KvrLookupResult?> results)
+    {
+        var stored = _library.Plugins.ToDictionary(p => p.Path, StringComparer.OrdinalIgnoreCase);
+        var anyChanged = false;
+        var anyTagChanged = false;
+        var logoWork = new List<(PluginCardViewModel Card, string Url)>();
+
+        foreach (var (baseName, card) in byBaseName)
+        {
+            if (!results.TryGetValue(baseName, out var result) || result is null)
+            {
+                continue;
+            }
+
+            // A hand-entered latest version is absolute — no refresh may quietly undo it. This is
+            // what keeps "UADx 1176" from being reset by a match against plain "1176".
+            var manualLatest = _manualMetadataOverrides.GetOverride(baseName)?.LatestVersion;
+
+            if (!string.IsNullOrWhiteSpace(result.LatestVersion) && manualLatest is null)
+            {
+                foreach (var copy in card.Installs)
+                {
+                    copy.LatestVersion = result.LatestVersion;
+
+                    if (stored.TryGetValue(copy.Path, out var libraryCopy))
+                    {
+                        libraryCopy.LatestVersion = result.LatestVersion;
+                    }
+                }
+
+                anyChanged = true;
+            }
+
+            // SetAutoTags respects tags the user applied or removed by hand, so this can run on
+            // every refresh without fighting the user.
+            var detectedTags = CategoryTagMapper.Map(result.Categories);
+            if (detectedTags.Count > 0)
+            {
+                _pluginTags.SetAutoTags(baseName, detectedTags, save: false);
+                anyTagChanged = true;
+            }
+
+            // Only for plugins the curated catalog doesn't cover — where it does, its name,
+            // vendor and logo are the better source and must not be overwritten by a web guess.
+            if (card.Catalog is null)
+            {
+                ApplyMetadataOverride(card, result.ProductName, result.Vendor);
+
+                if (result.LogoUrl is not null && card.Logo is null)
+                {
+                    logoWork.Add((card, result.LogoUrl));
+                }
+            }
+
+            card.RefreshFromItem();
+        }
+
+        if (anyTagChanged)
+        {
+            _pluginTags.Save();
+            _displayBuilder.ApplyTags(_all.Select(c => c.Item).ToList(), _pluginTags, _library.Tags);
+
+            foreach (var card in _all)
+            {
+                card.RefreshFromItem();
+            }
+        }
+
+        if (anyChanged || anyTagChanged)
+        {
+            SaveLibrary();
+            ApplyFilters();
+        }
+
+        // Fire-and-forget: artwork is decorative, and making the refresh wait on image downloads
+        // would hold the spinner long after the versions are already on screen.
+        foreach (var (card, url) in logoWork)
+        {
+            _ = FixLogoAsync(card, url);
+        }
+    }
+
+    /// <summary>Candidate matches for a name the user typed, for the detail window's manual search.</summary>
+    public Task<IReadOnlyList<PluginInfoCandidate>> SearchCandidatesAsync(string name, string? vendor) =>
+        _kvrLookup.SearchCandidatesAsync(name, vendor);
+
+    /// <summary>Reads plugin details off a product page URL the user supplied.</summary>
+    public Task<KvrLookupResult?> FetchInfoFromUrlAsync(string url) => _kvrLookup.FetchFromUrlAsync(url);
 
     [RelayCommand]
     private void SelectAll()
@@ -859,26 +1098,30 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public void SetVersions(PluginCardViewModel card, string? currentVersion, string? latestVersion)
     {
-        if (card.Installs.Count == 0)
-        {
-            return;
-        }
-
         var normalizedCurrent = string.IsNullOrWhiteSpace(currentVersion) ? null : currentVersion.Trim();
         var normalizedLatest = string.IsNullOrWhiteSpace(latestVersion) ? null : latestVersion.Trim();
 
+        // Recorded unconditionally, even for a remembered (uninstalled) plugin with zero copies —
+        // that is exactly the case where preserving a manually-found version matters most, since
+        // there is no file left to re-detect it from. An earlier version of this method returned
+        // before reaching here whenever Installs was empty, which silently dropped every version
+        // correction made on an uninstalled plugin; caught by actually saving one (Arturia
+        // "Analog Lab", remembered-only) and finding manual-metadata.json still empty afterwards.
         _manualMetadataOverrides.SetVersionOverride(card.BaseName, normalizedCurrent, normalizedLatest);
 
-        var stored = _library.Plugins.ToDictionary(p => p.Path, StringComparer.OrdinalIgnoreCase);
-        foreach (var copy in card.Installs)
+        if (card.Installs.Count > 0)
         {
-            copy.CurrentVersion = normalizedCurrent;
-            copy.LatestVersion = normalizedLatest;
-
-            if (stored.TryGetValue(copy.Path, out var libraryCopy))
+            var stored = _library.Plugins.ToDictionary(p => p.Path, StringComparer.OrdinalIgnoreCase);
+            foreach (var copy in card.Installs)
             {
-                libraryCopy.CurrentVersion = normalizedCurrent;
-                libraryCopy.LatestVersion = normalizedLatest;
+                copy.CurrentVersion = normalizedCurrent;
+                copy.LatestVersion = normalizedLatest;
+
+                if (stored.TryGetValue(copy.Path, out var libraryCopy))
+                {
+                    libraryCopy.CurrentVersion = normalizedCurrent;
+                    libraryCopy.LatestVersion = normalizedLatest;
+                }
             }
         }
 
@@ -887,11 +1130,274 @@ public partial class MainViewModel : ObservableObject
         ApplyFilters();
     }
 
-    /// <summary>First version any installed copy's file reports, or null. Safe to call off-thread.</summary>
-    public string? DetectInstalledVersion(PluginCardViewModel card) =>
-        card.Item.ActiveInstalls
-            .Select(copy => _versionDetector.DetectFromFile(copy.Path))
-            .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+    /// <summary>Where an installed version came from, so the UI can say rather than just show a number.</summary>
+    public sealed record VersionDetectionResult(string? Version, string SourceDescription);
+
+    /// <summary>
+    /// Walks the whole fallback chain for one plugin's installed version: every copy's own file
+    /// metadata first, then the Windows uninstall registry. Safe to call off-thread.
+    ///
+    /// The registry step reports nothing off Windows, so on macOS the chain simply ends one step
+    /// earlier rather than behaving differently.
+    /// </summary>
+    public VersionDetectionResult DetectInstalledVersion(PluginCardViewModel card)
+    {
+        foreach (var copy in card.Item.ActiveInstalls)
+        {
+            var fromFile = _versionDetector.DetectFromFile(copy.Path);
+            if (!string.IsNullOrWhiteSpace(fromFile))
+            {
+                return new VersionDetectionResult(fromFile, "the plugin file");
+            }
+        }
+
+        var installedPrograms = _installedPrograms.EnumerateInstalledPrograms();
+        var fromRegistry = InstalledProgramsProvider
+            .FindUninstaller(installedPrograms, card.Name, card.Vendor)?.DisplayVersion;
+
+        if (!string.IsNullOrWhiteSpace(fromRegistry))
+        {
+            return new VersionDetectionResult(fromRegistry, "the Windows uninstall registry");
+        }
+
+        return new VersionDetectionResult(
+            null,
+            OperatingSystem.IsWindows() ? "the plugin files or the Windows registry" : "the plugin files");
+    }
+
+    // ---- uninstall -----------------------------------------------------------
+    // The view model stays dialog-free, so a plan is prepared here (what would happen), the
+    // window confirms it with the user, then execution is requested back — mirroring how
+    // MarkAsNotAPluginAsync/ExcludePathFromScanAsync already split confirm-then-act in this file.
+
+    /// <summary>One plugin's uninstall plan: the registered uninstaller found for it, if any.</summary>
+    public sealed record UninstallPlan(PluginCardViewModel Card, UninstallEntry? Uninstaller);
+
+    /// <summary>
+    /// Looks up whether each resolved target (the whole selection, if the clicked card is part
+    /// of one) has a registered uninstaller, without running anything yet — the window needs this
+    /// to word its confirmation correctly ("run the uninstaller" versus "delete the files").
+    /// Remembered plugins are excluded: there is nothing left on disk to uninstall.
+    /// </summary>
+    public IReadOnlyList<UninstallPlan> PrepareUninstall(PluginCardViewModel? clicked)
+    {
+        var targets = ResolveTargets(clicked).Where(c => c.IsInstalled).ToList();
+        var installedPrograms = _installedPrograms.EnumerateInstalledPrograms();
+
+        return targets
+            .Select(t => new UninstallPlan(t, InstalledProgramsProvider.FindUninstaller(installedPrograms, t.Name, t.Vendor)))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Runs one plan: launches the vendor uninstaller and waits for it to close, or — when none
+    /// is registered — deletes the plugin's own files directly. Returns null on success, or a
+    /// human-readable reason naming the plugin, so the caller can collect several before
+    /// reporting a batch.
+    /// </summary>
+    public async Task<string?> ExecuteUninstallAsync(UninstallPlan plan)
+    {
+        if (plan.Uninstaller is not null)
+        {
+            // InstalledProgramsProvider only ever returns a match on Windows (see its own
+            // portability note), so this should be unreachable elsewhere — checked anyway
+            // rather than trusting that silently, since a registry-sourced command string is
+            // meaningless input to cmd.exe on any other OS.
+            if (!OperatingSystem.IsWindows())
+            {
+                return $"{plan.Card.Name}: no supported way to launch a vendor uninstaller on this OS yet.";
+            }
+
+            try
+            {
+                var process = Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{plan.Uninstaller.UninstallCommand}\"")
+                {
+                    UseShellExecute = true
+                });
+
+                // Best-effort: if the launched process hands off to another and exits early,
+                // nothing here can tell — the caller's rescan simply finds nothing changed and
+                // the user can uninstall again if it didn't actually take.
+                if (process is not null)
+                {
+                    await process.WaitForExitAsync();
+                }
+
+                return null;
+            }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException)
+            {
+                return $"{plan.Card.Name}: couldn't launch its uninstaller ({ex.Message})";
+            }
+        }
+
+        var failures = new List<string>();
+        var deletedAny = false;
+
+        // Active copies only — a remembered copy has no file left to delete, and PrepareUninstall
+        // already excludes fully-remembered plugins, but a mixed plugin can still have some.
+        foreach (var copy in plan.Card.ActiveInstalls)
+        {
+            if (DeletePluginFile(copy.Path))
+            {
+                deletedAny = true;
+            }
+            else
+            {
+                failures.Add(Path.GetFileName(copy.Path));
+            }
+        }
+
+        if (failures.Count > 0)
+        {
+            return $"{plan.Card.Name}: couldn't delete {string.Join(", ", failures)} — it may be in use "
+                  + "by another program or require administrator rights.";
+        }
+
+        return deletedAny ? null : $"{plan.Card.Name}: nothing found to delete.";
+    }
+
+    /// <summary>Deletes one plugin file or bundle directory. False on failure, never throws.</summary>
+    private static bool DeletePluginFile(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+                return true;
+            }
+
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+                return true;
+            }
+
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>What a non-committal auto-detect found, for the detail window to stage into its form.</summary>
+    public sealed record AutoDetectResult(
+        string? DetectedCurrentVersion,
+        KvrLookupResult? WebLookupResult,
+        IReadOnlyList<PluginInfoCandidate> WebCandidates,
+        bool NeedsUserChoice);
+
+    /// <summary>
+    /// Non-mutating preview of what a refresh would find for one plugin. Deliberately writes
+    /// nothing: the detail window stages the result into its form and the user commits with Save,
+    /// so a wrong match is discarded simply by closing the window.
+    /// </summary>
+    public async Task<AutoDetectResult> PreviewAutoDetectAsync(PluginCardViewModel card)
+    {
+        var detectedVersion = await Task.Run(() => DetectInstalledVersion(card).Version);
+
+        try
+        {
+            var candidates = await _kvrLookup.SearchCandidatesAsync(card.Name, card.Vendor);
+
+            if (candidates.Count == 0)
+            {
+                return new AutoDetectResult(detectedVersion, null, [], false);
+            }
+
+            // One clearly-best answer is offered directly; anything less certain goes to the
+            // picker rather than being guessed at on the user's behalf.
+            var best = candidates[0];
+            var isConfident = best.Confidence >= NameSimilarity.ConfidentThreshold
+                              && (candidates.Count == 1 || candidates[1].Confidence < NameSimilarity.ConfidentThreshold);
+
+            return isConfident
+                ? new AutoDetectResult(detectedVersion, best.Info, candidates, false)
+                : new AutoDetectResult(detectedVersion, null, candidates, true);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+        {
+            // Offline: the file-detected version is still worth reporting.
+            return new AutoDetectResult(detectedVersion, null, [], false);
+        }
+    }
+
+    // ---- artwork -----------------------------------------------------------
+
+    /// <summary>Downloads an image to a temp file so the user can see it before committing.</summary>
+    public Task<string?> PreviewLogoAsync(string url) => _logoCache.DownloadPreviewAsync(url);
+
+    /// <summary>
+    /// Records a URL as this plugin's artwork and loads it. Applies to every card sharing the
+    /// BaseName, since a VST2 and VST3 copy are one product and must not show different logos.
+    /// </summary>
+    public async Task<bool> FixLogoAsync(PluginCardViewModel card, string url)
+    {
+        var path = await _logoCache.GetManualLogoPathAsync(card.BaseName, url, forceRefresh: true);
+        if (path is null)
+        {
+            return false;
+        }
+
+        _manualLogoOverrides.SetOverride(card.BaseName, url);
+        await ApplyLogoFileAsync(card.BaseName, path);
+        return true;
+    }
+
+    /// <summary>
+    /// Copies a local image in as this plugin's artwork. Unlike a URL there is nothing to
+    /// re-download later, so the override records only that a local file was used.
+    /// </summary>
+    public async Task<bool> SetLogoFromLocalFileAsync(PluginCardViewModel card, string filePath)
+    {
+        var path = await _logoCache.SaveLocalLogoAsync(card.BaseName, filePath);
+        if (path is null)
+        {
+            return false;
+        }
+
+        _manualLogoOverrides.SetLocalFileOverride(card.BaseName);
+        await ApplyLogoFileAsync(card.BaseName, path);
+        return true;
+    }
+
+    /// <summary>
+    /// Decodes a logo file and hands it to every card sharing the name.
+    ///
+    /// No cache to invalidate here, unlike the WPF app: that binds a path through a caching
+    /// converter and must be told the file changed, while this binds the Bitmap itself, so
+    /// assigning a new one repaints. The old bitmap is disposed rather than left to the finalizer.
+    /// </summary>
+    private async Task ApplyLogoFileAsync(string baseName, string path)
+    {
+        try
+        {
+            var bitmap = await Task.Run(() => new Bitmap(path));
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                foreach (var other in _all.Where(c =>
+                             string.Equals(c.BaseName, baseName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    var previous = other.Logo;
+                    other.Logo = bitmap;
+
+                    if (!ReferenceEquals(previous, bitmap))
+                    {
+                        previous?.Dispose();
+                    }
+                }
+            });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException
+                                       or NotSupportedException)
+        {
+            // An image Avalonia can't decode (WebP, or a truncated download). The override is
+            // still recorded, so the card keeps its initial rather than showing a broken image.
+        }
+    }
 
     /// <summary>
     /// Excludes one install location from future scans (the file stays on disk) and rescans.
@@ -1004,14 +1510,9 @@ public partial class MainViewModel : ObservableObject
     {
         foreach (var card in _all.ToList())
         {
-            if (card.Catalog is null)
-            {
-                continue;
-            }
-
             try
             {
-                var path = await _logoCache.GetLogoPathAsync(card.Catalog);
+                var path = await ResolveLogoPathAsync(card);
                 if (path is null || !File.Exists(path))
                 {
                     continue;
@@ -1022,7 +1523,7 @@ public partial class MainViewModel : ObservableObject
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
                                            or HttpRequestException or TaskCanceledException
-                                           or ArgumentException)
+                                           or ArgumentException or NotSupportedException)
             {
                 // A missing or corrupt logo is not worth surfacing — the card falls back to
                 // its initial and the rest of the library keeps loading.
@@ -1030,9 +1531,58 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Where a card's artwork comes from, in priority order: a local file the user chose, then a
+    /// URL they set, then the curated catalog. The two override steps come first so a correction
+    /// always wins, and they are the reason an uncatalogued plugin can have artwork at all.
+    /// </summary>
+    private async Task<string?> ResolveLogoPathAsync(PluginCardViewModel card)
+    {
+        // Nothing to re-download for a local file — the cached copy is the only copy.
+        if (_manualLogoOverrides.IsLocalFileOverride(card.BaseName))
+        {
+            var cached = _logoCache.FindManualCachedFile(card.BaseName);
+            if (cached is not null)
+            {
+                return cached;
+            }
+        }
+
+        var overrideUrl = _manualLogoOverrides.GetOverrideUrl(card.BaseName);
+        if (overrideUrl is not null)
+        {
+            var manual = await _logoCache.GetManualLogoPathAsync(card.BaseName, overrideUrl);
+            if (manual is not null)
+            {
+                return manual;
+            }
+        }
+
+        return card.Catalog is null ? null : await _logoCache.GetLogoPathAsync(card.Catalog);
+    }
+
     // ---- platform settings -------------------------------------------------
     // Backing fields are seeded in the constructor, so these only ever run on a real user
     // toggle and need no "still loading" guard.
+
+    /// <summary>
+    /// The zoom this session should open at, from the shared library.json. Clamped on read: the
+    /// file is also written by the WPF head and by hand, so an out-of-range value must not get
+    /// through and leave the UI unusably large or small.
+    /// </summary>
+    public double SavedUiScale => Math.Clamp(_library.UiScale, UiScale.Min, UiScale.Max);
+
+    /// <summary>Persists a new zoom, skipping the write when nothing actually changed.</summary>
+    public void SaveUiScale(double factor)
+    {
+        if (Math.Abs(_library.UiScale - factor) < 0.001)
+        {
+            return;
+        }
+
+        _library.UiScale = factor;
+        SaveLibrary();
+    }
 
     /// <summary>Whether the app registers itself to launch at login.</summary>
     [ObservableProperty]
@@ -1096,21 +1646,7 @@ public partial class MainViewModel : ObservableObject
 
     private void ApplyFilters()
     {
-        var search = SearchText.Trim();
-
-        var filtered = _all.Where(p =>
-            (ShowHidden || !p.IsHidden)
-            && (!FavoritesOnly || p.IsFavorite)
-            && (!OutdatedOnly || p.IsOutdated)
-            && (Mode switch
-            {
-                ManagementMode.Legit => p.IsLegit,
-                ManagementMode.Cracked => p.IsCracked,
-                _ => true
-            })
-            && (search.Length == 0
-                || p.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
-                || (p.Vendor?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)));
+        var filtered = _all.Where(MatchesFilters);
 
         // Every sort falls back to name, so plugins sharing a vendor or type keep a stable,
         // predictable order rather than shuffling between rebuilds.
@@ -1141,10 +1677,279 @@ public partial class MainViewModel : ObservableObject
         UpdateStatusLine();
         OnPropertyChanged(nameof(IsFiltered));
         OnPropertyChanged(nameof(IsEmpty));
+
+        // Rebuilt here rather than left to call separately: folders show filed plugins filtered
+        // exactly like the main list, so they must never drift out of step with what Plugins
+        // just became.
+        RebuildFolderTree();
     }
 
     private static int Compare(string? a, string? b) =>
         string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Every filter the toolbar applies, as a single predicate — shared by ApplyFilters (the main
+    /// list) and the folder tree, so a plugin hidden by a filter is hidden inside a folder too
+    /// rather than folders appearing to ignore the toolbar.
+    /// </summary>
+    private bool MatchesFilters(PluginCardViewModel p)
+    {
+        var search = SearchText.Trim();
+
+        return (ShowHidden || !p.IsHidden)
+            && (!FavoritesOnly || p.IsFavorite)
+            && (!OutdatedOnly || p.IsOutdated)
+            && (SelectedFolderId is null
+                || string.Equals(_pluginFolders.GetFolderId(p.BaseName), SelectedFolderId, StringComparison.OrdinalIgnoreCase))
+            && (Mode switch
+            {
+                ManagementMode.Legit => p.IsLegit,
+                ManagementMode.Cracked => p.IsCracked,
+                _ => true
+            })
+            && (search.Length == 0
+                || p.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || (p.Vendor?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false));
+    }
+
+    // ---- folders -------------------------------------------------------------
+
+    /// <summary>
+    /// Rebuilds the tree and refills it from the current filing. Cheap enough to run on any
+    /// change (folders number in the tens), and rebuilding wholesale is what keeps counts,
+    /// nesting and ordering consistent after a move or delete — matching the WPF app's approach.
+    /// </summary>
+    private void RebuildFolderTree()
+    {
+        FolderTree.Clear();
+        VisibleFolders.Clear();
+        AllFolders.Clear();
+
+        FolderMenuEntries.Clear();
+        FolderMenuEntries.Add(new FolderMenuEntry("Unfiled", null));
+
+        foreach (var folder in _library.Folders.OrderBy(
+                     f => PluginFolderService.GetPath(_library.Folders, f.Id),
+                     StringComparer.CurrentCultureIgnoreCase))
+        {
+            AllFolders.Add(folder);
+            FolderMenuEntries.Add(new FolderMenuEntry(PluginFolderService.GetPath(_library.Folders, folder.Id), folder.Id));
+        }
+
+        foreach (var root in PluginFolderService.GetChildren(_library.Folders, null))
+        {
+            FolderTree.Add(BuildFolderNode(root, depth: 0));
+        }
+
+        foreach (var node in FolderTree.SelectMany(n => n.SelfAndDescendants()))
+        {
+            node.NotifyCountsChanged();
+            VisibleFolders.Add(node);
+        }
+
+        HasFolders = _library.Folders.Count > 0;
+        UnfiledCount = Plugins.Count(p => _pluginFolders.GetFolderId(p.BaseName) is null);
+
+        // SelectedFolder's lookup depends on the collection just rebuilt above, so a viewer
+        // bound to it (the "Showing: X" header) needs telling even though SelectedFolderId
+        // itself did not change.
+        OnPropertyChanged(nameof(SelectedFolder));
+
+        // A folder that no longer exists (deleted) leaves the filter stuck narrowing to nothing
+        // with no way back except manually clearing it. Re-entrancy guarded: the property setter
+        // calls ApplyFilters, which calls this — without the guard, clearing it here would start
+        // a second full rebuild from inside the first.
+        if (SelectedFolderId is not null && !_library.Folders.Any(f => f.Id == SelectedFolderId) && !_clearingSelectedFolder)
+        {
+            _clearingSelectedFolder = true;
+            try
+            {
+                SelectedFolderId = null;
+            }
+            finally
+            {
+                _clearingSelectedFolder = false;
+            }
+        }
+    }
+
+    private bool _clearingSelectedFolder;
+
+    private FolderNodeViewModel BuildFolderNode(PluginFolder folder, int depth)
+    {
+        var node = new FolderNodeViewModel(folder, depth);
+
+        foreach (var child in PluginFolderService.GetChildren(_library.Folders, folder.Id))
+        {
+            node.Children.Add(BuildFolderNode(child, depth + 1));
+        }
+
+        // Filed plugins still obey the search box and filters: Plugins is already the filtered,
+        // ordered list ApplyFilters just produced, so this is consistent with the main view by
+        // construction rather than needing its own filter pass.
+        foreach (var plugin in Plugins.Where(p =>
+                     string.Equals(_pluginFolders.GetFolderId(p.BaseName), folder.Id, StringComparison.OrdinalIgnoreCase)))
+        {
+            node.Plugins.Add(plugin);
+        }
+
+        return node;
+    }
+
+    [RelayCommand]
+    private void CreateFolder(string? parentId)
+    {
+        var folder = new PluginFolder
+        {
+            Name = NextUntitledFolderName(),
+            ParentId = string.IsNullOrWhiteSpace(parentId) ? null : parentId,
+            ColorHex = string.IsNullOrWhiteSpace(_library.AccentColor) ? "#FF8A5CF6" : _library.AccentColor,
+            SortOrder = _library.Folders.Count
+        };
+
+        _library.Folders.Add(folder);
+        SaveLibrary();
+        ApplyFilters();
+
+        FolderEditRequested?.Invoke(this, folder);
+    }
+
+    /// <summary>Picks "New Folder", "New Folder 2", … so repeated adds don't all share a name.</summary>
+    private string NextUntitledFolderName()
+    {
+        const string baseName = "New Folder";
+        if (!_library.Folders.Any(f => string.Equals(f.Name, baseName, StringComparison.OrdinalIgnoreCase)))
+        {
+            return baseName;
+        }
+
+        for (var i = 2; ; i++)
+        {
+            var candidate = $"{baseName} {i}";
+            if (!_library.Folders.Any(f => string.Equals(f.Name, candidate, StringComparison.OrdinalIgnoreCase)))
+            {
+                return candidate;
+            }
+        }
+    }
+
+    /// <summary>Raised so the window can open the folder editor; the view model stays dialog-free.</summary>
+    public event EventHandler<PluginFolder>? FolderEditRequested;
+
+    [RelayCommand]
+    private void EditFolder(PluginFolder? folder)
+    {
+        if (folder is not null)
+        {
+            FolderEditRequested?.Invoke(this, folder);
+        }
+    }
+
+    /// <summary>Persists edits made in the folder editor and redraws.</summary>
+    public void ApplyFolderEdit(PluginFolder folder, string name, string icon, string colorHex)
+    {
+        folder.Name = string.IsNullOrWhiteSpace(name) ? folder.Name : name.Trim();
+        folder.Icon = icon.Trim();
+        folder.ColorHex = string.IsNullOrWhiteSpace(colorHex) ? folder.ColorHex : colorHex.Trim();
+
+        SaveLibrary();
+        ApplyFilters();
+    }
+
+    /// <summary>
+    /// What deleting a folder would affect, so the caller can confirm before DeleteFolder acts —
+    /// the view model stays dialog-free, so it reports rather than asks.
+    /// </summary>
+    public (int SubfolderCount, int AffectedPlugins) DescribeFolderDeletion(PluginFolder folder)
+    {
+        var subtree = PluginFolderService.GetSubtree(_library.Folders, folder.Id);
+        var affected = subtree.Sum(f => _pluginFolders.CountFor(f.Id));
+        return (subtree.Count - 1, affected);
+    }
+
+    /// <summary>
+    /// Deletes a folder and everything nested inside it. The plugins are only unfiled, never
+    /// touched — a folder is a label on where something sits, so deleting one must not look like
+    /// it deleted the user's plugins.
+    /// </summary>
+    [RelayCommand]
+    private void DeleteFolder(PluginFolder? folder)
+    {
+        if (folder is null)
+        {
+            return;
+        }
+
+        var subtree = PluginFolderService.GetSubtree(_library.Folders, folder.Id);
+
+        foreach (var doomed in subtree)
+        {
+            _pluginFolders.ClearFolder(doomed.Id, save: false);
+            _library.Folders.RemoveAll(f => string.Equals(f.Id, doomed.Id, StringComparison.OrdinalIgnoreCase));
+        }
+
+        _pluginFolders.Save();
+        SaveLibrary();
+        ApplyFilters();
+    }
+
+    /// <summary>Promotes a nested folder back to the top level.</summary>
+    [RelayCommand]
+    private void MoveFolderToRoot(string? folderId)
+    {
+        if (!string.IsNullOrWhiteSpace(folderId))
+        {
+            MoveFolder(folderId, null);
+        }
+    }
+
+    /// <summary>
+    /// Re-parents a folder. Refuses a move that would make the folder its own ancestor — the
+    /// same guard WPF's drag-and-drop uses, kept here even without drag-and-drop this pass since
+    /// a future menu-driven re-parent (or the deferred drag-and-drop) needs it regardless.
+    /// </summary>
+    public bool MoveFolder(string folderId, string? newParentId)
+    {
+        if (PluginFolderService.WouldCreateCycle(_library.Folders, folderId, newParentId))
+        {
+            return false;
+        }
+
+        var folder = _library.Folders.FirstOrDefault(f => string.Equals(f.Id, folderId, StringComparison.OrdinalIgnoreCase));
+        if (folder is null)
+        {
+            return false;
+        }
+
+        folder.ParentId = string.IsNullOrWhiteSpace(newParentId) ? null : newParentId;
+        SaveLibrary();
+        ApplyFilters();
+        return true;
+    }
+
+    /// <summary>
+    /// Files the resolved targets (the whole selection, if the clicked card is part of one) into
+    /// a folder — or back to Unfiled when folderId is null. Called from the FolderPickerWindow's
+    /// result rather than bound as a command: the picker's code-behind already has both the
+    /// clicked card and the chosen folder in hand, with no need for a combined CommandParameter.
+    /// </summary>
+    public void MovePluginsToFolder(PluginCardViewModel? clicked, string? folderId)
+    {
+        var targets = ResolveTargets(clicked);
+
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var target in targets)
+        {
+            _pluginFolders.SetFolder(target.BaseName, folderId, save: false);
+        }
+
+        _pluginFolders.Save();
+        ApplyFilters();
+    }
 
     private void UpdateStatusLine()
     {

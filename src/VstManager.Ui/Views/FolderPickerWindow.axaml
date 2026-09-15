@@ -1,0 +1,39 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:VstManager.Ui.ViewModels"
+        x:Class="VstManager.Ui.Views.FolderPickerWindow"
+        Title="Move to Folder"
+        Width="360" Height="420"
+        MinWidth="320" MinHeight="280"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackgroundGradient}">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="20,18,20,16">
+
+        <TextBlock Grid.Row="0" Classes="sectionHeader" Text="Move to Folder" Margin="0,0,0,10" />
+
+        <!--
+            A plain list of buttons in its own small window, rather than a nested flyout
+            submenu: Avalonia's MenuItem submenus did not reliably open on hover when nested
+            inside a MenuFlyout's ItemsSource-driven item here — confirmed with the app actually
+            running (hover, keyboard Right-arrow, and a hardcoded static child all failed to pop
+            the submenu out) rather than assumed. This sidesteps that entirely with a mechanism
+            already proven to work in this codebase (MatchPickerWindow, FolderEditWindow).
+        -->
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl x:Name="EntryList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:FolderMenuEntry">
+                        <Button Classes="ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Padding="10,8" Margin="0,0,0,4"
+                                Content="{Binding Label}"
+                                Click="Entry_Click" Tag="{Binding}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <Button Grid.Row="2" Classes="ghost" Content="Cancel" HorizontalAlignment="Right"
+                Padding="18,8" Margin="0,10,0,0" Click="Cancel_Click" />
+    </Grid>
+</Window>

@@ -1,0 +1,88 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:VstManager.Ui.ViewModels"
+        xmlns:conv="using:VstManager.Ui.Converters"
+        x:Class="VstManager.Ui.Views.FolderEditWindow"
+        x:DataType="vm:FolderEditViewModel"
+        Title="Folder"
+        Width="460" SizeToContent="Height"
+        MinWidth="420"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackgroundGradient}">
+
+    <Window.Resources>
+        <conv:HexToBrushConverter x:Key="HexToBrush" />
+    </Window.Resources>
+
+    <StackPanel Margin="26,20,26,22" Spacing="4">
+
+        <!-- Live preview of the folder row, so the icon/colour choices are judged as they'll
+             actually appear rather than as raw values. -->
+        <Border Classes="section" Margin="0,0,0,14">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Border Width="4" CornerRadius="2"
+                        Background="{Binding ColorHex, Converter={StaticResource HexToBrush}}" />
+                <TextBlock Text="{Binding PreviewIcon}" FontSize="16" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding PreviewName}" FontSize="14" FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="label" Text="Name" />
+        <TextBox x:Name="NameBox" Classes="search" Text="{Binding Name}" Margin="0,0,0,12" />
+
+        <TextBlock Classes="label" Text="Icon" />
+        <TextBlock Classes="meta" Margin="0,0,0,7" Text="Pick one, or type any emoji." />
+        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,0,8">
+            <ItemsControl ItemsSource="{Binding IconPresets}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel ItemSpacing="5" LineSpacing="5" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                        <Button Classes="ghost" Width="34" Height="34" Padding="0"
+                                Tag="{Binding}" Click="IconChoice_Click">
+                            <TextBlock Text="{Binding}" FontSize="16" HorizontalAlignment="Center" />
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+        <TextBox Classes="search" Text="{Binding Icon}" Margin="0,0,0,16"
+                 PlaceholderText="Or type an emoji here" />
+
+        <TextBlock Classes="label" Text="Colour" />
+        <TextBlock Classes="meta" Margin="0,0,0,7" Text="Pick one, or enter a hex colour." />
+        <ItemsControl ItemsSource="{Binding ColorPresets}" Margin="0,0,0,8">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel ItemSpacing="6" LineSpacing="6" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="x:String">
+                    <Button Width="28" Height="28" Padding="0" CornerRadius="14"
+                            Background="{Binding Converter={StaticResource HexToBrush}}"
+                            Tag="{Binding}" Click="ColorChoice_Click" />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBox Classes="search" Text="{Binding ColorHex}" Margin="0,0,0,10" />
+
+        <TextBlock Classes="meta" TextWrapping="Wrap"
+                   Foreground="{DynamicResource CrackedBrush}"
+                   IsVisible="{Binding ValidationError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                   Text="{Binding ValidationError}" Margin="0,0,0,10" />
+
+        <Grid ColumnDefinitions="*,Auto,Auto">
+            <Button Grid.Column="1" Classes="ghost" Content="Cancel" Padding="18,8" Margin="0,0,8,0"
+                    Click="Cancel_Click" />
+            <Button Grid.Column="2" Classes="accent" Content="Save" Padding="22,8"
+                    Click="Save_Click" />
+        </Grid>
+    </StackPanel>
+</Window>
