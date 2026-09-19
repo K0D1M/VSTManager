@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using VstManager.Ui.ViewModels;
@@ -120,4 +122,28 @@ public partial class SettingsWindow : Window
     }
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
+
+    // ---- about ----------------------------------------------------------------
+
+    private void AuthorLink_Click(object? sender, PointerPressedEventArgs e) => OpenUrl("https://github.com/K0D1M");
+
+    private void RepoLink_Click(object? sender, PointerPressedEventArgs e) =>
+        OpenUrl("https://github.com/K0D1M/VSTManager");
+
+    /// <summary>
+    /// Same portable open-in-browser pattern already used for KVR product pages
+    /// (MatchPickerWindow.axaml.cs's ViewPage_Click) — UseShellExecute lets the OS resolve the
+    /// default browser on both Windows and macOS rather than hardcoding one.
+    /// </summary>
+    private static void OpenUrl(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            // No browser, or a URL the shell refuses — not worth interrupting Settings over.
+        }
+    }
 }

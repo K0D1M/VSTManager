@@ -274,6 +274,13 @@
                 </Button>
                 <Button Classes="accent" Command="{Binding RescanCommand}"
                         IsEnabled="{Binding !IsScanning}" Content="Rescan" />
+
+                <!-- Always exits, even with "Minimize to tray" on — Close() alone would just hide
+                     the window in that case (see OnMainWindowClosing). -->
+                <Button Classes="ghost" Click="Quit_Click"
+                        ToolTip.Tip="Quit VST Manager">
+                    <TextBlock Text="⏻" FontSize="15" />
+                </Button>
             </StackPanel>
         </Grid>
 
@@ -309,17 +316,24 @@
                 </StackPanel>
             </Border>
 
-            <ComboBox SelectedIndex="0" MinWidth="150" VerticalAlignment="Center"
+            <!-- SelectedValue is bound straight to the Sort enum property (SelectedValueBinding
+                 picks it off each item's Tag, set here to the enum member itself rather than its
+                 string name), so this is a genuine two-way binding rather than an event handler —
+                 the same reason WPF's own sort control (RadioButtons bound to SortOption via
+                 EnumEqualsConverter) never needed separate code to restore the persisted choice on
+                 launch: a live two-way binding re-reads the current value from the view model as
+                 soon as it exists, with nothing extra to wire up in either direction. -->
+            <ComboBox MinWidth="150" VerticalAlignment="Center"
                       ToolTip.Tip="Sort order"
-                      SelectionChanged="OnSortChanged">
-                <ComboBoxItem Content="Sort: Name" Tag="Name" />
-                <ComboBoxItem Content="Sort: Vendor" Tag="Vendor" />
-                <ComboBoxItem Content="Sort: Type" Tag="Type" />
-                <ComboBoxItem Content="Sort: Updates" Tag="UpdateStatus" />
+                      SelectedValueBinding="{CompiledBinding Tag, x:DataType=ComboBoxItem}"
+                      SelectedValue="{Binding Sort}">
+                <ComboBoxItem Content="Sort: Name" Tag="{x:Static vm:SortOption.Name}" />
+                <ComboBoxItem Content="Sort: Vendor" Tag="{x:Static vm:SortOption.Vendor}" />
+                <ComboBoxItem Content="Sort: Type" Tag="{x:Static vm:SortOption.Type}" />
+                <ComboBoxItem Content="Sort: Updates" Tag="{x:Static vm:SortOption.UpdateStatus}" />
             </ComboBox>
 
-            <Button Classes="ghost" Command="{Binding SetSortCommand}"
-                    CommandParameter="{Binding Sort}"
+            <Button Classes="ghost" Command="{Binding ReverseSortDirectionCommand}"
                     ToolTip.Tip="Reverse sort direction">
                 <TextBlock Text="⇅" FontSize="14" />
             </Button>
@@ -330,6 +344,45 @@
                           IsChecked="{Binding OutdatedOnly}" />
             <ToggleButton Classes="filterToggle" Content="👁 Hidden"
                           IsChecked="{Binding ShowHidden}" />
+
+            <!-- Bulk tag: mark every currently-visible installed plugin, distinct from the
+                 per-card "Mark Legit/Cracked" in the context menu and selection bar. -->
+            <ToggleButton x:Name="MarkAllToggle" Classes="ghost" Padding="10,5"
+                          ToolTip.Tip="Mark all visible installed plugins by tag">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="🏷" FontSize="13" />
+                    <TextBlock Text="Mark All" VerticalAlignment="Center" />
+                </StackPanel>
+            </ToggleButton>
+
+            <Popup PlacementTarget="{Binding #MarkAllToggle}"
+                   Placement="Bottom" IsOpen="{Binding #MarkAllToggle.IsChecked, Mode=TwoWay}"
+                   IsLightDismissEnabled="True">
+                <Border Classes="section" Width="200" Margin="0,6,0,0" Padding="6">
+                    <StackPanel>
+                        <Button Classes="ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Command="{Binding MarkAllLegitCommand}"
+                                ToolTip.Tip="Mark all visible installed plugins as Legit">
+                            <TextBlock Text="✓ Mark All Legit" />
+                        </Button>
+                        <Button Classes="ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Margin="0,4,0,0"
+                                Command="{Binding MarkAllCrackedCommand}"
+                                ToolTip.Tip="Mark all visible installed plugins as Cracked">
+                            <TextBlock Text="☠ Mark All Cracked" />
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <Button Classes="ghost" Padding="10,5"
+                    Click="RefreshAllMetadata_Click"
+                    ToolTip.Tip="Re-checks installed versions and looks up the latest release for every installed plugin">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="↻" FontSize="13" />
+                    <TextBlock Text="Refresh All Metadata" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
         </WrapPanel>
 
         <!-- Folders. A place, not a filter chip: the user's own structure, so it gets its own
@@ -450,24 +503,120 @@
         <!-- Library ........................................................ -->
         <Panel Grid.Row="4">
 
+            <!-- Grouped by Kind — Instruments / Effects / Unclassified — matching the WPF
+                 sidebar's collapsible sections, each independently expandable with its own
+                 count. One scroller for the whole page (as in WPF), not one per section: a
+                 section has no fixed height of its own to scroll within. -->
             <ScrollViewer x:Name="GridScroll" Padding="20,0,20,20" HorizontalScrollBarVisibility="Disabled"
                           IsVisible="{Binding IsGrid}">
-                <ItemsControl x:Name="GridItems" ItemsSource="{Binding Plugins}"
-                              ItemTemplate="{StaticResource CardTemplate}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <!-- Reflows by available width rather than a fixed column count,
-                                 so the same layout works maximised and at ~1024px. -->
-                            <WrapPanel ItemSpacing="14" LineSpacing="14" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                </ItemsControl>
+                <StackPanel Spacing="18">
+                    <StackPanel Spacing="10" IsVisible="{Binding InstrumentsCount}">
+                        <ToggleButton Classes="ghost sectionHeaderToggle"
+                                      IsChecked="{Binding IsInstrumentsSectionExpanded}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="🎹" FontSize="14" />
+                                <TextBlock Text="Instruments" Classes="sectionHeader" />
+                                <TextBlock Classes="meta" Text="{Binding InstrumentsCount, StringFormat='({0})'}" />
+                            </StackPanel>
+                        </ToggleButton>
+                        <ItemsControl x:Name="InstrumentGridItems" ItemsSource="{Binding InstrumentPlugins}"
+                                      ItemTemplate="{StaticResource CardTemplate}"
+                                      IsVisible="{Binding IsInstrumentsSectionExpanded}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel ItemSpacing="14" LineSpacing="14" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <StackPanel Spacing="10" IsVisible="{Binding EffectsCount}">
+                        <ToggleButton Classes="ghost sectionHeaderToggle"
+                                      IsChecked="{Binding IsEffectsSectionExpanded}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="🎛" FontSize="14" />
+                                <TextBlock Text="Effects" Classes="sectionHeader" />
+                                <TextBlock Classes="meta" Text="{Binding EffectsCount, StringFormat='({0})'}" />
+                            </StackPanel>
+                        </ToggleButton>
+                        <ItemsControl x:Name="EffectGridItems" ItemsSource="{Binding EffectPlugins}"
+                                      ItemTemplate="{StaticResource CardTemplate}"
+                                      IsVisible="{Binding IsEffectsSectionExpanded}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel ItemSpacing="14" LineSpacing="14" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <StackPanel Spacing="10" IsVisible="{Binding UnclassifiedKindCount}">
+                        <ToggleButton Classes="ghost sectionHeaderToggle"
+                                      IsChecked="{Binding IsUnclassifiedKindSectionExpanded}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="❔" FontSize="14" />
+                                <TextBlock Text="Unclassified Type" Classes="sectionHeader" />
+                                <TextBlock Classes="meta" Text="{Binding UnclassifiedKindCount, StringFormat='({0})'}" />
+                            </StackPanel>
+                        </ToggleButton>
+                        <ItemsControl x:Name="UnclassifiedGridItems" ItemsSource="{Binding UnclassifiedKindPlugins}"
+                                      ItemTemplate="{StaticResource CardTemplate}"
+                                      IsVisible="{Binding IsUnclassifiedKindSectionExpanded}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel ItemSpacing="14" LineSpacing="14" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </StackPanel>
+                </StackPanel>
             </ScrollViewer>
 
             <ScrollViewer x:Name="ListScroll" Padding="20,0,20,20" HorizontalScrollBarVisibility="Disabled"
                           IsVisible="{Binding IsList}">
-                <ItemsControl x:Name="ListItems" ItemsSource="{Binding Plugins}"
-                              ItemTemplate="{StaticResource RowTemplate}" />
+                <StackPanel Spacing="18">
+                    <StackPanel Spacing="10" IsVisible="{Binding InstrumentsCount}">
+                        <ToggleButton Classes="ghost sectionHeaderToggle"
+                                      IsChecked="{Binding IsInstrumentsSectionExpanded}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="🎹" FontSize="14" />
+                                <TextBlock Text="Instruments" Classes="sectionHeader" />
+                                <TextBlock Classes="meta" Text="{Binding InstrumentsCount, StringFormat='({0})'}" />
+                            </StackPanel>
+                        </ToggleButton>
+                        <ItemsControl x:Name="InstrumentListItems" ItemsSource="{Binding InstrumentPlugins}"
+                                      ItemTemplate="{StaticResource RowTemplate}"
+                                      IsVisible="{Binding IsInstrumentsSectionExpanded}" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="10" IsVisible="{Binding EffectsCount}">
+                        <ToggleButton Classes="ghost sectionHeaderToggle"
+                                      IsChecked="{Binding IsEffectsSectionExpanded}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="🎛" FontSize="14" />
+                                <TextBlock Text="Effects" Classes="sectionHeader" />
+                                <TextBlock Classes="meta" Text="{Binding EffectsCount, StringFormat='({0})'}" />
+                            </StackPanel>
+                        </ToggleButton>
+                        <ItemsControl x:Name="EffectListItems" ItemsSource="{Binding EffectPlugins}"
+                                      ItemTemplate="{StaticResource RowTemplate}"
+                                      IsVisible="{Binding IsEffectsSectionExpanded}" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="10" IsVisible="{Binding UnclassifiedKindCount}">
+                        <ToggleButton Classes="ghost sectionHeaderToggle"
+                                      IsChecked="{Binding IsUnclassifiedKindSectionExpanded}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="❔" FontSize="14" />
+                                <TextBlock Text="Unclassified Type" Classes="sectionHeader" />
+                                <TextBlock Classes="meta" Text="{Binding UnclassifiedKindCount, StringFormat='({0})'}" />
+                            </StackPanel>
+                        </ToggleButton>
+                        <ItemsControl x:Name="UnclassifiedListItems" ItemsSource="{Binding UnclassifiedKindPlugins}"
+                                      ItemTemplate="{StaticResource RowTemplate}"
+                                      IsVisible="{Binding IsUnclassifiedKindSectionExpanded}" />
+                    </StackPanel>
+                </StackPanel>
             </ScrollViewer>
 
             <!-- Designed loading and empty states rather than a blank panel. -->

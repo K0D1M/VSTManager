@@ -16,4 +16,19 @@
          circle the same size (see the MEGA badge in Views/SettingsWindow.axaml's Cloud tab). -->
     <StreamGeometry x:Key="MegaGlyph">M147.5 214.5 h85 l128 130 129-130 h82 v293 h-86 V337.75 L380.834 442.5 h-40.668 L235.5 337.75 V507.5 h-88 z</StreamGeometry>
 
+    <!-- Settings tab icons, ported verbatim from VstManager.App/Themes/Styles.xaml (same source
+         of truth as the two shapes above) so the Avalonia Settings tabs match WPF's exactly
+         rather than approximating them. The Appearance tab (WPF has no equivalent) instead reuses
+         the plain ◐ glyph already on the main window's theme-toggle button — no geometry needed
+         there, see SettingsWindow.axaml. -->
+    <StreamGeometry x:Key="IconGeneral">M12,15.5 A3.5,3.5 0 1 1 12,8.5 A3.5,3.5 0 1 1 12,15.5 M12,2.5 L12,5 M12,19 L12,21.5 M4.2,4.2 L6,6 M18,18 L19.8,19.8 M2.5,12 L5,12 M19,12 L21.5,12 M4.2,19.8 L6,18 M18,6 L19.8,4.2</StreamGeometry>
+    <StreamGeometry x:Key="IconSliders">M4,21 L4,14 M4,10 L4,3 M12,21 L12,12 M12,8 L12,3 M20,21 L20,16 M20,12 L20,3 M1,14 L7,14 M9,8 L15,8 M17,16 L23,16</StreamGeometry>
+    <StreamGeometry x:Key="IconTag">M11.5,3.5 L20.5,3.5 L20.5,12.5 L12,21 L3.5,12.5 L3.5,4 Z M7.5,7.5 L7.6,7.5</StreamGeometry>
+    <StreamGeometry x:Key="IconDatabase">M4,6 C4,4.6 7.6,3.5 12,3.5 C16.4,3.5 20,4.6 20,6 C20,7.4 16.4,8.5 12,8.5 C7.6,8.5 4,7.4 4,6 Z M4,6 L4,18 C4,19.4 7.6,20.5 12,20.5 C16.4,20.5 20,19.4 20,18 L20,6 M4,12 C4,13.4 7.6,14.5 12,14.5 C16.4,14.5 20,13.4 20,12</StreamGeometry>
+
+    <!-- No WPF equivalent — the About tab is new to this project (see SettingsWindow.axaml's
+         About tab). A plain info-circle, drawn fresh to match the others' stroke-based style
+         rather than a filled glyph. -->
+    <StreamGeometry x:Key="IconInfo">M12,21.5 A9.5,9.5 0 1 1 12,2.5 A9.5,9.5 0 1 1 12,21.5 M12,11 L12,16.5 M12,7.5 L12,7.6</StreamGeometry>
+
 </ResourceDictionary>

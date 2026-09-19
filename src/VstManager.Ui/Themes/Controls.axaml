@@ -257,6 +257,37 @@
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
+    <!-- Same quiet look as Button.ghost, for the toggle-button cases (popup openers, section
+         collapse/expand headers) that need a checked state rather than a click. -->
+    <Style Selector="ToggleButton.ghost">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15" />
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <Style Selector="ToggleButton.ghost:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
+    </Style>
+
+    <Style Selector="ToggleButton.ghost:checked /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource OverlayPressedBrush}" />
+    </Style>
+
+    <!-- Section collapse/expand headers (Instruments/Effects/Unclassified): full-width, left
+         aligned, so the whole header row is clickable rather than just the chevron text. -->
+    <Style Selector="ToggleButton.sectionHeaderToggle">
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+
     <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}" />
     </Style>

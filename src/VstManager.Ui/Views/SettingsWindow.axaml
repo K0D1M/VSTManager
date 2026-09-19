@@ -34,6 +34,20 @@
             <Setter Property="Padding" Value="12,6" />
             <Setter Property="MinHeight" Value="36" />
         </Style>
+
+        <!-- Stroke, not Fill: these are open, line-drawn shapes (the WPF originals in
+             VstManager.App/Themes/Styles.xaml are too), so a Fill would just render as a
+             collapsed sliver rather than the intended outline icon. -->
+        <Style Selector="Path.tabIcon">
+            <Setter Property="Stroke" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="StrokeThickness" Value="1.8" />
+            <Setter Property="StrokeLineCap" Value="Round" />
+            <Setter Property="StrokeJoin" Value="Round" />
+            <Setter Property="Stretch" Value="Uniform" />
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
     </Window.Styles>
 
     <Grid RowDefinitions="*,Auto" Margin="20,18,20,16">
@@ -41,7 +55,13 @@
         <TabControl Grid.Row="0">
 
             <!-- General ....................................................... -->
-            <TabItem Header="General">
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Path Classes="tabIcon" Data="{StaticResource IconGeneral}" />
+                        <TextBlock Text="General" />
+                    </StackPanel>
+                </TabItem.Header>
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Spacing="14" Margin="0,10,4,0">
 
@@ -87,7 +107,16 @@
             </TabItem>
 
             <!-- Appearance .................................................... -->
-            <TabItem Header="Appearance">
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <!-- The same ◐ glyph as the main window's theme-toggle button — WPF has
+                             no Appearance tab to port an icon from, and this is already the
+                             app's own visual shorthand for "theme". -->
+                        <TextBlock Text="◐" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="Appearance" />
+                    </StackPanel>
+                </TabItem.Header>
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Spacing="14" Margin="0,10,4,0">
 
@@ -146,7 +175,13 @@
             </TabItem>
 
             <!-- Scanning ..................................................... -->
-            <TabItem Header="Scanning">
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Path Classes="tabIcon" Data="{StaticResource IconSliders}" />
+                        <TextBlock Text="Scanning" />
+                    </StackPanel>
+                </TabItem.Header>
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Spacing="14" Margin="0,10,4,0">
 
@@ -204,7 +239,13 @@
             </TabItem>
 
             <!-- Tags ......................................................... -->
-            <TabItem Header="Tags">
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Path Classes="tabIcon" Data="{StaticResource IconTag}" />
+                        <TextBlock Text="Tags" />
+                    </StackPanel>
+                </TabItem.Header>
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Spacing="14" Margin="0,10,4,0">
 
@@ -271,7 +312,13 @@
             </TabItem>
 
             <!-- Cloud ........................................................ -->
-            <TabItem Header="Cloud">
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Path Classes="tabIcon" Data="{StaticResource CloudGlyph}" />
+                        <TextBlock Text="Cloud" />
+                    </StackPanel>
+                </TabItem.Header>
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Spacing="14" Margin="0,10,4,0">
 
@@ -349,7 +396,13 @@
             </TabItem>
 
             <!-- Data ......................................................... -->
-            <TabItem Header="Data">
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Path Classes="tabIcon" Data="{StaticResource IconDatabase}" />
+                        <TextBlock Text="Data" />
+                    </StackPanel>
+                </TabItem.Header>
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Spacing="14" Margin="0,10,4,0">
 
@@ -377,6 +430,66 @@
                                 <TextBlock Classes="label" Text="Importing replaces what's here" />
                                 <TextBlock Classes="meta" TextWrapping="Wrap"
                                            Text="An import overwrites your current library, tags and corrections with the contents of the file. Export first if you want to keep them." />
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- About .......................................................... -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Path Classes="tabIcon" Data="{StaticResource IconInfo}" />
+                        <TextBlock Text="About" />
+                    </StackPanel>
+                </TabItem.Header>
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Spacing="14" Margin="0,10,4,0">
+
+                        <Border Classes="section">
+                            <StackPanel Spacing="10" HorizontalAlignment="Center">
+                                <Image Source="avares://VstManager.Ui/Assets/app-icon.ico" Width="64" Height="64" />
+                                <TextBlock Text="VST Manager" Classes="sectionHeader"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding AppVersion, StringFormat='Version {0}'}"
+                                           Classes="subtitle" HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="section">
+                            <StackPanel Spacing="10">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Vibe-coded with ❤️ by" Classes="meta" />
+                                    <TextBlock Text="K0D1M" Classes="meta" Cursor="Hand"
+                                               Foreground="{DynamicResource AccentBrush}"
+                                               PointerPressed="AuthorLink_Click" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Source on" Classes="meta" />
+                                    <TextBlock Text="GitHub" Classes="meta" Cursor="Hand"
+                                               Foreground="{DynamicResource AccentBrush}"
+                                               PointerPressed="RepoLink_Click" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- The actual license this project ships under (see LICENSE at the repo
+                             root) — not a placeholder. GPLv3 itself (section 15/16, and the
+                             "Appropriate Legal Notices" it asks interactive programs to display)
+                             specifically calls for a no-warranty notice and a way to see the
+                             license text, which is what this card exists to satisfy rather than
+                             being decorative. No link out: this info holds regardless of how the
+                             app is packaged, with nothing that can 404 or point at a missing local
+                             file once bundled. -->
+                        <Border Classes="section">
+                            <StackPanel Spacing="6">
+                                <TextBlock Classes="label" Text="Legal" />
+                                <TextBlock Classes="meta" TextWrapping="Wrap"
+                                           Text="Licensed under the GNU General Public License v3.0." />
+                                <TextBlock Classes="meta" TextWrapping="Wrap"
+                                           Text="This program comes with ABSOLUTELY NO WARRANTY. This is free software, and you are welcome to redistribute it under certain conditions — see the LICENSE file in the project's source for the full terms." />
                             </StackPanel>
                         </Border>
 

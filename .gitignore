@@ -10,3 +10,6 @@
 /artifacts
 /src/VstManager.Ui.WindowsNotifications/bin
 /src/VstManager.Ui.WindowsNotifications/obj
+/src/VstManager.Core.Interop/bin
+/src/VstManager.Core.Interop/obj
+/.vscode

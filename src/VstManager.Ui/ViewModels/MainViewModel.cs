@@ -147,6 +147,30 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<PluginCardViewModel> Plugins { get; } = new();
 
+    // ---- grouped sections (Instruments / Effects), matching the WPF sidebar ----------------
+
+    public ObservableCollection<PluginCardViewModel> InstrumentPlugins { get; } = new();
+    public ObservableCollection<PluginCardViewModel> EffectPlugins { get; } = new();
+    public ObservableCollection<PluginCardViewModel> UnclassifiedKindPlugins { get; } = new();
+
+    [ObservableProperty]
+    private int _instrumentsCount;
+
+    [ObservableProperty]
+    private int _effectsCount;
+
+    [ObservableProperty]
+    private int _unclassifiedKindCount;
+
+    [ObservableProperty]
+    private bool _isInstrumentsSectionExpanded = true;
+
+    [ObservableProperty]
+    private bool _isEffectsSectionExpanded = true;
+
+    [ObservableProperty]
+    private bool _isUnclassifiedKindSectionExpanded = true;
+
     /// <summary>
     /// Every tag that exists, presets first then the user's own alphabetically — the order the
     /// WPF tag list uses, so the two heads agree. Assigning tags belongs to the plugin detail
@@ -427,23 +451,13 @@ public partial class MainViewModel : ObservableObject
         Notify("Plugin scan complete.");
     }
 
+    /// <summary>
+    /// The toolbar's reverse-direction button. The sort choice itself now comes from the
+    /// ComboBox's own two-way SelectedValue binding straight to Sort (see MainWindow.axaml) —
+    /// there is no longer a command in the loop for that half at all.
+    /// </summary>
     [RelayCommand]
-    private void SetSort(string sort)
-    {
-        if (Enum.TryParse<SortOption>(sort, out var s))
-        {
-            // Choosing the active sort again flips direction, which is what a column header
-            // or sort menu is expected to do.
-            if (s == Sort)
-            {
-                SortDescending = !SortDescending;
-            }
-            else
-            {
-                Sort = s;
-            }
-        }
-    }
+    private void ReverseSortDirection() => SortDescending = !SortDescending;
 
     [RelayCommand]
     private void ToggleTheme()
@@ -483,6 +497,46 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void MarkUnclassified(PluginCardViewModel? card) => SetTag(card, PluginTag.Unclassified);
+
+    [RelayCommand]
+    private void MarkAllLegit() => SetTagForVisibleInstalled(PluginTag.Legit);
+
+    [RelayCommand]
+    private void MarkAllCracked() => SetTagForVisibleInstalled(PluginTag.Cracked);
+
+    /// <summary>
+    /// Sets a tag across every currently-visible, installed plugin — the toolbar's bulk "Mark
+    /// All" action, distinct from the context menu's "Mark Legit/Cracked" which only ever acts on
+    /// the clicked card (or its selection). Scoped to what MatchesFilters leaves on screen, same
+    /// convention as the rest of the toolbar's bulk actions, so an active search/filter is never
+    /// reached past.
+    /// </summary>
+    private void SetTagForVisibleInstalled(PluginTag tag)
+    {
+        var targets = _all.Where(c => c.IsInstalled && MatchesFilters(c)).ToList();
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
+        var stored = _library.Plugins.ToDictionary(p => p.Path, StringComparer.OrdinalIgnoreCase);
+        foreach (var card in targets)
+        {
+            foreach (var copy in card.Installs)
+            {
+                copy.Tag = tag;
+                if (stored.TryGetValue(copy.Path, out var libraryCopy))
+                {
+                    libraryCopy.Tag = tag;
+                }
+            }
+
+            card.RefreshFromItem();
+        }
+
+        SaveLibrary();
+        ApplyFilters();
+    }
 
     [RelayCommand]
     private void MarkInstrument(PluginCardViewModel? card) => SetKind(card, PluginKind.Instrument);
@@ -531,6 +585,33 @@ public partial class MainViewModel : ObservableObject
     private async Task RefreshMetadataAsync(PluginCardViewModel? card)
     {
         var targets = ResolveTargets(card).Where(c => c.IsInstalled).ToList();
+        await RefreshMetadataCoreAsync(targets);
+    }
+
+    /// <summary>
+    /// The toolbar's "Refresh All Metadata" — every installed plugin in the library, not just the
+    /// resolved selection. The confirmation dialog lives in code-behind (this project's
+    /// established pattern; see MainWindow.axaml.cs), so by the time this runs the user has
+    /// already agreed to the wait.
+    /// </summary>
+    public async Task RefreshAllMetadataAsync()
+    {
+        var targets = _all.Where(c => c.IsInstalled).ToList();
+        IsScanning = true;
+        try
+        {
+            // RefreshMetadataCoreAsync already raises "Metadata refresh complete." when it
+            // finishes (shared with the single-plugin path), so nothing further is needed here.
+            await RefreshMetadataCoreAsync(targets);
+        }
+        finally
+        {
+            IsScanning = false;
+        }
+    }
+
+    private async Task RefreshMetadataCoreAsync(IReadOnlyList<PluginCardViewModel> targets)
+    {
         if (targets.Count == 0)
         {
             return;
@@ -761,6 +842,92 @@ public partial class MainViewModel : ObservableObject
         foreach (var (card, url) in logoWork)
         {
             _ = FixLogoAsync(card, url);
+        }
+    }
+
+    // ---- background update checks ------------------------------------------
+
+    private static readonly TimeSpan UpdateCheckInterval = TimeSpan.FromHours(6);
+    private readonly CancellationTokenSource _updateChecks = new();
+    private bool _isCheckingForUpdates;
+
+    /// <summary>Runs one check right away, then repeats every few hours while the app is open.</summary>
+    public void StartUpdateChecks() => _ = RunUpdateChecksAsync();
+
+    public void StopUpdateChecks() => _updateChecks.Cancel();
+
+    private async Task RunUpdateChecksAsync()
+    {
+        // The launch check trusts the lookup cache, so a normal start costs no network; the
+        // repeating ones bypass it, since the cache stays "fresh" for a week and would otherwise
+        // hide every release that lands while the app is running.
+        await CheckForUpdatesAsync(ignoreCache: false, summariseAll: true);
+
+        using var timer = new PeriodicTimer(UpdateCheckInterval);
+        try
+        {
+            while (await timer.WaitForNextTickAsync(_updateChecks.Token))
+            {
+                await CheckForUpdatesAsync(ignoreCache: true, summariseAll: false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Looks up every installed plugin and raises a notification for updates. On launch it
+    /// summarises everything outdated; on later checks only plugins that became outdated, or whose
+    /// latest version moved on, since the last look — so the same update is never announced twice.
+    /// </summary>
+    private async Task CheckForUpdatesAsync(bool ignoreCache, bool summariseAll)
+    {
+        if (_isCheckingForUpdates)
+        {
+            return;
+        }
+
+        _isCheckingForUpdates = true;
+        try
+        {
+            var targets = _all.Where(c => c.IsInstalled).ToList();
+            if (targets.Count == 0)
+            {
+                return;
+            }
+
+            var before = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            foreach (var card in targets.Where(c => c.ShowOutdatedBadge))
+            {
+                before[card.BaseName] = card.LatestVersion;
+            }
+
+            if (_library.CheckForPluginUpdatesOnStartup)
+            {
+                await EnrichFromWebAsync(targets, ignoreCache);
+            }
+
+            var outdated = _all.Where(c => c.IsInstalled && c.ShowOutdatedBadge).ToList();
+            var report = summariseAll
+                ? outdated
+                : outdated.Where(c => !before.TryGetValue(c.BaseName, out var known)
+                                      || !string.Equals(known, c.LatestVersion, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+            if (report.Count == 0)
+            {
+                return;
+            }
+
+            Notify(report.Count == 1
+                ? $"{report[0].Name} has a newer version available"
+                    + (string.IsNullOrWhiteSpace(report[0].LatestVersion) ? "." : $" ({report[0].LatestVersion}).")
+                : $"{report.Count} plugins have newer versions available.");
+        }
+        finally
+        {
+            _isCheckingForUpdates = false;
         }
     }
 
@@ -1673,6 +1840,31 @@ public partial class MainViewModel : ObservableObject
         {
             Plugins.Add(p);
         }
+
+        // Grouped by Kind, same three buckets WPF's sidebar sections use, and following the
+        // same ordering/sort already computed above rather than re-deriving it.
+        InstrumentPlugins.Clear();
+        EffectPlugins.Clear();
+        UnclassifiedKindPlugins.Clear();
+        foreach (var p in ordered)
+        {
+            switch (p.Kind)
+            {
+                case PluginKind.Instrument:
+                    InstrumentPlugins.Add(p);
+                    break;
+                case PluginKind.Effect:
+                    EffectPlugins.Add(p);
+                    break;
+                default:
+                    UnclassifiedKindPlugins.Add(p);
+                    break;
+            }
+        }
+
+        InstrumentsCount = InstrumentPlugins.Count;
+        EffectsCount = EffectPlugins.Count;
+        UnclassifiedKindCount = UnclassifiedKindPlugins.Count;
 
         UpdateStatusLine();
         OnPropertyChanged(nameof(IsFiltered));

@@ -121,6 +121,7 @@ public partial class MainWindow : Window
         }
 
         _isShuttingDown = true;
+        _vm.StopUpdateChecks();
 
         // The lifetime runs in OnExplicitShutdown (see App), so that hiding to the tray is not
         // mistaken for quitting. The cost is that a real close has to end the app itself.
@@ -141,6 +142,17 @@ public partial class MainWindow : Window
         Activate();
     }
 
+    /// <summary>
+    /// Quits immediately regardless of "Minimize to tray" — same _isExiting bypass the tray's own
+    /// Exit uses (see OnMainWindowClosing), so a user who wants out doesn't have to know that
+    /// setting exists or dig it out of the tray icon to actually close the app.
+    /// </summary>
+    private void Quit_Click(object? sender, RoutedEventArgs e)
+    {
+        _isExiting = true;
+        Close();
+    }
+
     protected override async void OnLoaded(RoutedEventArgs e)
     {
         base.OnLoaded(e);
@@ -153,21 +165,7 @@ public partial class MainWindow : Window
         // Scan after the first paint, so the window appears immediately with its loading state
         // rather than hanging on a blank frame while the filesystem is walked.
         await _vm.LoadAsync();
-    }
-
-    /// <summary>
-    /// The sort ComboBox carries its SortOption name in each item's Tag. Handled here rather than
-    /// bound because SetSort doubles as the direction toggle, which a SelectedItem binding would
-    /// trigger spuriously.
-    /// </summary>
-    private void OnSortChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        if (sender is ComboBox { SelectedItem: ComboBoxItem { Tag: string sort } }
-            && Enum.TryParse<SortOption>(sort, out var parsed)
-            && parsed != _vm.Sort)
-        {
-            _vm.Sort = parsed;
-        }
+        _vm.StartUpdateChecks();
     }
 
     // ---- selection ---------------------------------------------------------
@@ -332,6 +330,23 @@ public partial class MainWindow : Window
         }
 
         await _vm.RescanCommand.ExecuteAsync(null);
+    }
+
+    /// <summary>
+    /// The toolbar's "Refresh All Metadata" — re-detects installed versions and re-queries KVR
+    /// for every installed plugin, matching the WPF app's confirm-then-run flow. The confirmation
+    /// lives here rather than in the view model, this project's established pattern for anything
+    /// destructive-adjacent (see Uninstall_Click above).
+    /// </summary>
+    private async void RefreshAllMetadata_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!await ConfirmDialog.ShowAsync(this, "Refresh All Metadata",
+                "This action will take some time. Continue?", "Continue"))
+        {
+            return;
+        }
+
+        await _vm.RefreshAllMetadataAsync();
     }
 
     /// <summary>
@@ -527,9 +542,24 @@ public partial class MainWindow : Window
             return;
         }
 
-        var items = ReferenceEquals(scroll, GridScroll) ? (ItemsControl)GridItems : ListItems;
         var isGrid = ReferenceEquals(scroll, GridScroll);
-        var rowHeight = MeasureRowHeight(items, isGrid);
+
+        // Sections are independently collapsible, so whichever one the user is actually looking
+        // at (or the first with anything realized) determines the row height — there is no
+        // single "the" list to measure any more now that the library is grouped by Kind.
+        var candidates = isGrid
+            ? new ItemsControl[] { InstrumentGridItems, EffectGridItems, UnclassifiedGridItems }
+            : new ItemsControl[] { InstrumentListItems, EffectListItems, UnclassifiedListItems };
+
+        double? rowHeight = null;
+        foreach (var candidate in candidates)
+        {
+            rowHeight = MeasureRowHeight(candidate, isGrid);
+            if (rowHeight is not null)
+            {
+                break;
+            }
+        }
 
         if (rowHeight is not { } step)
         {

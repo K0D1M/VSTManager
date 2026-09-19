@@ -68,6 +68,15 @@ public partial class SettingsViewModel : ObservableObject
         RebuildTags();
     }
 
+    // ---- about ----------------------------------------------------------------
+
+    /// <summary>
+    /// Read via reflection rather than the csproj's &lt;Version&gt; property, which is a build-time
+    /// MSBuild value with no runtime equivalent — this is the same portable pattern the WPF app's
+    /// own UpdateChecker.cs uses (typeof(UpdateChecker).Assembly.GetName().Version).
+    /// </summary>
+    public string AppVersion => typeof(SettingsViewModel).Assembly.GetName().Version?.ToString(3) ?? "unknown";
+
     // ---- appearance ---------------------------------------------------------
 
     /// <summary>

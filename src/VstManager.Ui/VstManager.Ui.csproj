@@ -7,6 +7,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Version>1.7.0</Version>
+    <!-- The taskbar icon comes from the exe's own embedded resource, not the window's Icon=
+         (that only covers the title bar/Alt-Tab thumbnail) — same artwork as WPF's app-icon.ico
+         (VstManager.App/app-icon.ico), already present here under Assets/ for the window icon.
+         A no-op on non-Windows RIDs, so safe to leave unconditional for the macOS build too. -->
+    <ApplicationIcon>Assets\app-icon.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
 

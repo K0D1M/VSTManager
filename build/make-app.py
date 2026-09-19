@@ -1,14 +1,16 @@
-"""Publish VstManager.Ui and lay it out as a macOS .app bundle.
+"""Lay out VstManager.Ui as a macOS .app bundle.
 
-Runs on Windows — the bundle is just a directory tree with a plist, so it can be assembled
-anywhere; only signing and notarisation genuinely require a Mac. What is produced here is
-therefore an *unsigned* bundle, which macOS Gatekeeper will quarantine on first launch until it
-is signed or the user clears the attribute. See the note at the end of the run.
+The bundle is just a directory tree with a plist, so it can be assembled anywhere; only signing
+and notarisation genuinely require a Mac. What is produced here is therefore an *unsigned*
+bundle, which macOS Gatekeeper will quarantine on first launch until it is signed or the user
+clears the attribute.
 
-Usage (from the repo root):
-    python build/make-app.py                 # osx-arm64, Release
+Usage (from the repo root, with published binary):
+    python build/make-app.py --rid osx-arm64 --version 1.7.0 --publish-dir <path>
+
+Usage (from the repo root, building from source):
+    python build/make-app.py                 # osx-arm64, Release, reads version from csproj
     python build/make-app.py --rid osx-x64
-    python build/make-app.py --no-publish    # relayout an existing publish, skip dotnet
 """
 
 import argparse
@@ -31,7 +33,12 @@ EXE_NAME = "VstManager.Ui"
 
 
 def project_version():
-    """The <Version> from the csproj, so the bundle cannot drift from the assembly."""
+    """The <Version> from the csproj, so the bundle cannot drift from the assembly.
+    Falls back to "1.0.0" if the csproj is not found (e.g., when running on macOS with
+    only the published binary).
+    """
+    if not os.path.exists(CSPROJ):
+        return None  # Caller must provide --version if csproj is missing
     text = open(CSPROJ, encoding="utf-8").read()
     m = re.search(r"<Version>([^<]+)</Version>", text)
     return m.group(1).strip() if m else "1.0.0"
@@ -107,14 +114,36 @@ def build_bundle(publish_dir, bundle_dir, version):
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--rid", default="osx-arm64", choices=["osx-arm64", "osx-x64"])
-    ap.add_argument("--configuration", default="Release")
-    ap.add_argument("--no-publish", action="store_true")
+    ap = argparse.ArgumentParser(
+        description="Lay out a published VstManager.Ui binary as a macOS .app bundle."
+    )
+    ap.add_argument("--rid", default="osx-arm64", choices=["osx-arm64", "osx-x64"],
+                    help="Runtime identifier (default: osx-arm64)")
+    ap.add_argument("--configuration", default="Release",
+                    help="Build configuration (default: Release)")
+    ap.add_argument("--no-publish", action="store_true",
+                    help="Skip dotnet publish; use existing published binary")
+    ap.add_argument("--version", default=None,
+                    help="App version for Info.plist (default: read from csproj). "
+                         "Required when running on macOS or without csproj access.")
+    ap.add_argument("--publish-dir", default=None,
+                    help="Path to the publish folder (default: artifacts/publish/<rid>). "
+                         "Use this when the publish folder is outside the repo.")
     args = ap.parse_args()
 
-    version = project_version()
-    publish_dir = os.path.join(REPO, "artifacts", "publish", args.rid)
+    # Determine version: command-line arg, csproj, or error
+    version = args.version
+    if not version:
+        version = project_version()
+    if not version:
+        sys.exit("ERROR: Could not determine app version. Provide --version or run from repo root.")
+
+    # Determine publish directory: command-line arg or default
+    if args.publish_dir:
+        publish_dir = args.publish_dir
+    else:
+        publish_dir = os.path.join(REPO, "artifacts", "publish", args.rid)
+
     bundle_dir = os.path.join(REPO, "artifacts", args.rid, APP_NAME)
 
     if not args.no_publish:
