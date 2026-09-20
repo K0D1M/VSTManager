@@ -7,6 +7,38 @@
         without per-style duplication.
     -->
 
+    <!-- Card-style container: popups (Filter, Mark All) and the Folders section in
+         MainWindow.axaml all use Classes="section" but had no style backing it anywhere reachable
+         from that window — SettingsWindow.axaml defines its own copy locally, which is why only
+         Settings looked right. Defined globally here instead of duplicated per-window, matching
+         SettingsWindow.axaml's version exactly so nothing there needs to change. Without this, a
+         "section" Border renders with a transparent Background and no border at all — a popup
+         over the plugin grid then looks like its content is floating with nothing behind it. -->
+    <Style Selector="Border.section">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush2}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
+        <Setter Property="Padding" Value="16" />
+    </Style>
+
+    <!-- Same scoping bug as Border.section above: SettingsWindow.axaml defines its own local
+         Path.tabIcon (used for its tab-header icons), but MainWindow.axaml has none — so the new
+         Legit/Cracked/Filter/Eye icons that reference Classes="tabIcon" there got no Stroke/
+         StrokeThickness/sizing at all and rendered invisibly, found by tracing the icon converter
+         and confirming it correctly returned a geometry that still never appeared on screen.
+         Defined globally here instead, matching SettingsWindow.axaml's copy exactly. -->
+    <Style Selector="Path.tabIcon">
+        <Setter Property="Stroke" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="StrokeThickness" Value="1.8" />
+        <Setter Property="StrokeLineCap" Value="Round" />
+        <Setter Property="StrokeJoin" Value="Round" />
+        <Setter Property="Stretch" Value="Uniform" />
+        <Setter Property="Width" Value="14" />
+        <Setter Property="Height" Value="14" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
     <!-- Plugin card. The elevation and lift on hover are what make the grid feel modern;
          the 150ms transitions keep it from feeling twitchy. -->
     <Style Selector="Border.card">
@@ -323,6 +355,19 @@
         <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}" />
     </Style>
 
+    <!-- Legit/Cracked mode-segment icons (see MainWindow.axaml). Stroke is set per-instance via an
+         #ElementName binding to the enclosing RadioButton's own Foreground, not here — these icons
+         sit as inline Content, not inside RadioButton.segment's ControlTemplate above, so there is
+         no TemplateBinding path to the segment's selected/unselected color from a shared style. -->
+    <Style Selector="Path.segmentIcon">
+        <Setter Property="StrokeThickness" Value="1.8" />
+        <Setter Property="StrokeLineCap" Value="Round" />
+        <Setter Property="StrokeJoin" Value="Round" />
+        <Setter Property="Stretch" Value="Uniform" />
+        <Setter Property="Width" Value="12" />
+        <Setter Property="Height" Value="12" />
+    </Style>
+
     <!-- A whole card acting as one radio: the circle is dropped entirely and selection is shown
          by the border, so clicking anywhere on the row picks it. Used by the match picker, where
          the rows are large and a small circle would be a fiddly target. -->
@@ -369,6 +414,15 @@
 
     <!-- Segments with no semantic colour of their own (grid/list) use the accent. -->
     <Style Selector="RadioButton.segment.plain:checked">
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
+    </Style>
+
+    <!-- Fallback for a bare RadioButton.segment with none of the above secondary classes (the
+         Filter popup's Status/Format segments) — without this, :checked has literally no style at
+         all and the selected option shows no highlight whatsoever. Same accent treatment as
+         .plain, but without overriding this popup's own compact Padding/FontSize. -->
+    <Style Selector="RadioButton.segment:not(.all):not(.legit):not(.cracked):not(.plain):checked">
         <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
         <Setter Property="Foreground" Value="#FFFFFFFF" />
     </Style>

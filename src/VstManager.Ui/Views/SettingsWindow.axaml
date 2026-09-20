@@ -72,8 +72,8 @@
                         </StackPanel>
 
                         <StackPanel Spacing="4">
-                            <CheckBox Content="Launch VST Manager at login"
-                                      IsChecked="{Binding AutostartEnabled}" />
+                            <ToggleSwitch Content="Launch VST Manager at login"
+                                          IsChecked="{Binding AutostartEnabled}" />
                             <TextBlock Classes="meta" Margin="26,0,0,0" TextWrapping="Wrap"
                                        Foreground="{DynamicResource CrackedBrush}"
                                        IsVisible="{Binding HasAutostartError}"
@@ -88,8 +88,8 @@
                                        Text="A brief message in the corner of the window when a scan or metadata refresh finishes." />
                         </StackPanel>
 
-                        <CheckBox Content="Show notifications"
-                                  IsChecked="{Binding ShowNotifications}" />
+                        <ToggleSwitch Content="Show notifications"
+                                      IsChecked="{Binding ShowNotifications}" />
 
                         <Separator Margin="0,4" />
 
@@ -99,8 +99,8 @@
                                        Text="Keep VST Manager running in the background when the window is closed. Reopen it from the tray icon, which also has an Exit option." />
                         </StackPanel>
 
-                        <CheckBox Content="Keep running in the tray when the window is closed"
-                                  IsChecked="{Binding MinimizeToTray}" />
+                        <ToggleSwitch Content="Keep running in the tray when the window is closed"
+                                      IsChecked="{Binding MinimizeToTray}" />
 
                     </StackPanel>
                 </ScrollViewer>
@@ -340,9 +340,9 @@
                                                   Fill="{DynamicResource MegaGlyphFillBrush}" />
                                         </Panel>
                                     </Viewbox>
-                                    <CheckBox Content="Keep this machine in sync with MEGA"
-                                              IsChecked="{Binding CloudSyncEnabled}"
-                                              Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    <ToggleSwitch Content="Keep this machine in sync with MEGA"
+                                                  IsChecked="{Binding CloudSyncEnabled}"
+                                                  Foreground="{DynamicResource TextPrimaryBrush}" />
                                 </StackPanel>
                                 <TextBlock Classes="meta" TextWrapping="Wrap"
                                            Text="{Binding CloudStatusMessage}" />

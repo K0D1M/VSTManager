@@ -43,6 +43,22 @@ public enum LayoutMode
     List
 }
 
+/// <summary>Which install-status bucket the Filter popup narrows to.</summary>
+public enum InstalledFilterOption
+{
+    All,
+    InstalledOnly,
+    NotInstalledOnly
+}
+
+/// <summary>Which plugin format the Filter popup narrows to.</summary>
+public enum FormatFilterOption
+{
+    All,
+    Vst2,
+    Vst3
+}
+
 /// <summary>
 /// One pending "both sides changed" decision. Carries its own TaskCompletionSource so the
 /// background sync can await an answer the UI supplies whenever the user gets to it.
@@ -243,6 +259,23 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _outdatedOnly;
 
+    /// <summary>Status/format/tag narrowing from the toolbar's Filter popup — WPF's InstalledFilter/
+    /// FormatFilter/SelectedTagFilterIds, ported here since the Avalonia head had no equivalent at
+    /// all until now (only Favourites/Updates/Hidden toggles and search existed).</summary>
+    [ObservableProperty]
+    private InstalledFilterOption _installedFilter = InstalledFilterOption.InstalledOnly;
+
+    [ObservableProperty]
+    private FormatFilterOption _formatFilter = FormatFilterOption.All;
+
+    /// <summary>Tag ids currently narrowing the list. Empty means "don't filter by tag".</summary>
+    public HashSet<string> SelectedTagFilterIds { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>True while any tag filter is active — drives the Filter popup's "Clear" affordance.</summary>
+    public bool HasTagFilter => SelectedTagFilterIds.Count > 0;
+
+    public bool IsTagFilterActive(TagDefinition tag) => SelectedTagFilterIds.Contains(tag.Id);
+
     /// <summary>
     /// Which folder the main list is narrowed to, or null for every plugin. This project's
     /// single-column card grid has no room for WPF's per-folder inline grids, so a folder acts as
@@ -300,6 +333,42 @@ public partial class MainViewModel : ObservableObject
         set { if (value) { Mode = ManagementMode.Cracked; } }
     }
 
+    public bool IsStatusAll
+    {
+        get => InstalledFilter == InstalledFilterOption.All;
+        set { if (value) { InstalledFilter = InstalledFilterOption.All; } }
+    }
+
+    public bool IsStatusInstalled
+    {
+        get => InstalledFilter == InstalledFilterOption.InstalledOnly;
+        set { if (value) { InstalledFilter = InstalledFilterOption.InstalledOnly; } }
+    }
+
+    public bool IsStatusNotInstalled
+    {
+        get => InstalledFilter == InstalledFilterOption.NotInstalledOnly;
+        set { if (value) { InstalledFilter = InstalledFilterOption.NotInstalledOnly; } }
+    }
+
+    public bool IsFormatAll
+    {
+        get => FormatFilter == FormatFilterOption.All;
+        set { if (value) { FormatFilter = FormatFilterOption.All; } }
+    }
+
+    public bool IsFormatVst2
+    {
+        get => FormatFilter == FormatFilterOption.Vst2;
+        set { if (value) { FormatFilter = FormatFilterOption.Vst2; } }
+    }
+
+    public bool IsFormatVst3
+    {
+        get => FormatFilter == FormatFilterOption.Vst3;
+        set { if (value) { FormatFilter = FormatFilterOption.Vst3; } }
+    }
+
     public bool HasSelection => SelectedCount > 0;
 
     /// <summary>
@@ -327,6 +396,61 @@ public partial class MainViewModel : ObservableObject
     partial void OnShowHiddenChanged(bool value) => ApplyFilters();
     partial void OnFavoritesOnlyChanged(bool value) => ApplyFilters();
     partial void OnOutdatedOnlyChanged(bool value) => ApplyFilters();
+
+    partial void OnInstalledFilterChanged(InstalledFilterOption value)
+    {
+        OnPropertyChanged(nameof(IsStatusAll));
+        OnPropertyChanged(nameof(IsStatusInstalled));
+        OnPropertyChanged(nameof(IsStatusNotInstalled));
+        ApplyFilters();
+    }
+
+    partial void OnFormatFilterChanged(FormatFilterOption value)
+    {
+        OnPropertyChanged(nameof(IsFormatAll));
+        OnPropertyChanged(nameof(IsFormatVst2));
+        OnPropertyChanged(nameof(IsFormatVst3));
+        ApplyFilters();
+    }
+
+    [RelayCommand]
+    private void ToggleTagFilter(TagDefinition? tag)
+    {
+        if (tag is null)
+        {
+            return;
+        }
+
+        if (!SelectedTagFilterIds.Remove(tag.Id))
+        {
+            SelectedTagFilterIds.Add(tag.Id);
+        }
+
+        OnPropertyChanged(nameof(HasTagFilter));
+        ApplyFilters();
+    }
+
+    [RelayCommand]
+    private void ClearTagFilter()
+    {
+        if (SelectedTagFilterIds.Count == 0)
+        {
+            return;
+        }
+
+        SelectedTagFilterIds.Clear();
+        OnPropertyChanged(nameof(HasTagFilter));
+        ApplyFilters();
+    }
+
+    /// <summary>Resets Status/Format only — matching WPF's own ResetFilters, which leaves Hidden
+    /// and tag selection untouched.</summary>
+    [RelayCommand]
+    private void ResetFilters()
+    {
+        InstalledFilter = InstalledFilterOption.InstalledOnly;
+        FormatFilter = FormatFilterOption.All;
+    }
 
     partial void OnSortChanged(SortOption value)
     {
@@ -923,7 +1047,7 @@ public partial class MainViewModel : ObservableObject
             Notify(report.Count == 1
                 ? $"{report[0].Name} has a newer version available"
                     + (string.IsNullOrWhiteSpace(report[0].LatestVersion) ? "." : $" ({report[0].LatestVersion}).")
-                : $"{report.Count} plugins have newer versions available.");
+                : $"{report.Count} plugins have newer versions available. Use the Updates button to see all of them.");
         }
         finally
         {
@@ -1899,6 +2023,22 @@ public partial class MainViewModel : ObservableObject
                 ManagementMode.Cracked => p.IsCracked,
                 _ => true
             })
+            && (InstalledFilter switch
+            {
+                InstalledFilterOption.InstalledOnly => p.IsInstalled,
+                InstalledFilterOption.NotInstalledOnly => !p.IsInstalled,
+                _ => true
+            })
+            && (FormatFilter switch
+            {
+                FormatFilterOption.Vst2 => !p.IsInstalled || p.ActiveInstalls.Any(i => i.Format == PluginFormat.Vst2),
+                FormatFilterOption.Vst3 => !p.IsInstalled || p.ActiveInstalls.Any(i => i.Format == PluginFormat.Vst3),
+                _ => true
+            })
+            // Multiple selected tags narrow rather than widen (a plugin must carry all of them),
+            // matching WPF's own AND semantics for combining e.g. Synth + Analog.
+            && (SelectedTagFilterIds.Count == 0
+                || SelectedTagFilterIds.All(id => p.TagDefinitions.Any(t => string.Equals(t.Id, id, StringComparison.OrdinalIgnoreCase))))
             && (search.Length == 0
                 || p.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
                 || (p.Vendor?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false));

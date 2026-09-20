@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:VstManager.Ui.ViewModels"
         xmlns:conv="using:VstManager.Ui.Converters"
+        xmlns:model="using:VstManager.Core.Models"
         x:Class="VstManager.Ui.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="VST Manager"
@@ -15,6 +16,7 @@
         <conv:CloudStateBrushConverter x:Key="CloudStateBrush" />
         <conv:CloudStateIsSyncingConverter x:Key="CloudStateIsSyncing" />
         <conv:HexToBrushConverter x:Key="HexToBrush" />
+        <conv:BoolToEyeIconConverter x:Key="BoolToEyeIcon" />
 
         <!-- One menu definition, attached to both templates below, so the grid and list can
              never offer different actions. Commands are reached through the window rather than
@@ -295,10 +297,22 @@
                 <StackPanel Orientation="Horizontal" Spacing="2">
                     <RadioButton Classes="segment all" GroupName="mode" Content="All"
                                  IsChecked="{Binding IsModeAll}" />
-                    <RadioButton Classes="segment legit" GroupName="mode" Content="Legit"
-                                 IsChecked="{Binding IsModeLegit}" />
-                    <RadioButton Classes="segment cracked" GroupName="mode" Content="Cracked"
-                                 IsChecked="{Binding IsModeCracked}" />
+                    <RadioButton x:Name="LegitSegment" Classes="segment legit" GroupName="mode"
+                                 IsChecked="{Binding IsModeLegit}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Path Classes="segmentIcon" Data="{StaticResource IconCheck}"
+                                  Stroke="{Binding #LegitSegment.Foreground}" />
+                            <TextBlock Text="Legit" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="CrackedSegment" Classes="segment cracked" GroupName="mode"
+                                 IsChecked="{Binding IsModeCracked}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Path Classes="segmentIcon" Data="{StaticResource IconSkull}"
+                                  Stroke="{Binding #CrackedSegment.Foreground}" />
+                            <TextBlock Text="Cracked" />
+                        </StackPanel>
+                    </RadioButton>
                 </StackPanel>
             </Border>
 
@@ -323,6 +337,101 @@
                  EnumEqualsConverter) never needed separate code to restore the persisted choice on
                  launch: a live two-way binding re-reads the current value from the view model as
                  soon as it exists, with nothing extra to wire up in either direction. -->
+            <!-- Filter popup: Status/Format/Tags narrowing, matching WPF's dedicated Filter
+                 button — previously absent from this project entirely (only the Favourites/
+                 Updates/Hidden toggles below existed). IconFunnel is a filled silhouette (WPF's
+                 Styles.xaml:29), not a stroke icon, so Fill tracks the toggle's own Foreground
+                 the same way the Legit/Cracked segment icons do. -->
+            <ToggleButton x:Name="FilterToggle" Classes="ghost" Padding="10,5"
+                          ToolTip.Tip="Narrow the list by status, format, tags and more">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Path Data="{StaticResource IconFunnel}" Stretch="Uniform" Width="13" Height="13"
+                          Fill="{Binding #FilterToggle.Foreground}" />
+                    <TextBlock Text="Filter" VerticalAlignment="Center" />
+                </StackPanel>
+            </ToggleButton>
+
+            <Popup PlacementTarget="{Binding #FilterToggle}"
+                   Placement="Bottom" IsOpen="{Binding #FilterToggle.IsChecked, Mode=TwoWay}"
+                   IsLightDismissEnabled="True">
+                <Border Classes="section" Width="260" Margin="0,6,0,0" Padding="12">
+                    <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Filters" Classes="label" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Classes="ghost" Content="Reset" Padding="8,3" FontSize="12"
+                                    Command="{Binding ResetFiltersCommand}" />
+                        </Grid>
+
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Status" Classes="meta" />
+                            <Border Classes="segmentGroup">
+                                <StackPanel Orientation="Horizontal" Spacing="2">
+                                    <RadioButton Classes="segment" GroupName="filterStatus" Content="All"
+                                                 IsChecked="{Binding IsStatusAll}" />
+                                    <RadioButton Classes="segment" GroupName="filterStatus" Content="Installed"
+                                                 IsChecked="{Binding IsStatusInstalled}" />
+                                    <RadioButton Classes="segment" GroupName="filterStatus" Content="Not Installed"
+                                                 IsChecked="{Binding IsStatusNotInstalled}" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Format" Classes="meta" />
+                            <Border Classes="segmentGroup">
+                                <StackPanel Orientation="Horizontal" Spacing="2">
+                                    <RadioButton Classes="segment" GroupName="filterFormat" Content="All"
+                                                 IsChecked="{Binding IsFormatAll}" />
+                                    <RadioButton Classes="segment" GroupName="filterFormat" Content="VST2"
+                                                 IsChecked="{Binding IsFormatVst2}" />
+                                    <RadioButton Classes="segment" GroupName="filterFormat" Content="VST3"
+                                                 IsChecked="{Binding IsFormatVst3}" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- ToggleSwitch, not CheckBox, matching the earlier Settings-window
+                             session so this new popup doesn't reintroduce a checkbox. -->
+                        <ToggleSwitch IsChecked="{Binding ShowHidden}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Path Classes="tabIcon" Width="13" Height="13"
+                                      Data="{Binding ShowHidden, Converter={StaticResource BoolToEyeIcon}}"
+                                      Stroke="{DynamicResource TextPrimaryBrush}" />
+                                <TextBlock Text="Show hidden plugins" />
+                            </StackPanel>
+                        </ToggleSwitch>
+
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Tags" Classes="meta" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Classes="ghost" Content="Clear" Padding="6,1" FontSize="11"
+                                    Command="{Binding ClearTagFilterCommand}"
+                                    IsVisible="{Binding HasTagFilter}" />
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding AvailableTags}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel ItemSpacing="6" LineSpacing="6" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="model:TagDefinition">
+                                    <Button Classes="ghost"
+                                            Padding="8,4" FontSize="11"
+                                            Command="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).ToggleTagFilterCommand}"
+                                            CommandParameter="{Binding}">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <Border Width="8" Height="8" CornerRadius="4"
+                                                    Background="{Binding ColorHex, Converter={StaticResource HexToBrush}}" />
+                                            <TextBlock Text="{Binding Name}" />
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
             <ComboBox MinWidth="150" VerticalAlignment="Center"
                       ToolTip.Tip="Sort order"
                       SelectedValueBinding="{CompiledBinding Tag, x:DataType=ComboBoxItem}"
@@ -342,8 +451,18 @@
                           IsChecked="{Binding FavoritesOnly}" />
             <ToggleButton Classes="filterToggle" Content="↻ Updates"
                           IsChecked="{Binding OutdatedOnly}" />
-            <ToggleButton Classes="filterToggle" Content="👁 Hidden"
-                          IsChecked="{Binding ShowHidden}" />
+            <!-- IconEyeOff (crossed) when hidden plugins are NOT shown, IconEye (open) when they
+                 are — the icon reflects the toggle's actual current state, not just a static
+                 label, since ShowHidden's own name reads ambiguously at a glance otherwise. -->
+            <ToggleButton x:Name="HiddenToggle" Classes="filterToggle"
+                          IsChecked="{Binding ShowHidden}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Path Classes="tabIcon" Width="13" Height="13"
+                          Data="{Binding ShowHidden, Converter={StaticResource BoolToEyeIcon}}"
+                          Stroke="{Binding #HiddenToggle.Foreground}" />
+                    <TextBlock Text="Hidden" VerticalAlignment="Center" />
+                </StackPanel>
+            </ToggleButton>
 
             <!-- Bulk tag: mark every currently-visible installed plugin, distinct from the
                  per-card "Mark Legit/Cracked" in the context menu and selection bar. -->

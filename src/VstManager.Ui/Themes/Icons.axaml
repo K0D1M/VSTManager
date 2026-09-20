@@ -31,4 +31,23 @@
          rather than a filled glyph. -->
     <StreamGeometry x:Key="IconInfo">M12,21.5 A9.5,9.5 0 1 1 12,2.5 A9.5,9.5 0 1 1 12,21.5 M12,11 L12,16.5 M12,7.5 L12,7.6</StreamGeometry>
 
+    <!-- Legit/Cracked mode-segment icons (MainWindow.axaml's All/Legit/Cracked toolbar toggle),
+         ported verbatim from WPF's Styles.xaml:20-21 — WPF itself renders that particular spot
+         with the flat ✔/☠ Unicode characters via a Tag-bound TextBlock, but these proper vector
+         geometries already existed there for other uses, and look better than the flat glyphs. -->
+    <StreamGeometry x:Key="IconCheck">M4,12.5 L9.5,18 L20,6</StreamGeometry>
+    <StreamGeometry x:Key="IconSkull">M12,2.5 C7,2.5 4.5,6 4.5,9.8 C4.5,12.1 5.7,14 7.5,15.1 L7.5,18.4 C7.5,19.5 8.4,20.4 9.5,20.4 L14.5,20.4 C15.6,20.4 16.5,19.5 16.5,18.4 L16.5,15.1 C18.3,14 19.5,12.1 19.5,9.8 C19.5,6 17,2.5 12,2.5 Z M9,10.4 L9.4,10.4 M14.6,10.4 L15,10.4 M10.7,16.6 L10.7,16.7 M13.3,16.6 L13.3,16.7</StreamGeometry>
+
+    <!-- Filter button icon (MainWindow.axaml's toolbar). Ported verbatim from WPF's Styles.xaml:29
+         — a FILLED funnel silhouette, unlike the stroke-based icons above, so it renders with
+         Fill, not the tabIcon/segmentIcon stroke styles. -->
+    <StreamGeometry x:Key="IconFunnel">M3,4.5 L21,4.5 L14.5,12 L14.5,19 L9.5,16.5 L9.5,12 Z</StreamGeometry>
+
+    <!-- No WPF equivalent — the toolbar's "Hidden" toggle and the Filter popup's "Show hidden
+         plugins" toggle are both Avalonia-only additions from an earlier session, drawn fresh in
+         the same stroke-based style as the other icons above rather than using an emoji, which
+         has no reliable matching "eye" / "eye with a slash through it" pair across platforms. -->
+    <StreamGeometry x:Key="IconEye">M1.5,12 C1.5,12 5,5 12,5 C19,5 22.5,12 22.5,12 C22.5,12 19,19 12,19 C5,19 1.5,12 1.5,12 Z M12,15 A3,3 0 1 0 12,9 A3,3 0 1 0 12,15 Z</StreamGeometry>
+    <StreamGeometry x:Key="IconEyeOff">M1.5,12 C1.5,12 5,5 12,5 C19,5 22.5,12 22.5,12 C22.5,12 19,19 12,19 C5,19 1.5,12 1.5,12 Z M12,15 A3,3 0 1 0 12,9 A3,3 0 1 0 12,15 Z M3,3 L21,21</StreamGeometry>
+
 </ResourceDictionary>
