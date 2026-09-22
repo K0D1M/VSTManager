@@ -58,6 +58,26 @@ public partial class SettingsViewModel : ObservableObject
                 OnPropertyChanged(nameof(AutostartError));
                 OnPropertyChanged(nameof(HasAutostartError));
             }
+
+            if (e.PropertyName is nameof(MainViewModel.IsCheckingForAppUpdate)
+                or nameof(MainViewModel.IsUpdateAvailable)
+                or nameof(MainViewModel.IsInstallingUpdate)
+                or nameof(MainViewModel.UpdateStatusText)
+                or nameof(MainViewModel.UpdateButtonText)
+                or nameof(MainViewModel.LastUpdateCheck))
+            {
+                OnPropertyChanged(nameof(IsCheckingForAppUpdate));
+                OnPropertyChanged(nameof(IsUpdateAvailable));
+                OnPropertyChanged(nameof(IsInstallingUpdate));
+                OnPropertyChanged(nameof(UpdateStatusText));
+                OnPropertyChanged(nameof(UpdateButtonText));
+                OnPropertyChanged(nameof(LastUpdateCheck));
+            }
+
+            if (e.PropertyName == nameof(MainViewModel.PluginUpdateCheckIntervalHours))
+            {
+                OnPropertyChanged(nameof(PluginUpdateCheckIntervalHours));
+            }
         };
 
         foreach (var folder in library.CustomScanFolders)
@@ -76,6 +96,26 @@ public partial class SettingsViewModel : ObservableObject
     /// own UpdateChecker.cs uses (typeof(UpdateChecker).Assembly.GetName().Version).
     /// </summary>
     public string AppVersion => typeof(SettingsViewModel).Assembly.GetName().Version?.ToString(3) ?? "unknown";
+
+    // The actual update-check state lives on MainViewModel (it needs to run once at startup from
+    // MainWindow.axaml.cs's OnLoaded, before a SettingsViewModel even exists) — these just proxy
+    // it through for the About tab's bindings, same mirroring pattern this file already uses for
+    // CloudStatusMessage/AutostartEnabled below.
+    public bool IsCheckingForAppUpdate => _main.IsCheckingForAppUpdate;
+    public bool IsUpdateAvailable => _main.IsUpdateAvailable;
+    public bool IsInstallingUpdate => _main.IsInstallingUpdate;
+    public string UpdateStatusText => _main.UpdateStatusText;
+    public string UpdateButtonText => _main.UpdateButtonText;
+    public DateTime? LastUpdateCheck => _main.LastUpdateCheck;
+
+    public IAsyncRelayCommand CheckForAppUpdateCommand => _main.CheckForAppUpdateCommand;
+
+    /// <summary>
+    /// Not a command: the caller (SettingsWindow.axaml.cs's UpdateNow_Click) confirms with the
+    /// user first via ConfirmDialog, which needs this window as an owner — something a bound
+    /// Command can't do cleanly, same reasoning as this project's other "confirm then act" actions.
+    /// </summary>
+    public Task InstallOrOpenReleaseAsync() => _main.InstallOrOpenReleaseAsync();
 
     // ---- appearance ---------------------------------------------------------
 
@@ -395,6 +435,25 @@ public partial class SettingsViewModel : ObservableObject
             if (_main.MinimizeToTray != value)
             {
                 _main.MinimizeToTray = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    /// How often, in hours, the background check re-runs for a newer plugin version while the
+    /// app stays open. Setting this on MainViewModel restarts the wait immediately (see
+    /// OnPluginUpdateCheckIntervalHoursChanged) rather than only taking effect after the
+    /// previously-scheduled wait elapses.
+    /// </summary>
+    public double PluginUpdateCheckIntervalHours
+    {
+        get => _main.PluginUpdateCheckIntervalHours;
+        set
+        {
+            if (_main.PluginUpdateCheckIntervalHours != value)
+            {
+                _main.PluginUpdateCheckIntervalHours = value;
                 OnPropertyChanged();
             }
         }

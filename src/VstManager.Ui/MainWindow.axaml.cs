@@ -1,9 +1,11 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using VstManager.Core.Models;
 using VstManager.Core.Services.Cloud;
@@ -31,12 +33,24 @@ public partial class MainWindow : Window
     /// </summary>
     private bool _isShuttingDown;
 
+    // ---- folder drag-and-drop ------------------------------------------------
+    // In-process custom formats for carrying a view-model object (not a file) through Avalonia's
+    // DataTransfer — confirmed via reflection against Avalonia.Base.dll that
+    // DataFormat.CreateInProcessFormat<T> and DataTransferItem.Create<T>/TryGetValue<T> exist for
+    // exactly this case; there was no existing example of it in this codebase (the only other
+    // drag-drop here, PluginDetailWindow's image drop, is file-only via TryGetFiles()).
+    private static readonly DataFormat<PluginCardViewModel> PluginDragFormat =
+        DataFormat.CreateInProcessFormat<PluginCardViewModel>("application/x-vstmanager-plugin");
+
+    private static readonly DataFormat<FolderNodeViewModel> FolderDragFormat =
+        DataFormat.CreateInProcessFormat<FolderNodeViewModel>("application/x-vstmanager-folder");
+
     public MainWindow()
     {
         InitializeComponent();
         DataContext = _vm;
 
-        _vm.NotificationRequested += (_, n) => _notifications.Show(n.Title, n.Message);
+        _vm.NotificationRequested += (_, n) => _notifications.Show(n.Title, n.Message, n.ImagePath);
 
         _tray.OpenRequested += (_, _) => RestoreFromTray();
         _tray.ExitRequested += (_, _) =>
@@ -51,6 +65,11 @@ public partial class MainWindow : Window
         // zooming does not also scroll the library out from under the cursor.
         AddHandler(PointerWheelChangedEvent, OnPreviewWheel, RoutingStrategies.Tunnel);
 
+        // Window-level, not per-card: the drag-distance threshold has to keep tracking the
+        // pointer after it leaves whatever card/folder row was originally pressed.
+        AddHandler(PointerMovedEvent, OnWindowPointerMoved, RoutingStrategies.Tunnel);
+        AddHandler(PointerReleasedEvent, OnWindowPointerReleased, RoutingStrategies.Tunnel);
+
         // Seeded from the shared library.json, so a zoom set in the WPF head is the one this
         // opens at. Assigned before subscribing: the initial value is already persisted, and
         // saving it back here would be a pointless write on every launch.
@@ -63,6 +82,36 @@ public partial class MainWindow : Window
         // also triggers the built-in (row-unaware) scroll underneath it.
         GridScroll.AddHandler(PointerWheelChangedEvent, OnLibraryWheel, RoutingStrategies.Tunnel);
         ListScroll.AddHandler(PointerWheelChangedEvent, OnLibraryWheel, RoutingStrategies.Tunnel);
+
+        // ScrollChanged does not reliably fire for a manual Offset assignment (see
+        // OnLibraryWheel, which sets scroll.Offset directly for the row-snap step) — confirmed by
+        // tracing: it fired once at startup and never again during an actual scroll. Subscribing
+        // to the OffsetProperty change directly is the same signal WPF's ScrollChanged is built
+        // on and fires for every kind of scroll (wheel, scrollbar, or code), not just some.
+        // PropertyChanged on OffsetProperty fires the instant the value is set, which can be
+        // before layout has actually repositioned the headers TranslatePoint reads from — the
+        // direct cause of a brief overlap (the bottom-edge check itself is correct, but was
+        // reading a stale, pre-layout position for one frame). LayoutUpdated was tried as a fix
+        // (it only runs once a layout pass has actually completed) but crashes outright:
+        // UpdateStickyHeader changes StickyHeader's own Text/IsVisible, which itself triggers
+        // another layout pass, re-firing LayoutUpdated — Avalonia detects that as an infinite
+        // layout loop and throws. Posting to the dispatcher at Loaded priority instead runs after
+        // the current layout pass finishes without being called FROM inside one, so it reads
+        // settled positions without re-entering layout itself.
+        GridScroll.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == ScrollViewer.OffsetProperty)
+            {
+                Dispatcher.UIThread.Post(() => UpdateStickyHeader(GridScroll, GridSectionHeaders), DispatcherPriority.Loaded);
+            }
+        };
+        ListScroll.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == ScrollViewer.OffsetProperty)
+            {
+                Dispatcher.UIThread.Post(() => UpdateStickyHeader(ListScroll, ListSectionHeaders), DispatcherPriority.Loaded);
+            }
+        };
 
         // The view model stays dialog-free, so opening a window is the view's job.
         _vm.DetailRequested += (_, card) =>
@@ -166,6 +215,11 @@ public partial class MainWindow : Window
         // rather than hanging on a blank frame while the filesystem is walked.
         await _vm.LoadAsync();
         _vm.StartUpdateChecks();
+
+        // The app's own self-update check, distinct from StartUpdateChecks above (which is the
+        // per-plugin "newer version on KVR" checker) — matching WPF, which runs this once on
+        // every launch. Fire-and-forget: a failed check here is not worth delaying anything for.
+        _ = _vm.CheckForAppUpdateCommand.ExecuteAsync(null);
     }
 
     // ---- selection ---------------------------------------------------------
@@ -222,6 +276,88 @@ public partial class MainWindow : Window
         // least surprising behaviour.
         _vm.SelectOnly(card);
         _rangeAnchor = card;
+
+        ArmDrag(e, () => BuildPluginDragData(card));
+    }
+
+    private static DataTransfer BuildPluginDragData(PluginCardViewModel card)
+    {
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.Create(PluginDragFormat, card));
+        return data;
+    }
+
+    private static DataTransfer BuildFolderDragData(FolderNodeViewModel node)
+    {
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.Create(FolderDragFormat, node));
+        return data;
+    }
+
+    // ---- drag-start threshold -------------------------------------------------
+    // DoDragDropAsync starts showing drag-cursor feedback (the "no drop target" cursor) the
+    // instant it's called — found by actually clicking a card and seeing the cursor flip on a
+    // plain click with no movement at all. WPF avoids this with a manual pixel-distance check
+    // before ever calling DoDragDrop; Avalonia's DoDragDropAsync takes PointerPressedEventArgs
+    // directly and has no equivalent built-in threshold of its own, so the same manual check is
+    // ported here rather than assumed unnecessary.
+
+    private const double DragThreshold = 4;
+    private Point? _dragStartPoint;
+    private Func<DataTransfer>? _dragDataFactory;
+    private PointerPressedEventArgs? _dragPressArgs;
+
+    private void ArmDrag(PointerPressedEventArgs e, Func<DataTransfer> dataFactory)
+    {
+        _dragStartPoint = e.GetPosition(this);
+        _dragDataFactory = dataFactory;
+        _dragPressArgs = e;
+    }
+
+    private void OnWindowPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_dragStartPoint is not { } start || _dragDataFactory is not { } factory || _dragPressArgs is not { } pressArgs)
+        {
+            return;
+        }
+
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            ClearArmedDrag();
+            return;
+        }
+
+        var current = e.GetPosition(this);
+        if (Math.Abs(current.X - start.X) < DragThreshold && Math.Abs(current.Y - start.Y) < DragThreshold)
+        {
+            return;
+        }
+
+        ClearArmedDrag();
+        _ = RunDragAsync(pressArgs, factory());
+    }
+
+    private void OnWindowPointerReleased(object? sender, PointerReleasedEventArgs e) => ClearArmedDrag();
+
+    private void ClearArmedDrag()
+    {
+        _dragStartPoint = null;
+        _dragDataFactory = null;
+        _dragPressArgs = null;
+    }
+
+    private static async Task RunDragAsync(PointerPressedEventArgs pressArgs, DataTransfer data)
+    {
+        try
+        {
+            await DragDrop.DoDragDropAsync(pressArgs, data, DragDropEffects.Move);
+        }
+        catch (InvalidOperationException)
+        {
+            // The shell occasionally refuses to start a second drag while one is still
+            // unwinding — same tolerance WPF's own DragSource_MouseMove has for the COM
+            // equivalent of this failure.
+        }
     }
 
     private void OnPluginDoubleTapped(object? sender, TappedEventArgs e)
@@ -340,7 +476,11 @@ public partial class MainWindow : Window
     /// </summary>
     private async void RefreshAllMetadata_Click(object? sender, RoutedEventArgs e)
     {
-        if (!await ConfirmDialog.ShowAsync(this, "Refresh All Metadata",
+        // Same selection-aware scope RefreshAllMetadataAsync itself uses — the dialog title
+        // should say what's actually about to happen rather than always claiming "all".
+        var title = _vm.HasSelection ? "Check Updates for Selected" : "Refresh All Metadata";
+
+        if (!await ConfirmDialog.ShowAsync(this, title,
                 "This action will take some time. Continue?", "Continue"))
         {
             return;
@@ -364,6 +504,77 @@ public partial class MainWindow : Window
         }
 
         _vm.SelectedFolderId = _vm.SelectedFolderId == node.Id ? null : node.Id;
+
+        // Folders can be dragged onto other folders to nest them, same as WPF. This runs
+        // alongside the filter-toggle above rather than instead of it — a click that never turns
+        // into an actual drag just resolves as the ordinary row click it already was.
+        ArmDrag(e, () => BuildFolderDragData(node));
+    }
+
+    /// <summary>
+    /// Both plugin-onto-folder filing and folder-onto-folder nesting land here — the payload type
+    /// decides which, same convention WPF's own drop handlers use. A folder can never be dropped
+    /// onto itself or a descendant (CanMoveFolder, mirroring MainViewModel.MoveFolder's own guard)
+    /// — checked here for the live highlight and re-checked on Drop since a fast drag can outrun
+    /// DragOver's last update.
+    /// </summary>
+    private void FolderRow_DragOver(object? sender, DragEventArgs e)
+    {
+        if (sender is not Control { DataContext: FolderNodeViewModel node })
+        {
+            return;
+        }
+
+        var allowed = IsFolderDropAllowed(node, e);
+        e.DragEffects = allowed ? DragDropEffects.Move : DragDropEffects.None;
+        node.IsDropTarget = allowed;
+        e.Handled = true;
+    }
+
+    private void FolderRow_DragLeave(object? sender, DragEventArgs e)
+    {
+        if (sender is Control { DataContext: FolderNodeViewModel node })
+        {
+            node.IsDropTarget = false;
+        }
+    }
+
+    private void FolderRow_Drop(object? sender, DragEventArgs e)
+    {
+        if (sender is not Control { DataContext: FolderNodeViewModel node })
+        {
+            return;
+        }
+
+        node.IsDropTarget = false;
+        e.Handled = true;
+
+        var plugin = e.DataTransfer.TryGetValue(PluginDragFormat);
+        if (plugin is not null)
+        {
+            _vm.MovePluginsToFolder(plugin, node.Id);
+            return;
+        }
+
+        var dragged = e.DataTransfer.TryGetValue(FolderDragFormat);
+        if (dragged is not null && !_vm.MoveFolder(dragged.Id, node.Id))
+        {
+            _ = ConfirmDialog.ShowMessageAsync(this, "Move Folder",
+                $"\"{dragged.Name}\" can't be moved inside itself.");
+        }
+    }
+
+    private bool IsFolderDropAllowed(FolderNodeViewModel node, DragEventArgs e)
+    {
+        if (e.DataTransfer.Contains(PluginDragFormat))
+        {
+            return true;
+        }
+
+        var dragged = e.DataTransfer.TryGetValue(FolderDragFormat);
+        return dragged is not null
+               && !string.Equals(dragged.Id, node.Id, StringComparison.OrdinalIgnoreCase)
+               && _vm.CanMoveFolder(dragged.Id, node.Id);
     }
 
     private async void EditFolder_Click(object? sender, RoutedEventArgs e)
@@ -414,6 +625,7 @@ public partial class MainWindow : Window
     /// </summary>
     private void OnLibraryKeyDown(object? sender, KeyEventArgs e)
     {
+
         // Zoom is checked before the TextBox guard below: Ctrl +/-/0 should work while the caret
         // is in the search box, exactly as it does in a browser.
         if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && TryHandleZoomKey(e.Key))
@@ -595,6 +807,111 @@ public partial class MainWindow : Window
         }
 
         return container.Bounds.Height + (isGrid ? 14 : 0);
+    }
+
+    // ---- sticky section headers -----------------------------------------------
+    // A RenderTransform-in-place approach (translating the real header down by the scroll offset)
+    // was tried and confirmed NOT to work: Avalonia's ScrollContentPresenter clips a scrolled
+    // child to its own unscrolled layout position regardless of RenderTransform, so a translated
+    // header still gets clipped away — a hard limitation of the stock ScrollViewer, not a bug in
+    // the transform math (confirmed by tracing the offset/position math, which was correct, while
+    // nothing visually stuck). This overlay instead lives as a sibling of the ScrollViewer,
+    // outside its clip region entirely, and is shown/relabelled to match whichever section is
+    // "stuck" — the same "read live Bounds off real controls" technique MeasureRowHeight already
+    // uses for the row-snap wheel step.
+
+    private readonly record struct SectionHeaderInfo(
+        ToggleButton Header, string Icon, string Title, Func<MainViewModel, int> Count,
+        Func<MainViewModel, bool> IsExpanded, Action<MainViewModel, bool> SetExpanded);
+
+    private IReadOnlyList<SectionHeaderInfo> GridSectionHeaders => new[]
+    {
+        new SectionHeaderInfo(GridInstrumentsHeader, "🎹", "Instruments", vm => vm.InstrumentsCount,
+            vm => vm.IsInstrumentsSectionExpanded, (vm, v) => vm.IsInstrumentsSectionExpanded = v),
+        new SectionHeaderInfo(GridEffectsHeader, "🎛", "Effects", vm => vm.EffectsCount,
+            vm => vm.IsEffectsSectionExpanded, (vm, v) => vm.IsEffectsSectionExpanded = v),
+        new SectionHeaderInfo(GridUnclassifiedHeader, "❔", "Unclassified Type", vm => vm.UnclassifiedKindCount,
+            vm => vm.IsUnclassifiedKindSectionExpanded, (vm, v) => vm.IsUnclassifiedKindSectionExpanded = v),
+    };
+
+    private IReadOnlyList<SectionHeaderInfo> ListSectionHeaders => new[]
+    {
+        new SectionHeaderInfo(ListInstrumentsHeader, "🎹", "Instruments", vm => vm.InstrumentsCount,
+            vm => vm.IsInstrumentsSectionExpanded, (vm, v) => vm.IsInstrumentsSectionExpanded = v),
+        new SectionHeaderInfo(ListEffectsHeader, "🎛", "Effects", vm => vm.EffectsCount,
+            vm => vm.IsEffectsSectionExpanded, (vm, v) => vm.IsEffectsSectionExpanded = v),
+        new SectionHeaderInfo(ListUnclassifiedHeader, "❔", "Unclassified Type", vm => vm.UnclassifiedKindCount,
+            vm => vm.IsUnclassifiedKindSectionExpanded, (vm, v) => vm.IsUnclassifiedKindSectionExpanded = v),
+    };
+
+    private SectionHeaderInfo? _stuckSection;
+
+    /// <summary>
+    /// The section whose real header has scrolled above the viewport's top edge, but whose
+    /// content (or a later section not yet reached) is still what's on screen, "owns" the sticky
+    /// overlay — exactly one at a time, swapping the instant the next real header reaches the top,
+    /// which is what gives the classic grouped-list stick/push-off effect rather than headers
+    /// overlapping or a gap with no header showing.
+    /// </summary>
+    private void UpdateStickyHeader(ScrollViewer scroll, IReadOnlyList<SectionHeaderInfo> sections)
+    {
+        SectionHeaderInfo? stuck = null;
+
+        foreach (var section in sections)
+        {
+            if (section.Header.Bounds.Height <= 0 || section.Count(_vm) == 0)
+            {
+                continue;
+            }
+
+            // The real header's BOTTOM edge, not its top — checking the top alone left a window
+            // where the real header was still partially visible (its bottom half not yet
+            // scrolled past 0) while the overlay had already appeared, showing both stacked on
+            // top of each other. Only once the whole header has scrolled out does the sticky
+            // overlay take over from it.
+            var bottomInViewport = section.Header.TranslatePoint(
+                new Point(0, section.Header.Bounds.Height), scroll)?.Y ?? double.MaxValue;
+
+            if (bottomInViewport <= 0)
+            {
+                stuck = section;
+            }
+        }
+
+        _stuckSection = stuck;
+
+        if (stuck is not { } section2)
+        {
+            StickyHeader.IsVisible = false;
+            return;
+        }
+
+        StickyHeaderIcon.Text = section2.Icon;
+        StickyHeaderText.Text = section2.Title;
+        StickyHeaderCount.Text = $"({section2.Count(_vm)})";
+        // IsChecked mirrors the real header's own expanded state, so the overlay shows the
+        // correct chevron/pressed look immediately rather than only after the user clicks it once.
+        StickyHeader.IsChecked = section2.IsExpanded(_vm);
+        StickyHeader.IsVisible = true;
+    }
+
+    /// <summary>
+    /// Forwards to whichever section is currently stuck under the overlay — there is no bound
+    /// Command here (unlike the real per-section headers) because which section that is changes
+    /// as the user scrolls, so it has to be resolved at click time from _stuckSection rather than
+    /// fixed in the markup.
+    /// </summary>
+    private void StickyHeader_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_stuckSection is { } section)
+        {
+            // ToggleButton already flips its own IsChecked before Click fires; overwritten here
+            // with the actual new view-model state (rather than trusting that automatic flip) so
+            // the two can never end up disagreeing.
+            var next = !section.IsExpanded(_vm);
+            section.SetExpanded(_vm, next);
+            StickyHeader.IsChecked = next;
+        }
     }
 
     private CancellationTokenSource? _zoomIndicatorCts;

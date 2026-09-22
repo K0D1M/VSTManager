@@ -39,6 +39,29 @@
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
+    <!-- Folder row hover-highlight while a drag is over it (MainWindow.axaml's VisibleFolders
+         template), toggled by FolderNodeViewModel.IsDropTarget via a Classes.dropTarget binding —
+         Avalonia has no DataTemplate.Triggers/DataTrigger equivalent to WPF's, so a style selector
+         is the idiomatic replacement. Same visual WPF's own IsDropTarget DataTrigger uses
+         (MainWindow.xaml:1379-1387): accent border, thicker, tinted background. -->
+    <Style Selector="Border.dropTarget">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="BorderThickness" Value="2" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+    </Style>
+
+    <!-- Folder row highlight for whichever folder is currently narrowing the main list
+         (MainViewModel.SelectedFolderId, mirrored onto FolderNodeViewModel.IsSelected) —
+         previously no visual distinguished the active folder from any other row at all. A
+         thin accent-tinted left bar rather than a full border/background, so it never reads the
+         same as the drag-hover state above (Border.dropTarget) when both classes could in
+         principle apply during a drag over the currently-selected folder. -->
+    <Style Selector="Border.active">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="BorderThickness" Value="3,0,0,0" />
+        <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}" />
+    </Style>
+
     <!-- Plugin card. The elevation and lift on hover are what make the grid feel modern;
          the 150ms transitions keep it from feeling twitchy. -->
     <Style Selector="Border.card">

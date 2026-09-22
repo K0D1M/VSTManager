@@ -78,22 +78,36 @@ public sealed class NotificationService : IDisposable
     /// app's notifications: nothing here is worth blocking a background operation to await, and a
     /// failure is swallowed rather than surfaced, since a missed notification is not worth
     /// interrupting the user over.
+    ///
+    /// <paramref name="imagePath"/> is a local file path (e.g. a cached plugin logo) shown as the
+    /// notification's thumbnail — optional, since most notifications (scan complete, several
+    /// plugins outdated at once) have no single image to represent them.
     /// </summary>
-    public void Show(string title, string message)
+    public void Show(string title, string message, string? imagePath = null)
     {
         if (_manager is null)
         {
             return;
         }
 
-        _ = ShowCoreAsync(title, message);
+        _ = ShowCoreAsync(title, message, imagePath);
     }
 
-    private async Task ShowCoreAsync(string title, string message)
+    private async Task ShowCoreAsync(string title, string message, string? imagePath)
     {
         try
         {
-            await _manager!.ShowNotification(new Notification { Title = title, Body = message });
+            var notification = new Notification { Title = title, Body = message };
+
+            // Only set when the file actually exists: a stale/missing path handed to the native
+            // toast API is exactly the kind of thing that silently breaks the whole notification
+            // on some platforms rather than just omitting the image.
+            if (imagePath is not null && File.Exists(imagePath))
+            {
+                notification.BodyImagePath = imagePath;
+            }
+
+            await _manager!.ShowNotification(notification);
         }
         catch (Exception ex) when (ex is IOException or System.Runtime.InteropServices.COMException)
         {

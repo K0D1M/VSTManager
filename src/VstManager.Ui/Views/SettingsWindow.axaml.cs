@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using VstManager.Ui.ViewModels;
@@ -123,7 +124,41 @@ public partial class SettingsWindow : Window
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
 
+    // ---- cloud ------------------------------------------------------------------
+
+    /// <summary>
+    /// The device id was already selectable/manually-copyable via SelectableTextBlock; this just
+    /// removes the need to select-then-Ctrl+C by hand for a value the user is meant to paste
+    /// somewhere else (another machine's "Use a different sync id" field).
+    /// </summary>
+    private async void CopyDeviceId_Click(object? sender, RoutedEventArgs e)
+    {
+        if (GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            await clipboard.SetTextAsync(_vm.CloudDeviceId);
+        }
+    }
+
     // ---- about ----------------------------------------------------------------
+
+    /// <summary>
+    /// Confirms before installing, exactly as WPF's own CheckForUpdates does with its MessageBox
+    /// — wording branches the same way, depending on whether a matching installer asset was found
+    /// on the release (UpdateAssetDownloadUrl not null) or this will just open the browser instead.
+    /// </summary>
+    private async void UpdateNow_Click(object? sender, RoutedEventArgs e)
+    {
+        var hasInstaller = _vm.UpdateButtonText == "Update Now";
+
+        var message = hasInstaller
+            ? "A new version is ready to install. VST Manager will close and the installer will open. Continue?"
+            : "A new version is available. Open the release page?";
+
+        if (await ConfirmDialog.ShowAsync(this, "Update Available", message, "Continue"))
+        {
+            await _vm.InstallOrOpenReleaseAsync();
+        }
+    }
 
     private void AuthorLink_Click(object? sender, PointerPressedEventArgs e) => OpenUrl("https://github.com/K0D1M");
 

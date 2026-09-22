@@ -50,4 +50,16 @@
     <StreamGeometry x:Key="IconEye">M1.5,12 C1.5,12 5,5 12,5 C19,5 22.5,12 22.5,12 C22.5,12 19,19 12,19 C5,19 1.5,12 1.5,12 Z M12,15 A3,3 0 1 0 12,9 A3,3 0 1 0 12,15 Z</StreamGeometry>
     <StreamGeometry x:Key="IconEyeOff">M1.5,12 C1.5,12 5,5 12,5 C19,5 22.5,12 22.5,12 C22.5,12 19,19 12,19 C5,19 1.5,12 1.5,12 Z M12,15 A3,3 0 1 0 12,9 A3,3 0 1 0 12,15 Z M3,3 L21,21</StreamGeometry>
 
+    <!-- Plugin context menu (MainWindow.axaml's PluginMenu). IconRefresh ported verbatim from
+         WPF's Styles.xaml:26 (already used there for "Refresh Metadata"; reused here as-is for
+         Re-detect Version). IconClear has no WPF equivalent for this menu item — WPF's own menu
+         doesn't show a "Clear Classification" icon either, so this is drawn fresh. -->
+    <StreamGeometry x:Key="IconRefresh">M23,4 L23,10 L17,10 M1,20 L1,14 L7,14 M3.5,9 A9,9 0 0 1 18.4,5.6 L23,10 M1,14 L5.6,18.4 A9,9 0 0 0 20.5,15</StreamGeometry>
+    <StreamGeometry x:Key="IconClear">M12,21.5 A9.5,9.5 0 1 1 12,2.5 A9.5,9.5 0 1 1 12,21.5 Z M7,7 L17,17</StreamGeometry>
+
+    <!-- No WPF equivalent — CloudConflictWindow's "This machine" side, paired with the existing
+         CloudGlyph for its "Cloud copy" side. A plain monitor/desktop silhouette, drawn fresh in
+         the same stroke-based style as the other icons above. -->
+    <StreamGeometry x:Key="IconComputer">M2.5,4.5 L21.5,4.5 L21.5,15.5 L2.5,15.5 Z M8,19.5 L16,19.5 M9.5,15.5 L9.5,17.5 M14.5,15.5 L14.5,17.5</StreamGeometry>
+
 </ResourceDictionary>

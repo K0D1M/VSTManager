@@ -1,5 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -122,6 +124,7 @@ public partial class MainViewModel : ObservableObject
         _cloudSyncEnabled = settings.CloudSyncEnabled;
         _showNotifications = settings.ShowNotifications;
         _minimizeToTray = settings.MinimizeToTray;
+        _pluginUpdateCheckIntervalHours = settings.PluginUpdateCheckIntervalHours;
 
         // Read from the OS, not from library.json: the entry can be removed behind the app's
         // back (another tool, a user editing the registry or LaunchAgents), and the real state
@@ -291,6 +294,12 @@ public partial class MainViewModel : ObservableObject
     partial void OnSelectedFolderIdChanged(string? value)
     {
         OnPropertyChanged(nameof(SelectedFolder));
+
+        foreach (var node in VisibleFolders)
+        {
+            node.IsSelected = string.Equals(node.Id, value, StringComparison.OrdinalIgnoreCase);
+        }
+
         ApplyFilters();
     }
 
@@ -478,6 +487,8 @@ public partial class MainViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(SelectionAnchor));
+        OnPropertyChanged(nameof(RefreshMetadataButtonLabel));
+        OnPropertyChanged(nameof(RefreshMetadataButtonTooltip));
     }
 
     partial void OnIsScanningChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
@@ -713,14 +724,31 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// The toolbar's "Refresh All Metadata" — every installed plugin in the library, not just the
-    /// resolved selection. The confirmation dialog lives in code-behind (this project's
+    /// True while any card is selected — the toolbar button reads this to decide its own label
+    /// ("Check Updates for Selected" vs. "Refresh All Metadata") and, via
+    /// <see cref="RefreshAllMetadataAsync"/>, its actual target set. Not the same test as
+    /// <see cref="ResolveTargets"/>'s "clicked card is part of a multi-select" — this button has
+    /// no clicked card of its own, so any selection at all (even a single card) narrows it.
+    /// </summary>
+    public string RefreshMetadataButtonLabel => HasSelection ? "Check Updates for Selected" : "Refresh All Metadata";
+
+    public string RefreshMetadataButtonTooltip => HasSelection
+        ? "Re-checks installed versions and looks up the latest release for the selected plugins"
+        : "Re-checks installed versions and looks up the latest release for every installed plugin";
+
+    /// <summary>
+    /// The toolbar's refresh button — every installed plugin in the library, unless one or more
+    /// are selected, in which case only those (see <see cref="RefreshMetadataButtonLabel"/> for
+    /// the matching label switch). The confirmation dialog lives in code-behind (this project's
     /// established pattern; see MainWindow.axaml.cs), so by the time this runs the user has
     /// already agreed to the wait.
     /// </summary>
     public async Task RefreshAllMetadataAsync()
     {
-        var targets = _all.Where(c => c.IsInstalled).ToList();
+        var targets = (HasSelection ? _all.Where(c => c.IsSelected) : _all)
+            .Where(c => c.IsInstalled)
+            .ToList();
+
         IsScanning = true;
         try
         {
@@ -971,27 +999,78 @@ public partial class MainViewModel : ObservableObject
 
     // ---- background update checks ------------------------------------------
 
-    private static readonly TimeSpan UpdateCheckInterval = TimeSpan.FromHours(6);
-    private readonly CancellationTokenSource _updateChecks = new();
+    private static readonly TimeSpan MinUpdateCheckInterval = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan MaxUpdateCheckInterval = TimeSpan.FromHours(24);
+    private CancellationTokenSource _updateChecks = new();
     private bool _isCheckingForUpdates;
 
-    /// <summary>Runs one check right away, then repeats every few hours while the app is open.</summary>
-    public void StartUpdateChecks() => _ = RunUpdateChecksAsync();
+    /// <summary>
+    /// How often the repeating check re-runs while the app stays open, in hours. Settings binds
+    /// to this directly; changing it takes effect immediately (see OnPluginUpdateCheckIntervalHoursChanged)
+    /// rather than waiting for the current wait to finish — a user shortening the interval to
+    /// "check more often" expects that to start applying right away, not after the old, longer
+    /// wait completes once more.
+    /// </summary>
+    [ObservableProperty]
+    private double _pluginUpdateCheckIntervalHours = 6;
+
+    partial void OnPluginUpdateCheckIntervalHoursChanged(double value)
+    {
+        _library.PluginUpdateCheckIntervalHours = value;
+        SaveLibrary();
+
+        // Restart the loop so the new interval is honoured from now, not from whenever the
+        // in-flight PeriodicTimer wait happens to elapse next.
+        _updateChecks.Cancel();
+        _updateChecks = new CancellationTokenSource();
+        _ = RunUpdateChecksAsync(skipInitialCheck: true);
+    }
+
+    /// <summary>Runs one check right away, then repeats at the configured interval while the app is open.</summary>
+    public void StartUpdateChecks() => _ = RunUpdateChecksAsync(skipInitialCheck: false);
 
     public void StopUpdateChecks() => _updateChecks.Cancel();
 
-    private async Task RunUpdateChecksAsync()
+    /// <param name="skipInitialCheck">
+    /// True when restarting the loop after the user changed the interval mid-session — an
+    /// immediate re-check isn't what "I changed the interval" means, only "wait this long instead
+    /// from now on."
+    /// </param>
+    private async Task RunUpdateChecksAsync(bool skipInitialCheck)
     {
-        // The launch check trusts the lookup cache, so a normal start costs no network; the
-        // repeating ones bypass it, since the cache stays "fresh" for a week and would otherwise
-        // hide every release that lands while the app is running.
-        await CheckForUpdatesAsync(ignoreCache: false, summariseAll: true);
+        if (!skipInitialCheck)
+        {
+            // The launch check trusts the lookup cache, so a normal start costs no network; the
+            // repeating ones bypass it, since the cache stays "fresh" for a week and would
+            // otherwise hide every release that lands while the app is running.
+            await CheckForUpdatesAsync(ignoreCache: false, summariseAll: true);
+        }
 
-        using var timer = new PeriodicTimer(UpdateCheckInterval);
+        var token = _updateChecks.Token;
+
         try
         {
-            while (await timer.WaitForNextTickAsync(_updateChecks.Token))
+            while (true)
             {
+                var interval = TimeSpan.FromHours(PluginUpdateCheckIntervalHours);
+                if (interval < MinUpdateCheckInterval)
+                {
+                    interval = MinUpdateCheckInterval;
+                }
+                else if (interval > MaxUpdateCheckInterval)
+                {
+                    interval = MaxUpdateCheckInterval;
+                }
+
+                // A fresh PeriodicTimer per wait, not one created once outside the loop: the
+                // interval is re-read every iteration, so a change picked up between ticks is
+                // reflected in the very next wait rather than only after a restart.
+                using var timer = new PeriodicTimer(interval);
+                if (!await timer.WaitForNextTickAsync(token))
+                {
+                    return;
+                }
+
                 await CheckForUpdatesAsync(ignoreCache: true, summariseAll: false);
             }
         }
@@ -1044,10 +1123,29 @@ public partial class MainViewModel : ObservableObject
                 return;
             }
 
-            Notify(report.Count == 1
-                ? $"{report[0].Name} has a newer version available"
-                    + (string.IsNullOrWhiteSpace(report[0].LatestVersion) ? "." : $" ({report[0].LatestVersion}).")
-                : $"{report.Count} plugins have newer versions available. Use the Updates button to see all of them.");
+            if (report.Count == 1)
+            {
+                // Only the single-plugin case has one thumbnail to show — the plural summary
+                // names no specific plugin, so there's nothing for an image to represent there.
+                // A failed logo lookup (network hiccup, corrupt cache entry) must never take the
+                // whole notification down with it — the text update still matters on its own.
+                string? imagePath = null;
+                try
+                {
+                    imagePath = await ResolveLogoPathAsync(report[0]);
+                }
+                catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
+                {
+                }
+
+                Notify($"{report[0].Name} has a newer version available"
+                    + (string.IsNullOrWhiteSpace(report[0].LatestVersion) ? "." : $" ({report[0].LatestVersion})."),
+                    imagePath);
+            }
+            else
+            {
+                Notify($"{report.Count} plugins have newer versions available. Use the Updates button to see all of them.");
+            }
         }
         finally
         {
@@ -1294,6 +1392,134 @@ public partial class MainViewModel : ObservableObject
         });
 
         return request.Completion.Task;
+    }
+
+    // ---- self-update ----------------------------------------------------------
+    // Ported from VstManager.App/ViewModels/MainViewModel.cs — same state shape, same GitHub
+    // release check, same download-and-launch-installer flow. Confirmation and the install
+    // trigger live in SettingsWindow.axaml.cs's click handler rather than here, since this class
+    // stays dialog-free by design (see DetailRequested/SettingsRequested above) and
+    // ConfirmDialog.ShowAsync needs an owning Window this view model doesn't have.
+
+    private readonly UpdateChecker _updateChecker = new();
+
+    public static string CurrentVersion => UpdateChecker.CurrentVersion;
+
+    [ObservableProperty]
+    private DateTime? _lastUpdateCheck;
+
+    [ObservableProperty]
+    private string _updateStatusText = string.Empty;
+
+    // Named distinctly from the unrelated plugin-metadata checker's own _isCheckingForUpdates
+    // busy-flag earlier in this file — two separate "update" concepts that happen to coexist,
+    // same as they do in WPF (app self-update vs. per-plugin newer-version lookups).
+    [ObservableProperty]
+    private bool _isCheckingForAppUpdate;
+
+    [ObservableProperty]
+    private bool _isUpdateAvailable;
+
+    [ObservableProperty]
+    private string? _latestReleaseUrl;
+
+    [ObservableProperty]
+    private string? _updateAssetDownloadUrl;
+
+    [ObservableProperty]
+    private string _updateButtonText = "A new update is available";
+
+    [ObservableProperty]
+    private bool _isInstallingUpdate;
+
+    /// <summary>
+    /// Runs the check only — does not confirm or install. SettingsWindow.axaml.cs's click handler
+    /// (and the startup call in MainWindow.axaml.cs's OnLoaded) decides what to do with the result,
+    /// same separation of concerns as WPF's CheckForUpdates deciding to show a MessageBox itself,
+    /// just moved to where a Window actually exists here.
+    /// </summary>
+    [RelayCommand]
+    private async Task CheckForAppUpdateAsync()
+    {
+        IsCheckingForAppUpdate = true;
+        UpdateStatusText = string.Empty;
+
+        try
+        {
+            var result = await _updateChecker.CheckForUpdateAsync();
+
+            LastUpdateCheck = DateTime.Now;
+            _library.LastUpdateCheck = LastUpdateCheck;
+            SaveLibrary();
+
+            UpdateStatusText = result switch
+            {
+                { Error: not null } => $"Update check failed: {result.Error}",
+                { UpdateAvailable: true } => $"Update available: v{result.LatestVersion}",
+                _ => "You're up to date."
+            };
+
+            IsUpdateAvailable = result.UpdateAvailable;
+            LatestReleaseUrl = result.ReleaseUrl;
+            UpdateAssetDownloadUrl = result.AssetDownloadUrl;
+            UpdateButtonText = UpdateAssetDownloadUrl is not null ? "Update Now" : "A new update is available";
+        }
+        finally
+        {
+            IsCheckingForAppUpdate = false;
+        }
+    }
+
+    /// <summary>
+    /// If a matching installer asset was found, downloads and launches it, then exits the app —
+    /// otherwise just opens the release page in the browser. The caller (SettingsWindow.axaml.cs)
+    /// is expected to have already confirmed with the user before calling this, exactly as WPF
+    /// confirms before calling its own equivalent.
+    /// </summary>
+    public async Task InstallOrOpenReleaseAsync()
+    {
+        if (UpdateAssetDownloadUrl is not null)
+        {
+            await InstallUpdateAsync(UpdateAssetDownloadUrl);
+        }
+        else if (LatestReleaseUrl is not null)
+        {
+            Process.Start(new ProcessStartInfo(LatestReleaseUrl) { UseShellExecute = true });
+        }
+    }
+
+    /// <summary>
+    /// Returns "download failed" as a message the caller can show, or null on success — mirrors
+    /// WPF's own no-verification download-then-launch-then-exit sequence exactly (confirmed with
+    /// the user: parity, not a hardening pass). UseShellExecute on macOS opens/mounts the .dmg in
+    /// Finder rather than silently installing — there is no scriptable macOS equivalent of running
+    /// a Windows installer unattended, so the user still finishes the install by hand there.
+    /// </summary>
+    private async Task InstallUpdateAsync(string downloadUrl)
+    {
+        IsInstallingUpdate = true;
+        try
+        {
+            var destinationPath = Path.Combine(Path.GetTempPath(), UpdateChecker.InstallerAssetName);
+            var success = await _updateChecker.DownloadInstallerAsync(downloadUrl, destinationPath);
+
+            if (!success)
+            {
+                UpdateStatusText = "Couldn't download the update. Try again later, or use the button again to open the release page instead.";
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo(destinationPath) { UseShellExecute = true });
+
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                desktop.Shutdown();
+            }
+        }
+        finally
+        {
+            IsInstallingUpdate = false;
+        }
     }
 
     // ---- detail window ------------------------------------------------------
@@ -1923,13 +2149,13 @@ public partial class MainViewModel : ObservableObject
     /// Raised for notices the user asked to see. The view owns the toast host, so the view model
     /// stays free of Avalonia controls exactly as it is for dialogs.
     /// </summary>
-    public event EventHandler<(string Title, string Message)>? NotificationRequested;
+    public event EventHandler<(string Title, string Message, string? ImagePath)>? NotificationRequested;
 
-    private void Notify(string message)
+    private void Notify(string message, string? imagePath = null)
     {
         if (ShowNotifications)
         {
-            NotificationRequested?.Invoke(this, ("VST Manager", message));
+            NotificationRequested?.Invoke(this, ("VST Manager", message, imagePath));
         }
     }
 
@@ -2076,6 +2302,7 @@ public partial class MainViewModel : ObservableObject
         foreach (var node in FolderTree.SelectMany(n => n.SelfAndDescendants()))
         {
             node.NotifyCountsChanged();
+            node.IsSelected = string.Equals(node.Id, SelectedFolderId, StringComparison.OrdinalIgnoreCase);
             VisibleFolders.Add(node);
         }
 
@@ -2234,6 +2461,14 @@ public partial class MainViewModel : ObservableObject
             MoveFolder(folderId, null);
         }
     }
+
+    /// <summary>
+    /// Pure predicate version of MoveFolder's own cycle guard, for a live "can I drop here" check
+    /// during drag — same as WPF's CanMoveFolder, used by FolderRow_DragOver to light up (or
+    /// refuse) the drop-target highlight before the user actually releases.
+    /// </summary>
+    public bool CanMoveFolder(string folderId, string? newParentId) =>
+        !PluginFolderService.WouldCreateCycle(_library.Folders, folderId, newParentId);
 
     /// <summary>
     /// Re-parents a folder. Refuses a move that would make the folder its own ancestor — the

@@ -13,6 +13,7 @@
 
     <Window.Resources>
         <conv:HexToBrushConverter x:Key="HexToBrush" />
+        <conv:LastCheckedConverter x:Key="LastChecked" />
     </Window.Resources>
 
     <Window.Styles>
@@ -90,6 +91,31 @@
 
                         <ToggleSwitch Content="Show notifications"
                                       IsChecked="{Binding ShowNotifications}" />
+
+                        <Separator Margin="0,4" />
+
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="sectionHeader" Text="Plugin update checks" />
+                            <TextBlock Classes="subtitle" TextWrapping="Wrap"
+                                       Text="How often VST Manager looks online for newer plugin versions while it's running. Always checks once on launch regardless of this setting." />
+                        </StackPanel>
+
+                        <!-- Tag must actually be a double, not a XAML string literal — a bare
+                             Tag="0.25" boxes as System.String, so SelectedValue's binding to the
+                             double PluginUpdateCheckIntervalHours property could never match an
+                             item on load or push a value back on selection, and the setting
+                             silently failed to save. x:Double forces the real type. -->
+                        <ComboBox MinWidth="200"
+                                  SelectedValueBinding="{CompiledBinding Tag, x:DataType=ComboBoxItem}"
+                                  SelectedValue="{Binding PluginUpdateCheckIntervalHours}">
+                            <ComboBoxItem Content="Every 15 minutes"><ComboBoxItem.Tag><x:Double>0.25</x:Double></ComboBoxItem.Tag></ComboBoxItem>
+                            <ComboBoxItem Content="Every 30 minutes"><ComboBoxItem.Tag><x:Double>0.5</x:Double></ComboBoxItem.Tag></ComboBoxItem>
+                            <ComboBoxItem Content="Every hour"><ComboBoxItem.Tag><x:Double>1</x:Double></ComboBoxItem.Tag></ComboBoxItem>
+                            <ComboBoxItem Content="Every 3 hours"><ComboBoxItem.Tag><x:Double>3</x:Double></ComboBoxItem.Tag></ComboBoxItem>
+                            <ComboBoxItem Content="Every 6 hours"><ComboBoxItem.Tag><x:Double>6</x:Double></ComboBoxItem.Tag></ComboBoxItem>
+                            <ComboBoxItem Content="Every 12 hours"><ComboBoxItem.Tag><x:Double>12</x:Double></ComboBoxItem.Tag></ComboBoxItem>
+                            <ComboBoxItem Content="Once a day"><ComboBoxItem.Tag><x:Double>24</x:Double></ComboBoxItem.Tag></ComboBoxItem>
+                        </ComboBox>
 
                         <Separator Margin="0,4" />
 
@@ -371,9 +397,16 @@
                             <StackPanel Spacing="12">
                                 <StackPanel Spacing="6">
                                     <TextBlock Classes="label" Text="This machine's sync id" />
-                                    <SelectableTextBlock Text="{Binding CloudDeviceId}"
-                                                         FontFamily="Consolas" TextWrapping="Wrap"
-                                                         Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <SelectableTextBlock Grid.Column="0" Text="{Binding CloudDeviceId}"
+                                                             FontFamily="Consolas" TextWrapping="Wrap"
+                                                             Foreground="{DynamicResource TextPrimaryBrush}" />
+                                        <Button Grid.Column="1" Classes="ghost" Padding="8,4" Margin="8,0,0,0"
+                                                ToolTip.Tip="Copy to clipboard"
+                                                Click="CopyDeviceId_Click">
+                                            <TextBlock Text="⧉" FontSize="13" />
+                                        </Button>
+                                    </Grid>
                                 </StackPanel>
                                 <StackPanel Spacing="6">
                                     <TextBlock Classes="label" Text="Use a different sync id" />
@@ -455,6 +488,40 @@
                                            HorizontalAlignment="Center" />
                                 <TextBlock Text="{Binding AppVersion, StringFormat='Version {0}'}"
                                            Classes="subtitle" HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Self-update, ported from VstManager.App's Settings "Updates" tab —
+                             same GitHub-releases check, same state shape (IsCheckingForAppUpdate/
+                             IsUpdateAvailable/IsInstallingUpdate/UpdateStatusText/UpdateButtonText),
+                             just proxied here from MainViewModel (see SettingsViewModel.cs). The
+                             confirm-before-installing step and the actual install trigger live in
+                             SettingsWindow.axaml.cs's UpdateNow_Click, mirroring how this project
+                             already handles every other "about to do something real" action
+                             (Uninstall_Click, RefreshAllMetadata_Click in MainWindow.axaml.cs). -->
+                        <Border Classes="section">
+                            <StackPanel Spacing="10">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel Grid.Column="0" Spacing="2">
+                                        <TextBlock Classes="label" Text="Updates" />
+                                        <TextBlock Classes="meta"
+                                                   Text="{Binding LastUpdateCheck, Converter={StaticResource LastChecked}}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Classes="ghost" Padding="12,6" FontSize="13"
+                                            Content="Check Now"
+                                            Command="{Binding CheckForAppUpdateCommand}"
+                                            IsEnabled="{Binding !IsCheckingForAppUpdate}" />
+                                </Grid>
+
+                                <TextBlock Classes="meta" TextWrapping="Wrap"
+                                           Text="{Binding UpdateStatusText}"
+                                           IsVisible="{Binding UpdateStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+                                <Button Classes="accent" HorizontalAlignment="Left" Padding="14,7"
+                                        Content="{Binding UpdateButtonText}"
+                                        Click="UpdateNow_Click"
+                                        IsEnabled="{Binding !IsInstallingUpdate}"
+                                        IsVisible="{Binding IsUpdateAvailable}" />
                             </StackPanel>
                         </Border>
 

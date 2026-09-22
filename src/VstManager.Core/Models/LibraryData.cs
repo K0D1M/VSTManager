@@ -19,6 +19,13 @@ public class LibraryData
     /// </summary>
     public bool CheckForPluginUpdatesOnStartup { get; set; } = true;
 
+    /// <summary>
+    /// How often, in hours, the Avalonia head re-checks installed plugins for newer versions
+    /// while it stays open (separate from the always-on launch check). Avalonia-only — WPF has no
+    /// equivalent repeating check, only its own startup-only lookup.
+    /// </summary>
+    public double PluginUpdateCheckIntervalHours { get; set; } = 6;
+
     /// <summary>Whether the main window opens minimized (to the taskbar) instead of normal-sized.</summary>
     public bool StartMinimized { get; set; }
 

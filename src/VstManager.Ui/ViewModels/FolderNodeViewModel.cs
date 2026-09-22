@@ -44,13 +44,17 @@ public partial class FolderNodeViewModel : ObservableObject
     [ObservableProperty]
     private bool _isExpanded;
 
-    /// <summary>
-    /// Highlights the row while a drag hovers over it as a drop target. Kept here, unused, as the
-    /// hook a follow-up drag-and-drop pass will need — filing this session goes through the
-    /// context menu instead, so nothing sets this yet.
-    /// </summary>
+    /// <summary>Highlights the row while a drag hovers over it as a drop target.</summary>
     [ObservableProperty]
     private bool _isDropTarget;
+
+    /// <summary>
+    /// Highlights the row when this is the folder currently narrowing the main list
+    /// (MainViewModel.SelectedFolderId) — set from there whenever the selection or the tree
+    /// itself changes, the same "push a flag onto the node" pattern IsDropTarget already uses.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isSelected;
 
     /// <summary>
     /// Plugins here plus everywhere beneath. A folder that only contains sub-folders would

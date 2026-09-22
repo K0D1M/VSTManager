@@ -17,53 +17,100 @@
         <conv:CloudStateIsSyncingConverter x:Key="CloudStateIsSyncing" />
         <conv:HexToBrushConverter x:Key="HexToBrush" />
         <conv:BoolToEyeIconConverter x:Key="BoolToEyeIcon" />
+        <conv:BoolToFavoriteGlyphConverter x:Key="BoolToFavoriteGlyph" />
 
         <!-- One menu definition, attached to both templates below, so the grid and list can
              never offer different actions. Commands are reached through the window rather than
              the item's own DataContext, which is the card; ContextFlyout sits outside the
              ItemsControl's visual tree, so $parent[ItemsControl] does not resolve from here. -->
+        <!-- Every item carries a MenuItem.Icon, matching WPF's own PluginMenu — a mix of vector
+             Paths (reusing this session's already-ported icons where one exists) and emoji
+             TextBlocks (WPF's own choice for the same item, tinted to match). -->
         <MenuFlyout x:Key="PluginMenu" x:DataType="vm:PluginCardViewModel">
-            <MenuItem Header="Details…"
+            <MenuItem Classes="pluginMenuItem" Header="Details…"
                       Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).OpenDetailsCommand}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <Path Classes="tabIcon" Width="18" Height="18" Data="{StaticResource IconInfo}" />
+                </MenuItem.Icon>
+            </MenuItem>
 
             <Separator />
 
-            <MenuItem Header="Toggle Favourite"
+            <MenuItem Classes="pluginMenuItem" Header="Toggle Favourite"
                       Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleFavoriteCommand}"
-                      CommandParameter="{Binding}" />
-            <MenuItem Header="{Binding HideMenuLabel}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <TextBlock Text="{Binding IsFavorite, Converter={StaticResource BoolToFavoriteGlyph}}"
+                               Foreground="#FFFBBF24" FontSize="18" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Classes="pluginMenuItem" Header="{Binding HideMenuLabel}"
                       Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleHiddenCommand}"
-                      CommandParameter="{Binding}" />
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <!-- !IsHidden: "currently visible" (the Hide action) shows an open eye,
+                         "currently hidden" (the Unhide action) shows the crossed one — inverted
+                         from BoolToEyeIconConverter's original ShowNotifications-style sense. -->
+                    <Path Classes="tabIcon" Width="18" Height="18"
+                          Data="{Binding !IsHidden, Converter={StaticResource BoolToEyeIcon}}" />
+                </MenuItem.Icon>
+            </MenuItem>
 
             <Separator />
 
-            <MenuItem Header="Mark Legit"
+            <MenuItem Classes="pluginMenuItem" Header="Mark Legit"
                       Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).MarkLegitCommand}"
-                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}" />
-            <MenuItem Header="Mark Cracked"
+                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}">
+                <MenuItem.Icon>
+                    <Path Classes="tabIcon" Width="18" Height="18" Stroke="{DynamicResource LegitBrush}"
+                          Data="{StaticResource IconCheck}" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Classes="pluginMenuItem" Header="Mark Cracked"
                       Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).MarkCrackedCommand}"
-                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}" />
-            <MenuItem Header="Clear Classification"
+                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}">
+                <MenuItem.Icon>
+                    <Path Classes="tabIcon" Width="18" Height="18" Stroke="{DynamicResource CrackedBrush}"
+                          Data="{StaticResource IconSkull}" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Classes="pluginMenuItem" Header="Clear Classification"
                       Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).MarkUnclassifiedCommand}"
-                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}" />
+                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}">
+                <MenuItem.Icon>
+                    <Path Classes="tabIcon" Width="18" Height="18" Data="{StaticResource IconClear}" />
+                </MenuItem.Icon>
+            </MenuItem>
 
             <Separator />
 
-            <MenuItem Header="Mark as Instrument"
+            <MenuItem Classes="pluginMenuItem" Header="Mark as Instrument"
                       Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).MarkInstrumentCommand}"
-                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}" />
-            <MenuItem Header="Mark as Effect"
+                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}">
+                <MenuItem.Icon>
+                    <TextBlock Text="🎹" FontSize="18" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Classes="pluginMenuItem" Header="Mark as Effect"
                       Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).MarkEffectCommand}"
-                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}" />
+                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}">
+                <MenuItem.Icon>
+                    <TextBlock Text="🎛" FontSize="18" />
+                </MenuItem.Icon>
+            </MenuItem>
 
 
             <Separator />
 
-            <MenuItem Header="Re-detect Version"
+            <MenuItem Classes="pluginMenuItem" Header="Re-detect Version"
                       ToolTip.Tip="Re-reads the installed version from the plugin file"
                       Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RefreshMetadataCommand}"
-                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}" />
+                      CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}">
+                <MenuItem.Icon>
+                    <Path Classes="tabIcon" Width="18" Height="18" Data="{StaticResource IconRefresh}" />
+                </MenuItem.Icon>
+            </MenuItem>
 
             <Separator IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).HasFolders}" />
 
@@ -71,32 +118,44 @@
                  flyout's MenuItem submenus did not reliably open on hover when tried here (see
                  FolderPickerWindow's doc comment for how that was confirmed). Click, not Command,
                  since the handler needs the card straight off this item's own DataContext. -->
-            <MenuItem Header="Move to Folder…"
+            <MenuItem Classes="pluginMenuItem" Header="Move to Folder…"
                       IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).HasFolders}"
-                      Click="MoveToFolder_Click" />
+                      Click="MoveToFolder_Click">
+                <MenuItem.Icon>
+                    <TextBlock Text="🗂" FontSize="18" />
+                </MenuItem.Icon>
+            </MenuItem>
 
             <Separator />
 
             <!-- Click, not Command: the confirmation wording depends on whether a registered
                  uninstaller was found, which the window has to look up before it knows what to
                  ask — see Uninstall_Click. -->
-            <MenuItem Header="Uninstall…" Foreground="{DynamicResource CrackedBrush}"
+            <MenuItem Classes="pluginMenuItem" Header="Uninstall…" Foreground="{DynamicResource CrackedBrush}"
                       IsEnabled="{Binding IsInstalled}"
-                      Click="Uninstall_Click" />
+                      Click="Uninstall_Click">
+                <MenuItem.Icon>
+                    <TextBlock Text="✖" Foreground="{DynamicResource CrackedBrush}" FontSize="18" />
+                </MenuItem.Icon>
+            </MenuItem>
         </MenuFlyout>
 
         <!-- Card body, shared by the grid and list templates so the two layouts can never
              drift apart in what they show. -->
+        <!-- Redesigned to an app-icon-style layout: a large centered thumbnail on top, with
+             name/vendor/star/badges/tags centered underneath, rather than the previous
+             left-aligned icon+text row — an explicit ask, not a tweak, since the old row read as
+             cramped with a small 34x34 thumbnail fighting the text for space. -->
         <DataTemplate x:Key="CardTemplate" x:DataType="vm:PluginCardViewModel">
             <Border Classes="card" Classes.selected="{Binding IsSelected}" Width="252"
                     DoubleTapped="OnPluginDoubleTapped"
                     Focusable="True"
                     ContextFlyout="{StaticResource PluginMenu}"
                     PointerPressed="OnPluginPointerPressed">
-                <StackPanel Spacing="10">
+                <StackPanel Spacing="10" HorizontalAlignment="Center">
 
-                    <Grid ColumnDefinitions="Auto,*,Auto">
-                        <Border Grid.Column="0" Width="34" Height="34" Margin="0,0,10,0"
+                    <Grid ColumnDefinitions="*,Auto,*" Width="220">
+                        <Border Grid.Column="1" Width="64" Height="64"
                                 CornerRadius="{DynamicResource RadiusMedium}"
                                 Background="{DynamicResource SurfaceAltBrush}"
                                 ClipToBounds="True">
@@ -104,28 +163,32 @@
                                 <TextBlock Text="{Binding Initial}"
                                            IsVisible="{Binding Logo, Converter={x:Static ObjectConverters.IsNull}}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"
-                                           FontSize="15" FontWeight="Bold"
+                                           FontSize="26" FontWeight="Bold"
                                            Foreground="{DynamicResource TextSecondaryBrush}" />
                                 <Image Source="{Binding Logo}" Stretch="UniformToFill" />
                             </Panel>
                         </Border>
 
-                        <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
-                            <TextBlock Classes="title" Text="{Binding Name}"
-                                       ToolTip.Tip="{Binding Name}" />
-                            <TextBlock Classes="subtitle" Text="{Binding Vendor}" />
-                        </StackPanel>
-
                         <ToggleButton Grid.Column="2" Classes="star"
+                                      HorizontalAlignment="Right" VerticalAlignment="Top"
                                       IsChecked="{Binding IsFavorite, Mode=OneWay}"
                                       Command="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).ToggleFavoriteCommand}"
                                       CommandParameter="{Binding}"
                                       ToolTip.Tip="Favourite" />
                     </Grid>
 
-                    <TextBlock Classes="meta" Text="{Binding SummaryLine}" />
+                    <StackPanel Spacing="1" HorizontalAlignment="Center">
+                        <TextBlock Classes="title" Text="{Binding Name}"
+                                   ToolTip.Tip="{Binding Name}"
+                                   HorizontalAlignment="Center" TextAlignment="Center" />
+                        <TextBlock Classes="subtitle" Text="{Binding Vendor}"
+                                   HorizontalAlignment="Center" TextAlignment="Center" />
+                    </StackPanel>
 
-                    <WrapPanel ItemSpacing="6" LineSpacing="6">
+                    <TextBlock Classes="meta" Text="{Binding SummaryLine}"
+                               HorizontalAlignment="Center" />
+
+                    <WrapPanel ItemSpacing="6" LineSpacing="6" HorizontalAlignment="Center">
                         <Border Classes="chip status"
                                 Classes.legit="{Binding IsLegit}"
                                 Classes.cracked="{Binding IsCracked}"
@@ -145,7 +208,7 @@
                         <ItemsControl ItemsSource="{Binding Tags}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <WrapPanel ItemSpacing="6" LineSpacing="6" />
+                                    <WrapPanel ItemSpacing="6" LineSpacing="6" HorizontalAlignment="Center" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
@@ -230,6 +293,16 @@
                     </KeyFrame>
                 </Animation>
             </Style.Animations>
+        </Style>
+
+        <!-- More breathing room than Fluent's cramped default MenuItem, specifically for the
+             plugin context menu's 10 items (PluginMenu) — found too small/cluttered once icons
+             were added to every item. Scoped to .pluginMenuItem so the small folder-row context
+             menu elsewhere in this file is unaffected. -->
+        <Style Selector="MenuItem.pluginMenuItem">
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="MinHeight" Value="34" />
         </Style>
     </Window.Styles>
 
@@ -494,12 +567,16 @@
                 </Border>
             </Popup>
 
+            <!-- Label and target scope both switch on selection — see
+                 MainViewModel.RefreshMetadataButtonLabel/RefreshAllMetadataAsync, which is the
+                 method this button's Click handler actually calls despite the (unchanged) name:
+                 "all" only when nothing is selected. -->
             <Button Classes="ghost" Padding="10,5"
                     Click="RefreshAllMetadata_Click"
-                    ToolTip.Tip="Re-checks installed versions and looks up the latest release for every installed plugin">
+                    ToolTip.Tip="{Binding RefreshMetadataButtonTooltip}">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <TextBlock Text="↻" FontSize="13" />
-                    <TextBlock Text="Refresh All Metadata" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding RefreshMetadataButtonLabel}" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
         </WrapPanel>
@@ -552,7 +629,13 @@
                         <DataTemplate x:DataType="vm:FolderNodeViewModel">
                             <Border CornerRadius="8" Padding="8,6" Margin="{Binding Indent}"
                                     Background="Transparent"
-                                    PointerPressed="OnFolderRowPressed">
+                                    Classes.dropTarget="{Binding IsDropTarget}"
+                                    Classes.active="{Binding IsSelected}"
+                                    PointerPressed="OnFolderRowPressed"
+                                    DragDrop.AllowDrop="True"
+                                    DragDrop.DragOver="FolderRow_DragOver"
+                                    DragDrop.DragLeave="FolderRow_DragLeave"
+                                    DragDrop.Drop="FolderRow_Drop">
                                 <Border.ContextFlyout>
                                     <MenuFlyout>
                                         <MenuItem Header="New Sub-folder"
@@ -630,7 +713,7 @@
                           IsVisible="{Binding IsGrid}">
                 <StackPanel Spacing="18">
                     <StackPanel Spacing="10" IsVisible="{Binding InstrumentsCount}">
-                        <ToggleButton Classes="ghost sectionHeaderToggle"
+                        <ToggleButton x:Name="GridInstrumentsHeader" Classes="ghost sectionHeaderToggle"
                                       IsChecked="{Binding IsInstrumentsSectionExpanded}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="🎹" FontSize="14" />
@@ -650,7 +733,7 @@
                     </StackPanel>
 
                     <StackPanel Spacing="10" IsVisible="{Binding EffectsCount}">
-                        <ToggleButton Classes="ghost sectionHeaderToggle"
+                        <ToggleButton x:Name="GridEffectsHeader" Classes="ghost sectionHeaderToggle"
                                       IsChecked="{Binding IsEffectsSectionExpanded}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="🎛" FontSize="14" />
@@ -670,7 +753,7 @@
                     </StackPanel>
 
                     <StackPanel Spacing="10" IsVisible="{Binding UnclassifiedKindCount}">
-                        <ToggleButton Classes="ghost sectionHeaderToggle"
+                        <ToggleButton x:Name="GridUnclassifiedHeader" Classes="ghost sectionHeaderToggle"
                                       IsChecked="{Binding IsUnclassifiedKindSectionExpanded}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="❔" FontSize="14" />
@@ -695,7 +778,7 @@
                           IsVisible="{Binding IsList}">
                 <StackPanel Spacing="18">
                     <StackPanel Spacing="10" IsVisible="{Binding InstrumentsCount}">
-                        <ToggleButton Classes="ghost sectionHeaderToggle"
+                        <ToggleButton x:Name="ListInstrumentsHeader" Classes="ghost sectionHeaderToggle"
                                       IsChecked="{Binding IsInstrumentsSectionExpanded}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="🎹" FontSize="14" />
@@ -709,7 +792,7 @@
                     </StackPanel>
 
                     <StackPanel Spacing="10" IsVisible="{Binding EffectsCount}">
-                        <ToggleButton Classes="ghost sectionHeaderToggle"
+                        <ToggleButton x:Name="ListEffectsHeader" Classes="ghost sectionHeaderToggle"
                                       IsChecked="{Binding IsEffectsSectionExpanded}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="🎛" FontSize="14" />
@@ -723,7 +806,7 @@
                     </StackPanel>
 
                     <StackPanel Spacing="10" IsVisible="{Binding UnclassifiedKindCount}">
-                        <ToggleButton Classes="ghost sectionHeaderToggle"
+                        <ToggleButton x:Name="ListUnclassifiedHeader" Classes="ghost sectionHeaderToggle"
                                       IsChecked="{Binding IsUnclassifiedKindSectionExpanded}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="❔" FontSize="14" />
@@ -755,6 +838,33 @@
                 <Button Classes="accent" Content="Clear filters" HorizontalAlignment="Center"
                         Command="{Binding ClearFiltersCommand}" />
             </StackPanel>
+
+            <!-- Sticky section header: shows whichever of Instruments/Effects/Unclassified Type
+                 the scroll position is currently "inside", pinned to the top of the scroll
+                 viewport, then swapped for the next section's text as that one's real header
+                 reaches the top — classic grouped-list sticky behaviour (macOS Finder/iOS
+                 Contacts). Deliberately a sibling overlay OUTSIDE the ScrollViewer, not a
+                 RenderTransform on the real header: tried that first, and confirmed by testing
+                 that Avalonia's ScrollContentPresenter clips a scrolled child to its own
+                 (unscrolled) layout position regardless of RenderTransform, so a translated header
+                 still gets clipped away exactly as if untransformed — a hard limitation of the
+                 stock ScrollViewer, not a bug in the transform math. Driven entirely from
+                 code-behind (UpdateStickyHeader), reading each real header's live position the
+                 same way MeasureRowHeight already reads container bounds off these same
+                 ScrollViewers for the row-snap wheel step. A real ToggleButton, not a plain Border
+                 — it stands in for whichever real header is currently scrolled out of view, so
+                 collapsing/expanding a section has to still work from here; Click forwards to
+                 StickyHeader_Click, which toggles the same IsChecked the real header would. -->
+            <ToggleButton x:Name="StickyHeader" Classes="ghost sectionHeaderToggle"
+                          Padding="20,10,20,10" Background="{DynamicResource WindowBackgroundGradient}"
+                          HorizontalAlignment="Stretch" VerticalAlignment="Top"
+                          IsVisible="False" Click="StickyHeader_Click">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock x:Name="StickyHeaderIcon" FontSize="14" />
+                    <TextBlock x:Name="StickyHeaderText" Classes="sectionHeader" />
+                    <TextBlock x:Name="StickyHeaderCount" Classes="meta" />
+                </StackPanel>
+            </ToggleButton>
 
         </Panel>
 

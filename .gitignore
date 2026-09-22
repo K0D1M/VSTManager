@@ -13,3 +13,5 @@
 /src/VstManager.Core.Interop/bin
 /src/VstManager.Core.Interop/obj
 /.vscode
+/.idea
+/src/VstManager.Ui/.idea
