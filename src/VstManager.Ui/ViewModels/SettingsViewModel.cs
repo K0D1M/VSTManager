@@ -86,6 +86,7 @@ public partial class SettingsViewModel : ObservableObject
         }
 
         RebuildTags();
+        RebuildCategories();
     }
 
     // ---- about ----------------------------------------------------------------
@@ -301,6 +302,137 @@ public partial class SettingsViewModel : ObservableObject
         {
             Tags.Add(tag);
         }
+    }
+
+    // ---- categories -----------------------------------------------------------
+    // Modeled directly on the Tags section above — same shape, minus a colour field (an icon
+    // text entry instead) and with one real difference: a category has no PluginTagService-style
+    // assignment file to strip from on delete, since CategoryId lives directly on PluginInfo, so
+    // DeleteCategory clears it from every plugin in _library.Plugins itself.
+
+    public ObservableCollection<CategoryDefinition> Categories { get; } = new();
+
+    [ObservableProperty]
+    private string _newCategoryName = string.Empty;
+
+    [ObservableProperty]
+    private string _newCategoryIcon = "❔";
+
+    [ObservableProperty]
+    private string? _categoryStatus;
+
+    public bool HasCategoryStatus => !string.IsNullOrWhiteSpace(CategoryStatus);
+
+    partial void OnCategoryStatusChanged(string? value) => OnPropertyChanged(nameof(HasCategoryStatus));
+
+    [RelayCommand]
+    private void AddCategory()
+    {
+        var name = NewCategoryName.Trim();
+        if (name.Length == 0)
+        {
+            CategoryStatus = "Give the category a name first.";
+            return;
+        }
+
+        if (_library.Categories.Any(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            CategoryStatus = $"A category called \"{name}\" already exists.";
+            return;
+        }
+
+        var id = new string(name.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray()).Trim('-');
+        if (id.Length == 0 || _library.Categories.Any(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase)))
+        {
+            id = Guid.NewGuid().ToString("N")[..8];
+        }
+
+        var icon = NewCategoryIcon.Trim();
+
+        _library.Categories.Add(new CategoryDefinition
+        {
+            Id = id,
+            Name = name,
+            Icon = icon.Length == 0 ? "❔" : icon,
+            IsPreset = false,
+            SortOrder = _library.Categories.Where(c => !c.IsPreset).Select(c => c.SortOrder + 1).DefaultIfEmpty(0).Max()
+        });
+
+        Save();
+        RebuildCategories();
+        _main.RefreshAvailableCategories();
+        NewCategoryName = string.Empty;
+        NewCategoryIcon = "❔";
+        CategoryStatus = $"Added \"{name}\".";
+    }
+
+    /// <summary>
+    /// Deletes a custom category and clears it from every plugin that had it — Instrument and
+    /// Effect are refused, matching DeleteTag's own preset guard, since dropping either would
+    /// leave the mandatory new-plugin window with nothing to offer for the common case.
+    /// </summary>
+    [RelayCommand]
+    private void DeleteCategory(CategoryDefinition? category)
+    {
+        if (category is null || category.IsPreset)
+        {
+            return;
+        }
+
+        foreach (var plugin in _library.Plugins.Where(p =>
+                     string.Equals(p.CategoryId, category.Id, StringComparison.OrdinalIgnoreCase)))
+        {
+            plugin.CategoryId = null;
+        }
+
+        _library.Categories.RemoveAll(c => string.Equals(c.Id, category.Id, StringComparison.OrdinalIgnoreCase));
+        Save();
+        RebuildCategories();
+        _main.RefreshAvailableCategories();
+        CategoryStatus = $"Deleted \"{category.Name}\".";
+        LibraryReloadRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void RebuildCategories()
+    {
+        Categories.Clear();
+        foreach (var category in PresetCategories.Ordered(_library.Categories))
+        {
+            Categories.Add(category);
+        }
+    }
+
+    /// <summary>Moves a custom category within the on-screen list while it is being dragged.
+    /// Clamped below the presets, which never move. Nothing is saved until
+    /// <see cref="CommitCategoryOrder"/>.</summary>
+    public void MoveCategoryTo(CategoryDefinition category, int targetIndex)
+    {
+        var from = Categories.IndexOf(category);
+        if (from < 0 || category.IsPreset)
+        {
+            return;
+        }
+
+        var firstCustom = Categories.Count(c => c.IsPreset);
+        var to = Math.Clamp(targetIndex, firstCustom, Categories.Count - 1);
+        if (to != from)
+        {
+            Categories.Move(from, to);
+        }
+    }
+
+    /// <summary>Renumbers SortOrder from the list as dropped, then saves and updates the library's
+    /// sections.</summary>
+    public void CommitCategoryOrder()
+    {
+        var order = 0;
+        foreach (var category in Categories.Where(c => !c.IsPreset))
+        {
+            category.SortOrder = order++;
+        }
+
+        Save();
+        _main.RefreshAvailableCategories();
     }
 
     // ---- cloud --------------------------------------------------------------

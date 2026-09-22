@@ -29,6 +29,15 @@ public partial class PluginEditFormViewModel : ObservableObject
     private PluginKind _kind;
 
     /// <summary>
+    /// Staged category id — separate from Kind, matching PluginInfo.CategoryId's own relationship
+    /// to Kind (additive, not a replacement). Null means "not yet assigned"; picking one of the
+    /// Instrument/Effect presets here also flips Kind, so the existing Type segment above and this
+    /// stay in agreement rather than becoming two independent, contradictable controls.
+    /// </summary>
+    [ObservableProperty]
+    private string? _selectedCategoryId;
+
+    /// <summary>
     /// Null means "leave the tag alone on Save" — a mixed-tag plugin is never forced to one
     /// value unless the user explicitly picks a radio.
     /// </summary>
@@ -92,6 +101,7 @@ public partial class PluginEditFormViewModel : ObservableObject
         _currentVersion = card.CurrentVersion;
         _latestVersion = card.LatestVersion;
         _kind = card.Kind;
+        _selectedCategoryId = card.CategoryId;
         _selectedTag = card.Tag switch
         {
             PluginTagSummary.Legit => PluginTag.Legit,

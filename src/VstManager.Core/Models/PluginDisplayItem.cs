@@ -65,6 +65,20 @@ public class PluginDisplayItem
     }
 
     /// <summary>
+    /// Same exclusivity rule as KindSummary — a category applies to every installed copy
+    /// together, so disagreement (only possible via a hand-edited library.json) reads as
+    /// unassigned rather than guessed at.
+    /// </summary>
+    public string? CategoryIdSummary
+    {
+        get
+        {
+            var distinctCategories = Installs.Select(i => i.CategoryId).Distinct().ToList();
+            return distinctCategories.Count == 1 ? distinctCategories[0] : null;
+        }
+    }
+
+    /// <summary>
     /// The tags this plugin carries, resolved to definitions and ordered manual-first. Filled in
     /// by PluginDisplayBuilder.ApplyTags after the items are built, since tag assignments live
     /// outside the scan data.
@@ -79,4 +93,7 @@ public class PluginDisplayItem
     public bool IsHiddenSummary => Installs.Any(i => i.IsHidden);
 
     public bool IgnoreVersionCheckSummary => Installs.Any(i => i.IgnoreVersionCheck);
+
+    /// <summary>True if any copy still needs a category answer — see PluginInfo.NeedsCategoryReview.</summary>
+    public bool NeedsCategoryReviewSummary => Installs.Any(i => i.NeedsCategoryReview);
 }

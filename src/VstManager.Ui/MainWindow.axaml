@@ -172,7 +172,7 @@
                         <ToggleButton Grid.Column="2" Classes="star"
                                       HorizontalAlignment="Right" VerticalAlignment="Top"
                                       IsChecked="{Binding IsFavorite, Mode=OneWay}"
-                                      Command="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).ToggleFavoriteCommand}"
+                                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleFavoriteCommand}"
                                       CommandParameter="{Binding}"
                                       ToolTip.Tip="Favourite" />
                     </Grid>
@@ -270,7 +270,7 @@
                         </Border>
                         <ToggleButton Classes="star"
                                       IsChecked="{Binding IsFavorite, Mode=OneWay}"
-                                      Command="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).ToggleFavoriteCommand}"
+                                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleFavoriteCommand}"
                                       CommandParameter="{Binding}"
                                       ToolTip.Tip="Favourite" />
                     </StackPanel>
@@ -415,14 +415,27 @@
                  Updates/Hidden toggles below existed). IconFunnel is a filled silhouette (WPF's
                  Styles.xaml:29), not a stroke icon, so Fill tracks the toggle's own Foreground
                  the same way the Legit/Cracked segment icons do. -->
-            <ToggleButton x:Name="FilterToggle" Classes="ghost" Padding="10,5"
-                          ToolTip.Tip="Narrow the list by status, format, tags and more">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Path Data="{StaticResource IconFunnel}" Stretch="Uniform" Width="13" Height="13"
-                          Fill="{Binding #FilterToggle.Foreground}" />
-                    <TextBlock Text="Filter" VerticalAlignment="Center" />
-                </StackPanel>
-            </ToggleButton>
+            <!-- The dot badge is a separate visual from :checked (already "popup is open" —
+                 see Controls.axaml) so the two states — filter applied vs. popup open — never
+                 fight over the same style hook. Subtle by design (a small dot, not the
+                 accent-fill filterToggle chips use below): this button can be "on" from several
+                 independent things at once (Status/Format/Tags/Hidden), so a full color swap
+                 would read as louder than warranted. -->
+            <Panel>
+                <ToggleButton x:Name="FilterToggle" Classes="ghost" Padding="10,5"
+                              ToolTip.Tip="Narrow the list by status, format, tags and more">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Path Data="{StaticResource IconFunnel}" Stretch="Uniform" Width="13" Height="13"
+                              Fill="{Binding #FilterToggle.Foreground}" />
+                        <TextBlock Text="Filter" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ToggleButton>
+                <Border IsHitTestVisible="False" IsVisible="{Binding IsAnyFilterActive}"
+                        Width="7" Height="7" CornerRadius="4"
+                        Background="{DynamicResource AccentBrush}"
+                        HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Margin="0,-2,-2,0" />
+            </Panel>
 
             <Popup PlacementTarget="{Binding #FilterToggle}"
                    Placement="Bottom" IsOpen="{Binding #FilterToggle.IsChecked, Mode=TwoWay}"
@@ -512,6 +525,7 @@
                 <ComboBoxItem Content="Sort: Name" Tag="{x:Static vm:SortOption.Name}" />
                 <ComboBoxItem Content="Sort: Vendor" Tag="{x:Static vm:SortOption.Vendor}" />
                 <ComboBoxItem Content="Sort: Type" Tag="{x:Static vm:SortOption.Type}" />
+                <ComboBoxItem Content="Sort: Date Added" Tag="{x:Static vm:SortOption.DateAdded}" />
                 <ComboBoxItem Content="Sort: Updates" Tag="{x:Static vm:SortOption.UpdateStatus}" />
             </ComboBox>
 
@@ -705,120 +719,68 @@
         <!-- Library ........................................................ -->
         <Panel Grid.Row="4">
 
-            <!-- Grouped by Kind — Instruments / Effects / Unclassified — matching the WPF
-                 sidebar's collapsible sections, each independently expandable with its own
-                 count. One scroller for the whole page (as in WPF), not one per section: a
-                 section has no fixed height of its own to scroll within. -->
+            <!-- One section per category (Settings → Categories order), then Unclassified. One
+                 scroller for the whole page: a section has no fixed height of its own. -->
             <ScrollViewer x:Name="GridScroll" Padding="20,0,20,20" HorizontalScrollBarVisibility="Disabled"
                           IsVisible="{Binding IsGrid}">
-                <StackPanel Spacing="18">
-                    <StackPanel Spacing="10" IsVisible="{Binding InstrumentsCount}">
-                        <ToggleButton x:Name="GridInstrumentsHeader" Classes="ghost sectionHeaderToggle"
-                                      IsChecked="{Binding IsInstrumentsSectionExpanded}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="🎹" FontSize="14" />
-                                <TextBlock Text="Instruments" Classes="sectionHeader" />
-                                <TextBlock Classes="meta" Text="{Binding InstrumentsCount, StringFormat='({0})'}" />
+                <ItemsControl x:Name="GridSections" ItemsSource="{Binding Sections}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="18" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:CategorySectionViewModel">
+                            <StackPanel Spacing="10" IsVisible="{Binding HasItems}">
+                                <ToggleButton Classes="ghost sectionHeaderToggle sectionHeaderReal"
+                                              IsChecked="{Binding IsExpanded}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding Icon}" FontSize="14" />
+                                        <TextBlock Text="{Binding Title}" Classes="sectionHeader" />
+                                        <TextBlock Classes="meta" Text="{Binding Count, StringFormat='({0})'}" />
+                                    </StackPanel>
+                                </ToggleButton>
+                                <ItemsControl Classes="sectionItems" ItemsSource="{Binding Plugins}"
+                                              ItemTemplate="{StaticResource CardTemplate}"
+                                              IsVisible="{Binding IsExpanded}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel ItemSpacing="14" LineSpacing="14" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
                             </StackPanel>
-                        </ToggleButton>
-                        <ItemsControl x:Name="InstrumentGridItems" ItemsSource="{Binding InstrumentPlugins}"
-                                      ItemTemplate="{StaticResource CardTemplate}"
-                                      IsVisible="{Binding IsInstrumentsSectionExpanded}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel ItemSpacing="14" LineSpacing="14" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                    </StackPanel>
-
-                    <StackPanel Spacing="10" IsVisible="{Binding EffectsCount}">
-                        <ToggleButton x:Name="GridEffectsHeader" Classes="ghost sectionHeaderToggle"
-                                      IsChecked="{Binding IsEffectsSectionExpanded}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="🎛" FontSize="14" />
-                                <TextBlock Text="Effects" Classes="sectionHeader" />
-                                <TextBlock Classes="meta" Text="{Binding EffectsCount, StringFormat='({0})'}" />
-                            </StackPanel>
-                        </ToggleButton>
-                        <ItemsControl x:Name="EffectGridItems" ItemsSource="{Binding EffectPlugins}"
-                                      ItemTemplate="{StaticResource CardTemplate}"
-                                      IsVisible="{Binding IsEffectsSectionExpanded}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel ItemSpacing="14" LineSpacing="14" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                    </StackPanel>
-
-                    <StackPanel Spacing="10" IsVisible="{Binding UnclassifiedKindCount}">
-                        <ToggleButton x:Name="GridUnclassifiedHeader" Classes="ghost sectionHeaderToggle"
-                                      IsChecked="{Binding IsUnclassifiedKindSectionExpanded}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="❔" FontSize="14" />
-                                <TextBlock Text="Unclassified Type" Classes="sectionHeader" />
-                                <TextBlock Classes="meta" Text="{Binding UnclassifiedKindCount, StringFormat='({0})'}" />
-                            </StackPanel>
-                        </ToggleButton>
-                        <ItemsControl x:Name="UnclassifiedGridItems" ItemsSource="{Binding UnclassifiedKindPlugins}"
-                                      ItemTemplate="{StaticResource CardTemplate}"
-                                      IsVisible="{Binding IsUnclassifiedKindSectionExpanded}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel ItemSpacing="14" LineSpacing="14" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                    </StackPanel>
-                </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </ScrollViewer>
 
             <ScrollViewer x:Name="ListScroll" Padding="20,0,20,20" HorizontalScrollBarVisibility="Disabled"
                           IsVisible="{Binding IsList}">
-                <StackPanel Spacing="18">
-                    <StackPanel Spacing="10" IsVisible="{Binding InstrumentsCount}">
-                        <ToggleButton x:Name="ListInstrumentsHeader" Classes="ghost sectionHeaderToggle"
-                                      IsChecked="{Binding IsInstrumentsSectionExpanded}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="🎹" FontSize="14" />
-                                <TextBlock Text="Instruments" Classes="sectionHeader" />
-                                <TextBlock Classes="meta" Text="{Binding InstrumentsCount, StringFormat='({0})'}" />
+                <ItemsControl x:Name="ListSections" ItemsSource="{Binding Sections}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="18" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:CategorySectionViewModel">
+                            <StackPanel Spacing="10" IsVisible="{Binding HasItems}">
+                                <ToggleButton Classes="ghost sectionHeaderToggle sectionHeaderReal"
+                                              IsChecked="{Binding IsExpanded}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding Icon}" FontSize="14" />
+                                        <TextBlock Text="{Binding Title}" Classes="sectionHeader" />
+                                        <TextBlock Classes="meta" Text="{Binding Count, StringFormat='({0})'}" />
+                                    </StackPanel>
+                                </ToggleButton>
+                                <ItemsControl Classes="sectionItems" ItemsSource="{Binding Plugins}"
+                                              ItemTemplate="{StaticResource RowTemplate}"
+                                              IsVisible="{Binding IsExpanded}" />
                             </StackPanel>
-                        </ToggleButton>
-                        <ItemsControl x:Name="InstrumentListItems" ItemsSource="{Binding InstrumentPlugins}"
-                                      ItemTemplate="{StaticResource RowTemplate}"
-                                      IsVisible="{Binding IsInstrumentsSectionExpanded}" />
-                    </StackPanel>
-
-                    <StackPanel Spacing="10" IsVisible="{Binding EffectsCount}">
-                        <ToggleButton x:Name="ListEffectsHeader" Classes="ghost sectionHeaderToggle"
-                                      IsChecked="{Binding IsEffectsSectionExpanded}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="🎛" FontSize="14" />
-                                <TextBlock Text="Effects" Classes="sectionHeader" />
-                                <TextBlock Classes="meta" Text="{Binding EffectsCount, StringFormat='({0})'}" />
-                            </StackPanel>
-                        </ToggleButton>
-                        <ItemsControl x:Name="EffectListItems" ItemsSource="{Binding EffectPlugins}"
-                                      ItemTemplate="{StaticResource RowTemplate}"
-                                      IsVisible="{Binding IsEffectsSectionExpanded}" />
-                    </StackPanel>
-
-                    <StackPanel Spacing="10" IsVisible="{Binding UnclassifiedKindCount}">
-                        <ToggleButton x:Name="ListUnclassifiedHeader" Classes="ghost sectionHeaderToggle"
-                                      IsChecked="{Binding IsUnclassifiedKindSectionExpanded}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="❔" FontSize="14" />
-                                <TextBlock Text="Unclassified Type" Classes="sectionHeader" />
-                                <TextBlock Classes="meta" Text="{Binding UnclassifiedKindCount, StringFormat='({0})'}" />
-                            </StackPanel>
-                        </ToggleButton>
-                        <ItemsControl x:Name="UnclassifiedListItems" ItemsSource="{Binding UnclassifiedKindPlugins}"
-                                      ItemTemplate="{StaticResource RowTemplate}"
-                                      IsVisible="{Binding IsUnclassifiedKindSectionExpanded}" />
-                    </StackPanel>
-                </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </ScrollViewer>
 
             <!-- Designed loading and empty states rather than a blank panel. -->

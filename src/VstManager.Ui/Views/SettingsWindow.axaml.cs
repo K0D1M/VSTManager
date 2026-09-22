@@ -1,9 +1,11 @@
 using System.Diagnostics;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using VstManager.Core.Models;
 using VstManager.Ui.ViewModels;
 
 namespace VstManager.Ui.Views;
@@ -21,6 +23,81 @@ public partial class SettingsWindow : Window
         InitializeComponent();
         _vm = vm;
         DataContext = vm;
+    }
+
+    // ---- category drag-to-reorder --------------------------------------------
+    // Pointer capture on the list, not DragDrop: the row moves live as the pointer crosses its
+    // neighbours. Capture sits on the list rather than the handle because moving an item can
+    // recreate its container, which would drop a capture held by the handle.
+
+    private CategoryDefinition? _draggedCategory;
+
+    private void CategoryHandle_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control { DataContext: CategoryDefinition { IsPreset: false } category }
+            || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        _draggedCategory = category;
+        e.Pointer.Capture(CategoryList);
+        SetDraggedRowDimmed(true);
+        e.Handled = true;
+    }
+
+    private void CategoryList_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_draggedCategory is null)
+        {
+            return;
+        }
+
+        var y = e.GetPosition(CategoryList).Y;
+        foreach (var container in CategoryList.GetRealizedContainers())
+        {
+            var top = container.TranslatePoint(new Point(0, 0), CategoryList)?.Y;
+            if (top is { } t && y >= t && y < t + container.Bounds.Height)
+            {
+                SetDraggedRowDimmed(false);
+                _vm.MoveCategoryTo(_draggedCategory, CategoryList.IndexFromContainer(container));
+                SetDraggedRowDimmed(true);
+                break;
+            }
+        }
+    }
+
+    private void CategoryList_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_draggedCategory is null)
+        {
+            return;
+        }
+
+        e.Pointer.Capture(null);
+        EndCategoryDrag();
+    }
+
+    private void CategoryList_PointerCaptureLost(object? sender, PointerCaptureLostEventArgs e) => EndCategoryDrag();
+
+    private void EndCategoryDrag()
+    {
+        if (_draggedCategory is null)
+        {
+            return;
+        }
+
+        SetDraggedRowDimmed(false);
+        _draggedCategory = null;
+        _vm.CommitCategoryOrder();
+    }
+
+    private void SetDraggedRowDimmed(bool dimmed)
+    {
+        if (_draggedCategory is not null && CategoryList.ContainerFromItem(_draggedCategory) is { } row)
+        {
+            row.Opacity = dimmed ? 0.5 : 1;
+        }
     }
 
     private async void AddFolder_Click(object? sender, RoutedEventArgs e)

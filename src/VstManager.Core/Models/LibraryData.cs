@@ -61,6 +61,14 @@ public class LibraryData
     public List<TagDefinition> Tags { get; set; } = new();
 
     /// <summary>
+    /// Every plugin category that exists — Instrument and Effect (seeded, non-deletable) plus
+    /// anything the user creates. Same "lives on the aggregate root, exports/cloud-syncs for
+    /// free" reasoning as Tags. Per-plugin assignment is PluginInfo.CategoryId, not a separate
+    /// service — a plugin belongs to exactly one category (or none), unlike tags' many-to-many.
+    /// </summary>
+    public List<CategoryDefinition> Categories { get; set; } = new();
+
+    /// <summary>
     /// Every folder the user has made, stored flat with each entry naming its parent (see
     /// <see cref="PluginFolder"/>). Lives here for the same reason the tags do: it exports and
     /// cloud-syncs with the rest of the library without extra plumbing. The per-plugin filing is

@@ -120,7 +120,7 @@ public partial class MainWindow : Window
         _vm.SettingsRequested += (_, settings) =>
             new SettingsWindow(settings).ShowDialog(this);
 
-        _vm.NewMultiCopyPluginsFound += (_, plugins) =>
+        _vm.NewPluginsNeedInfo += (_, plugins) =>
             new ClassifyPluginsWindow(_vm, plugins).ShowDialog(this);
 
         // Opens right after CreateFolder, so personalising a new folder is one continuous action
@@ -759,9 +759,9 @@ public partial class MainWindow : Window
         // Sections are independently collapsible, so whichever one the user is actually looking
         // at (or the first with anything realized) determines the row height — there is no
         // single "the" list to measure any more now that the library is grouped by Kind.
-        var candidates = isGrid
-            ? new ItemsControl[] { InstrumentGridItems, EffectGridItems, UnclassifiedGridItems }
-            : new ItemsControl[] { InstrumentListItems, EffectListItems, UnclassifiedListItems };
+        var candidates = RealizedSections(isGrid ? GridSections : ListSections)
+            .Where(s => s.Section.IsExpanded)
+            .Select(s => s.Items);
 
         double? rowHeight = null;
         foreach (var candidate in candidates)
@@ -821,28 +821,33 @@ public partial class MainWindow : Window
     // uses for the row-snap wheel step.
 
     private readonly record struct SectionHeaderInfo(
-        ToggleButton Header, string Icon, string Title, Func<MainViewModel, int> Count,
-        Func<MainViewModel, bool> IsExpanded, Action<MainViewModel, bool> SetExpanded);
+        ToggleButton Header, ItemsControl Items, CategorySectionViewModel Section);
 
-    private IReadOnlyList<SectionHeaderInfo> GridSectionHeaders => new[]
+    /// <summary>Sections are generated from a template now, so their header/items controls are
+    /// found in each realized container rather than referenced by name.</summary>
+    private static IEnumerable<SectionHeaderInfo> RealizedSections(ItemsControl host)
     {
-        new SectionHeaderInfo(GridInstrumentsHeader, "🎹", "Instruments", vm => vm.InstrumentsCount,
-            vm => vm.IsInstrumentsSectionExpanded, (vm, v) => vm.IsInstrumentsSectionExpanded = v),
-        new SectionHeaderInfo(GridEffectsHeader, "🎛", "Effects", vm => vm.EffectsCount,
-            vm => vm.IsEffectsSectionExpanded, (vm, v) => vm.IsEffectsSectionExpanded = v),
-        new SectionHeaderInfo(GridUnclassifiedHeader, "❔", "Unclassified Type", vm => vm.UnclassifiedKindCount,
-            vm => vm.IsUnclassifiedKindSectionExpanded, (vm, v) => vm.IsUnclassifiedKindSectionExpanded = v),
-    };
+        foreach (var container in host.GetRealizedContainers())
+        {
+            if (container.DataContext is not CategorySectionViewModel section)
+            {
+                continue;
+            }
 
-    private IReadOnlyList<SectionHeaderInfo> ListSectionHeaders => new[]
-    {
-        new SectionHeaderInfo(ListInstrumentsHeader, "🎹", "Instruments", vm => vm.InstrumentsCount,
-            vm => vm.IsInstrumentsSectionExpanded, (vm, v) => vm.IsInstrumentsSectionExpanded = v),
-        new SectionHeaderInfo(ListEffectsHeader, "🎛", "Effects", vm => vm.EffectsCount,
-            vm => vm.IsEffectsSectionExpanded, (vm, v) => vm.IsEffectsSectionExpanded = v),
-        new SectionHeaderInfo(ListUnclassifiedHeader, "❔", "Unclassified Type", vm => vm.UnclassifiedKindCount,
-            vm => vm.IsUnclassifiedKindSectionExpanded, (vm, v) => vm.IsUnclassifiedKindSectionExpanded = v),
-    };
+            var descendants = container.GetVisualDescendants().ToList();
+            var header = descendants.OfType<ToggleButton>().FirstOrDefault(t => t.Classes.Contains("sectionHeaderReal"));
+            var items = descendants.OfType<ItemsControl>().FirstOrDefault(i => i.Classes.Contains("sectionItems"));
+
+            if (header is not null && items is not null)
+            {
+                yield return new SectionHeaderInfo(header, items, section);
+            }
+        }
+    }
+
+    private IReadOnlyList<SectionHeaderInfo> GridSectionHeaders => RealizedSections(GridSections).ToList();
+
+    private IReadOnlyList<SectionHeaderInfo> ListSectionHeaders => RealizedSections(ListSections).ToList();
 
     private SectionHeaderInfo? _stuckSection;
 
@@ -859,7 +864,7 @@ public partial class MainWindow : Window
 
         foreach (var section in sections)
         {
-            if (section.Header.Bounds.Height <= 0 || section.Count(_vm) == 0)
+            if (section.Header.Bounds.Height <= 0 || section.Section.Count == 0)
             {
                 continue;
             }
@@ -886,12 +891,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        StickyHeaderIcon.Text = section2.Icon;
-        StickyHeaderText.Text = section2.Title;
-        StickyHeaderCount.Text = $"({section2.Count(_vm)})";
+        StickyHeaderIcon.Text = section2.Section.Icon;
+        StickyHeaderText.Text = section2.Section.Title;
+        StickyHeaderCount.Text = $"({section2.Section.Count})";
         // IsChecked mirrors the real header's own expanded state, so the overlay shows the
         // correct chevron/pressed look immediately rather than only after the user clicks it once.
-        StickyHeader.IsChecked = section2.IsExpanded(_vm);
+        StickyHeader.IsChecked = section2.Section.IsExpanded;
         StickyHeader.IsVisible = true;
     }
 
@@ -908,8 +913,8 @@ public partial class MainWindow : Window
             // ToggleButton already flips its own IsChecked before Click fires; overwritten here
             // with the actual new view-model state (rather than trusting that automatic flip) so
             // the two can never end up disagreeing.
-            var next = !section.IsExpanded(_vm);
-            section.SetExpanded(_vm, next);
+            var next = !section.Section.IsExpanded;
+            section.Section.IsExpanded = next;
             StickyHeader.IsChecked = next;
         }
     }

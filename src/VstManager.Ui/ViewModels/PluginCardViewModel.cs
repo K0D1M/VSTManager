@@ -80,6 +80,16 @@ public partial class PluginCardViewModel : ObservableObject
     [ObservableProperty]
     private PluginKind _kind;
 
+    /// <summary>Which CategoryDefinition this plugin belongs to, or null if not yet assigned —
+    /// kept alongside (not instead of) Kind, see PluginInfo.CategoryId.</summary>
+    [ObservableProperty]
+    private string? _categoryId;
+
+    /// <summary>Drives the mandatory new-plugin info window's repeat-until-answered trigger — see
+    /// PluginInfo.NeedsCategoryReview.</summary>
+    [ObservableProperty]
+    private bool _needsCategoryReview;
+
     [ObservableProperty]
     private bool _isFavorite;
 
@@ -143,11 +153,25 @@ public partial class PluginCardViewModel : ObservableObject
 
     public bool HasTags => Tags.Count > 0;
 
+    /// <summary>
+    /// When this plugin was first seen, for the "Date Added" sort — the latest FirstSeenAt across
+    /// its installs (a plugin with a VST2 and a VST3 copy takes whichever was noticed most
+    /// recently), matching WPF's own PluginComparer.FirstSeen exactly. Null for anything that
+    /// predates the field, which the sort pushes to the end regardless of direction.
+    /// </summary>
+    public DateTime? FirstSeenAt => _item.Installs
+        .Select(i => i.FirstSeenAt)
+        .Where(d => d.HasValue)
+        .DefaultIfEmpty(null)
+        .Max();
+
     /// <summary>Re-reads everything derived from the underlying item after it changed.</summary>
     public void RefreshFromItem()
     {
         Tag = _item.TagSummary;
         Kind = _item.KindSummary;
+        CategoryId = _item.CategoryIdSummary;
+        NeedsCategoryReview = _item.NeedsCategoryReviewSummary;
         IsFavorite = _item.IsFavoriteSummary;
         IsHidden = _item.IsHiddenSummary;
         IgnoreVersionCheck = _item.IgnoreVersionCheckSummary;

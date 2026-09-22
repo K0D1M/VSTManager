@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
+using VstManager.Core.Models;
 using VstManager.Ui.Services;
 using VstManager.Ui.ViewModels;
 
@@ -52,6 +53,14 @@ public partial class PluginDetailWindow : Window
     }
 
     private void Cancel_Click(object? sender, RoutedEventArgs e) => Close();
+
+    private void CategoryChip_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: CategoryDefinition category })
+        {
+            _vm.Form.SelectedCategoryId = category.Id;
+        }
+    }
 
     private void ShowInFolder_Click(object? sender, RoutedEventArgs e)
     {

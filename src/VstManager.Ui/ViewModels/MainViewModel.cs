@@ -36,6 +36,7 @@ public enum SortOption
     Name,
     Vendor,
     Type,
+    DateAdded,
     UpdateStatus
 }
 
@@ -110,6 +111,15 @@ public partial class MainViewModel : ObservableObject
         var settings = _libraryStore.Load();
         _library = settings;
 
+        // Seeded here rather than left to whichever head happens to run first: a brand-new
+        // library.json (or an existing one from before this feature) has no Categories list at
+        // all, and the two presets have to exist before anything can backfill CategoryId from the
+        // existing Kind field below.
+        if (PresetCategories.EnsureSeeded(_library.Categories))
+        {
+            _libraryStore.Save(_library);
+        }
+
         // Carry the saved appearance across from the shared library.json, so the Avalonia head
         // opens looking the way the user last left the app rather than resetting to a default.
         ThemeService.Apply(settings.IsDarkTheme ? AppThemeMode.Dark : AppThemeMode.Light);
@@ -166,29 +176,13 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<PluginCardViewModel> Plugins { get; } = new();
 
-    // ---- grouped sections (Instruments / Effects), matching the WPF sidebar ----------------
+    // ---- grouped sections: one per category, then Unclassified ----------------------------
 
-    public ObservableCollection<PluginCardViewModel> InstrumentPlugins { get; } = new();
-    public ObservableCollection<PluginCardViewModel> EffectPlugins { get; } = new();
-    public ObservableCollection<PluginCardViewModel> UnclassifiedKindPlugins { get; } = new();
+    public ObservableCollection<CategorySectionViewModel> Sections { get; } = new();
 
-    [ObservableProperty]
-    private int _instrumentsCount;
+    private readonly Dictionary<string, CategorySectionViewModel> _sectionsByKey = new(StringComparer.OrdinalIgnoreCase);
 
-    [ObservableProperty]
-    private int _effectsCount;
-
-    [ObservableProperty]
-    private int _unclassifiedKindCount;
-
-    [ObservableProperty]
-    private bool _isInstrumentsSectionExpanded = true;
-
-    [ObservableProperty]
-    private bool _isEffectsSectionExpanded = true;
-
-    [ObservableProperty]
-    private bool _isUnclassifiedKindSectionExpanded = true;
+    private const string UnclassifiedSectionKey = "";
 
     /// <summary>
     /// Every tag that exists, presets first then the user's own alphabetically — the order the
@@ -196,6 +190,10 @@ public partial class MainViewModel : ObservableObject
     /// window rather than the context menu; this is kept ready for it.
     /// </summary>
     public ObservableCollection<TagDefinition> AvailableTags { get; } = new();
+
+    /// <summary>Every category that exists — Instrument and Effect first, then the user's own
+    /// alphabetically. Same ordering convention as AvailableTags.</summary>
+    public ObservableCollection<CategoryDefinition> AvailableCategories { get; } = new();
 
     // ---- folders ------------------------------------------------------------
     // A place, not a label — a plugin sits in exactly one, unlike tags which stack freely. See
@@ -278,6 +276,18 @@ public partial class MainViewModel : ObservableObject
     public bool HasTagFilter => SelectedTagFilterIds.Count > 0;
 
     public bool IsTagFilterActive(TagDefinition tag) => SelectedTagFilterIds.Contains(tag.Id);
+
+    /// <summary>
+    /// Drives the small dot badge on the toolbar's Filter button — compared against each
+    /// property's own non-narrowing default, not a blanket "is default enum value" check:
+    /// InstalledFilterOption's default is InstalledOnly, not All, so a naive != All check would
+    /// permanently show the badge as active out of the box.
+    /// </summary>
+    public bool IsAnyFilterActive =>
+        InstalledFilter != InstalledFilterOption.InstalledOnly
+        || FormatFilter != FormatFilterOption.All
+        || HasTagFilter
+        || ShowHidden;
 
     /// <summary>
     /// Which folder the main list is narrowed to, or null for every plugin. This project's
@@ -402,7 +412,11 @@ public partial class MainViewModel : ObservableObject
         ApplyFilters();
     }
 
-    partial void OnShowHiddenChanged(bool value) => ApplyFilters();
+    partial void OnShowHiddenChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsAnyFilterActive));
+        ApplyFilters();
+    }
     partial void OnFavoritesOnlyChanged(bool value) => ApplyFilters();
     partial void OnOutdatedOnlyChanged(bool value) => ApplyFilters();
 
@@ -411,6 +425,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsStatusAll));
         OnPropertyChanged(nameof(IsStatusInstalled));
         OnPropertyChanged(nameof(IsStatusNotInstalled));
+        OnPropertyChanged(nameof(IsAnyFilterActive));
         ApplyFilters();
     }
 
@@ -419,6 +434,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsFormatAll));
         OnPropertyChanged(nameof(IsFormatVst2));
         OnPropertyChanged(nameof(IsFormatVst3));
+        OnPropertyChanged(nameof(IsAnyFilterActive));
         ApplyFilters();
     }
 
@@ -436,6 +452,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(HasTagFilter));
+        OnPropertyChanged(nameof(IsAnyFilterActive));
         ApplyFilters();
     }
 
@@ -449,6 +466,7 @@ public partial class MainViewModel : ObservableObject
 
         SelectedTagFilterIds.Clear();
         OnPropertyChanged(nameof(HasTagFilter));
+        OnPropertyChanged(nameof(IsAnyFilterActive));
         ApplyFilters();
     }
 
@@ -505,6 +523,40 @@ public partial class MainViewModel : ObservableObject
             var (items, badgePaths) = await Task.Run(() =>
             {
                 _library = _libraryStore.Load();
+
+                // LoadAsync reassigns _library wholesale on every rescan, which would silently
+                // discard the constructor's one-time seeding — found while wiring this up, since
+                // Categories would otherwise only ever exist for the very first load of the
+                // session. Re-seeded here too so a fresh load is never missing the two presets.
+                var seeded = PresetCategories.EnsureSeeded(_library.Categories);
+
+                // Bridges old data into the new field: a plugin already classified as Instrument/
+                // Effect via the pre-existing Kind enum gets the matching CategoryId backfilled,
+                // so it shows correctly under the new category sections without the user
+                // re-doing anything. One-directional and one-time per plugin — once CategoryId is
+                // set, this never overwrites it again even if Kind later changes independently.
+                var backfilled = false;
+                foreach (var plugin in _library.Plugins.Where(p => p.CategoryId is null))
+                {
+                    var categoryId = plugin.Kind switch
+                    {
+                        PluginKind.Instrument => PresetCategories.Instrument,
+                        PluginKind.Effect => PresetCategories.Effect,
+                        _ => null
+                    };
+
+                    if (categoryId is not null)
+                    {
+                        plugin.CategoryId = categoryId;
+                        backfilled = true;
+                    }
+                }
+
+                if (seeded || backfilled)
+                {
+                    _libraryStore.Save(_library);
+                }
+
                 var previousPaths = new HashSet<string>(
                     _library.Plugins.Select(p => p.Path), StringComparer.OrdinalIgnoreCase);
 
@@ -524,6 +576,20 @@ public partial class MainViewModel : ObservableObject
                         merged.Select(p => p.Path).Where(p => !previousPaths.Contains(p)),
                         StringComparer.OrdinalIgnoreCase);
 
+                // Marks the persistent "still needs a category" flag at the exact moment a path
+                // is recognised as new — same badges set, same first-ever-scan exemption, so a
+                // brand-new library.json's initial scan doesn't retroactively demand categories
+                // for a user's whole existing collection.
+                foreach (var plugin in merged.Where(p => badges.Contains(p.Path)))
+                {
+                    plugin.NeedsCategoryReview = true;
+                }
+
+                if (badges.Count > 0)
+                {
+                    _libraryStore.Save(_library);
+                }
+
                 var display = _displayBuilder.Build(_catalog.Entries, merged);
                 _displayBuilder.ApplyManualOverrides(display, _manualMetadataOverrides);
                 _displayBuilder.ApplyTags(display, _pluginTags, _library.Tags);
@@ -531,6 +597,7 @@ public partial class MainViewModel : ObservableObject
             });
 
             RebuildAvailableTags();
+            RebuildAvailableCategories();
 
             _all.Clear();
             foreach (var item in items)
@@ -546,16 +613,24 @@ public partial class MainViewModel : ObservableObject
             ApplyFilters();
             _ = LoadLogosAsync();
 
-            // Newly-found plugins with more than one copy: ask which copy is which. Scoped to
-            // ones this scan just discovered, so an existing multi-copy plugin the user already
-            // answered for is never asked about again.
-            var newMultiCopy = _all
-                .Where(c => c.IsNew && c.Installs.Count > 1 && c.Tag == PluginTagSummary.Unclassified)
+            // Plugins still missing Category: required, not optional, before a plugin is
+            // considered done — broadened from the original "IsNew && multi-copy only" trigger
+            // so a single-copy new plugin no longer slips through with nothing but a passive NEW
+            // badge. Keyed off NeedsCategoryReview specifically, not CategoryId is null: the
+            // latter would sweep in every pre-existing Unclassified plugin from before this
+            // feature shipped the very first time it runs — confirmed with the user this should
+            // be scoped to genuinely new plugins only. NeedsCategoryReview is set once, at the
+            // moment a path is first recognised as new, and — unlike the transient IsNew flag,
+            // which resets every scan — persists until SetCategory actually clears it, which is
+            // what makes "Later" (which saves nothing) correctly keep re-prompting on every
+            // future scan instead of the plugin quietly aging out of being "new".
+            var needsInfo = _all
+                .Where(c => c.NeedsCategoryReview)
                 .ToList();
 
-            if (newMultiCopy.Count > 0)
+            if (needsInfo.Count > 0)
             {
-                NewMultiCopyPluginsFound?.Invoke(this, newMultiCopy);
+                NewPluginsNeedInfo?.Invoke(this, needsInfo);
             }
 
             // Once, after the library is on screen — not on every rescan, and not before, since
@@ -700,7 +775,79 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        ApplyToTargets(card, (info, _) => info.Kind = kind, true);
+        // Sections group by CategoryId, so the legacy Kind actions must move it too.
+        var categoryId = kind switch
+        {
+            PluginKind.Instrument => PresetCategories.Instrument,
+            PluginKind.Effect => PresetCategories.Effect,
+            _ => null
+        };
+
+        ApplyToTargets(card, (info, _) =>
+        {
+            info.Kind = kind;
+            info.CategoryId = categoryId;
+            info.NeedsCategoryReview = false;
+        }, true);
+    }
+
+    /// <summary>
+    /// Sets CategoryId, and — only when the chosen category is one of the two built-in presets —
+    /// also sets Kind to match, so anything outside this new system that still reads Kind
+    /// (context menu labels, WPF, older data) stays correct. A custom category has no Kind
+    /// equivalent, so Kind is left at whatever it already was rather than forced to Unclassified,
+    /// in case the plugin also happens to carry a legacy Kind from before categories existed.
+    /// </summary>
+    /// <summary>
+    /// Not a [RelayCommand]: MVVM Toolkit's relay commands only support zero or one parameter,
+    /// and this genuinely needs both the target card and the chosen category — called directly
+    /// from code-behind (a chip Click handler with both values already in hand) rather than a
+    /// single CommandParameter binding.
+    /// </summary>
+    public void SetCategory(PluginCardViewModel? card, CategoryDefinition? category)
+    {
+        if (card is null || card.Installs.Count == 0 || category is null)
+        {
+            return;
+        }
+
+        var kind = category.Id switch
+        {
+            PresetCategories.Instrument => PluginKind.Instrument,
+            PresetCategories.Effect => PluginKind.Effect,
+            _ => (PluginKind?)null
+        };
+
+        var targets = ResolveTargets(card);
+        var stored = _library.Plugins.ToDictionary(p => p.Path, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var target in targets)
+        {
+            foreach (var copy in target.Installs)
+            {
+                copy.CategoryId = category.Id;
+                copy.NeedsCategoryReview = false;
+                if (kind is { } k)
+                {
+                    copy.Kind = k;
+                }
+
+                if (stored.TryGetValue(copy.Path, out var libraryCopy))
+                {
+                    libraryCopy.CategoryId = category.Id;
+                    libraryCopy.NeedsCategoryReview = false;
+                    if (kind is { } k2)
+                    {
+                        libraryCopy.Kind = k2;
+                    }
+                }
+            }
+
+            target.RefreshFromItem();
+        }
+
+        SaveLibrary();
+        ApplyFilters();
     }
 
     /// <summary>
@@ -1251,10 +1398,12 @@ public partial class MainViewModel : ObservableObject
     // ---- first-run classification -------------------------------------------
 
     /// <summary>
-    /// Raised when a scan finds newly-installed plugins that have several copies on disk, so the
-    /// user can mark each copy separately. The view owns the window.
+    /// Raised when a scan finds plugins still needing a category (mandatory) — and, for ones with
+    /// several installed copies, a per-copy Legit/Cracked call (optional, as before). Renamed
+    /// from NewMultiCopyPluginsFound when this broadened beyond multi-copy plugins only. The view
+    /// owns the window.
     /// </summary>
-    public event EventHandler<IReadOnlyList<PluginCardViewModel>>? NewMultiCopyPluginsFound;
+    public event EventHandler<IReadOnlyList<PluginCardViewModel>>? NewPluginsNeedInfo;
 
     /// <summary>
     /// Tags one specific copy, rather than every copy of the plugin. This is the one place that
@@ -1981,6 +2130,87 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    private void RebuildAvailableCategories()
+    {
+        AvailableCategories.Clear();
+
+        foreach (var category in PresetCategories.Ordered(_library.Categories))
+        {
+            AvailableCategories.Add(category);
+        }
+    }
+
+    /// <summary>
+    /// Settings adds/deletes categories on its own <see cref="LibraryData"/> reference (the same
+    /// object, shared at construction) but has no way to tell this view model's
+    /// <see cref="AvailableCategories"/> to catch up — unlike a rescan, which already calls
+    /// <see cref="RebuildAvailableCategories"/> itself. Without this, a category created in
+    /// Settings would not appear in the detail window's chip row until the next rescan.
+    /// </summary>
+    public void RefreshAvailableCategories()
+    {
+        RebuildAvailableCategories();
+        ApplyFilters();
+    }
+
+    /// <summary>
+    /// Groups the already-sorted list by category, in AvailableCategories order, with anything
+    /// uncategorised (or pointing at a deleted category) in a trailing Unclassified section.
+    /// </summary>
+    private void RebuildSections(IReadOnlyList<PluginCardViewModel> ordered)
+    {
+        var wanted = new List<CategorySectionViewModel>();
+
+        foreach (var category in AvailableCategories)
+        {
+            if (!_sectionsByKey.TryGetValue(category.Id, out var section))
+            {
+                section = new CategorySectionViewModel(category.Id, category.Icon, category.Name);
+                _sectionsByKey[category.Id] = section;
+            }
+
+            section.Icon = category.Icon;
+            section.Title = category.Name;
+            wanted.Add(section);
+        }
+
+        if (!_sectionsByKey.TryGetValue(UnclassifiedSectionKey, out var unclassified))
+        {
+            unclassified = new CategorySectionViewModel(null, "❔", "Unclassified");
+            _sectionsByKey[UnclassifiedSectionKey] = unclassified;
+        }
+        wanted.Add(unclassified);
+
+        var byId = wanted
+            .Where(s => s.CategoryId is not null)
+            .ToDictionary(s => s.CategoryId!, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var section in wanted)
+        {
+            section.Plugins.Clear();
+        }
+
+        foreach (var p in ordered)
+        {
+            var target = p.CategoryId is { } id && byId.TryGetValue(id, out var s) ? s : unclassified;
+            target.Plugins.Add(p);
+        }
+
+        foreach (var section in wanted)
+        {
+            section.Count = section.Plugins.Count;
+        }
+
+        if (!Sections.SequenceEqual(wanted))
+        {
+            Sections.Clear();
+            foreach (var section in wanted)
+            {
+                Sections.Add(section);
+            }
+        }
+    }
+
     /// <summary>
     /// Applies a change to every resolved target, writing through to both the display item's
     /// PluginInfo and the library's own copy of it.
@@ -2175,6 +2405,11 @@ public partial class MainViewModel : ObservableObject
                 ? k : Compare(a.Name, b.Name),
             SortOption.UpdateStatus => (a, b) => b.IsOutdated.CompareTo(a.IsOutdated) is var o and not 0
                 ? o : Compare(a.Name, b.Name),
+            // Newest first by default (b compared against a, not a against b) — matching WPF's
+            // PluginComparer, which reverses the natural DateTime? order for exactly this reason;
+            // SortDescending still flips it like every other sort, on top of this base direction.
+            SortOption.DateAdded => (a, b) => Nullable.Compare(b.FirstSeenAt, a.FirstSeenAt) is var d and not 0
+                ? d : Compare(a.Name, b.Name),
             _ => (a, b) => Compare(a.Name, b.Name)
         };
 
@@ -2191,30 +2426,7 @@ public partial class MainViewModel : ObservableObject
             Plugins.Add(p);
         }
 
-        // Grouped by Kind, same three buckets WPF's sidebar sections use, and following the
-        // same ordering/sort already computed above rather than re-deriving it.
-        InstrumentPlugins.Clear();
-        EffectPlugins.Clear();
-        UnclassifiedKindPlugins.Clear();
-        foreach (var p in ordered)
-        {
-            switch (p.Kind)
-            {
-                case PluginKind.Instrument:
-                    InstrumentPlugins.Add(p);
-                    break;
-                case PluginKind.Effect:
-                    EffectPlugins.Add(p);
-                    break;
-                default:
-                    UnclassifiedKindPlugins.Add(p);
-                    break;
-            }
-        }
-
-        InstrumentsCount = InstrumentPlugins.Count;
-        EffectsCount = EffectPlugins.Count;
-        UnclassifiedKindCount = UnclassifiedKindPlugins.Count;
+        RebuildSections(ordered);
 
         UpdateStatusLine();
         OnPropertyChanged(nameof(IsFiltered));

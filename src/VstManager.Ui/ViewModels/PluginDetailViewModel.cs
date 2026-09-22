@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -20,6 +21,8 @@ public partial class PluginDetailViewModel : ObservableObject
     public PluginEditFormViewModel Form { get; }
 
     public IReadOnlyList<TagPickerItemViewModel> TagItems { get; }
+
+    public ObservableCollection<CategoryDefinition> AvailableCategories => _main.AvailableCategories;
 
     /// <summary>Raised when Save has committed everything and the window should close.</summary>
     public event EventHandler? CloseRequested;
@@ -119,7 +122,17 @@ public partial class PluginDetailViewModel : ObservableObject
             _main.SetVersions(Plugin, current, latest);
         }
 
-        if (Form.Kind != Plugin.Kind)
+        // Category is the newer, more general control and takes precedence when it changed —
+        // SetCategory writes Kind too for the two presets, so applying both this and the Type
+        // segment below in the same Save would be redundant at best. The Type segment's own
+        // MarkInstrument/MarkEffectCommand path only runs when Category itself didn't change,
+        // covering the case where the user only touched Type (Category still whatever it was).
+        if (Form.SelectedCategoryId != Plugin.CategoryId)
+        {
+            var category = _main.AvailableCategories.FirstOrDefault(c => c.Id == Form.SelectedCategoryId);
+            _main.SetCategory(Plugin, category);
+        }
+        else if (Form.Kind != Plugin.Kind)
         {
             if (Form.Kind == PluginKind.Instrument)
             {

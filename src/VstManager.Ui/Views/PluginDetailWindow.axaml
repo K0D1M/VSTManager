@@ -178,6 +178,36 @@
                         </Border>
 
                         <StackPanel Spacing="2">
+                            <TextBlock Classes="sectionHeader" Text="Category" />
+                            <TextBlock Classes="subtitle"
+                                       Text="Instrument and Effect are built in; add your own from Settings → Categories." />
+                        </StackPanel>
+                        <Border Classes="section">
+                            <ItemsControl ItemsSource="{Binding AvailableCategories}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel ItemSpacing="6" LineSpacing="6" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="model:CategoryDefinition">
+                                        <!-- Click, not Command: setting Form.SelectedCategoryId is staged, applied
+                                             only on Save, the same as every other field in this window. -->
+                                        <Button Classes="ghost"
+                                                Padding="8,4" FontSize="12"
+                                                Click="CategoryChip_Click"
+                                                IsEnabled="{Binding $parent[ItemsControl].((vm:PluginDetailViewModel)DataContext).Plugin.IsInstalled}">
+                                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                                <TextBlock Text="{Binding Icon}" />
+                                                <TextBlock Text="{Binding Name}" />
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+
+                        <StackPanel Spacing="2">
                             <TextBlock Classes="sectionHeader" Text="Tags" />
                             <TextBlock Classes="subtitle"
                                        Text="What kind of plugin this is. Tags marked auto were detected from KVR — change any of them and your choice sticks." />

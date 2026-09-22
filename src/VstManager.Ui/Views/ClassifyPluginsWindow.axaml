@@ -1,10 +1,11 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:VstManager.Ui.ViewModels"
+        xmlns:model="using:VstManager.Core.Models"
         x:Class="VstManager.Ui.Views.ClassifyPluginsWindow"
-        Title="Classify New Plugins"
-        Width="640" Height="600"
-        MinWidth="520" MinHeight="420"
+        Title="New Plugins Found"
+        Width="640" Height="640"
+        MinWidth="520" MinHeight="440"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource WindowBackgroundGradient}">
 
@@ -21,9 +22,9 @@
     <Grid RowDefinitions="Auto,*,Auto" Margin="24,20,24,20">
 
         <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,16">
-            <TextBlock Classes="sectionHeader" Text="These plugins have more than one copy" />
+            <TextBlock Classes="sectionHeader" Text="Give these plugins a category" />
             <TextBlock Classes="subtitle" TextWrapping="Wrap"
-                       Text="Each copy can be marked separately — useful when one is a legitimate install and another isn't. Anything left unmarked stays unclassified." />
+                       Text="A category is required for each plugin below. Plugins with more than one copy can also be marked Legit or Cracked per copy — anything left unmarked there stays unclassified." />
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
@@ -37,6 +38,32 @@
                                                Foreground="{DynamicResource TextPrimaryBrush}" />
                                     <TextBlock Classes="subtitle" Text="{Binding Vendor}" />
                                 </StackPanel>
+
+                                <ItemsControl ItemsSource="{Binding $parent[Window].((vm:MainViewModel)DataContext).AvailableCategories}"
+                                              Tag="{Binding}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel ItemSpacing="6" LineSpacing="6" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="model:CategoryDefinition">
+                                            <!-- Tag carries the parent ClassifyPluginViewModel through to the
+                                                 Click handler — the inner DataContext here is the category,
+                                                 same "carry both values" reason SetCategory isn't a plain
+                                                 Command. -->
+                                            <Button Classes="ghost"
+                                                    Tag="{Binding $parent[ItemsControl].Tag}"
+                                                    Padding="8,4" FontSize="12"
+                                                    Click="CategoryChip_Click">
+                                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                                    <TextBlock Text="{Binding Icon}" />
+                                                    <TextBlock Text="{Binding Name}" />
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
 
                                 <ItemsControl ItemsSource="{Binding Copies}">
                                     <ItemsControl.ItemTemplate>
@@ -69,12 +96,13 @@
         </ScrollViewer>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="0,16,0,0">
-            <TextBlock Grid.Column="0" Classes="meta" VerticalAlignment="Center"
-                       Text="You can change any of this later from a plugin's detail window." />
+            <TextBlock Grid.Column="0" Classes="meta" VerticalAlignment="Center" TextWrapping="Wrap"
+                       Text="You can change any of this later from a plugin's detail window. Later leaves the category unset — you'll be asked again next scan." />
             <Button Grid.Column="1" Classes="ghost" Content="Later" Padding="18,8" Margin="0,0,8,0"
                     Click="Later_Click" />
-            <Button Grid.Column="2" Classes="accent" Content="Save" Padding="22,8"
-                    Click="Save_Click" />
+            <Button x:Name="SaveButton" Grid.Column="2" Classes="accent" Content="Save" Padding="22,8"
+                    Click="Save_Click"
+                    ToolTip.Tip="Pick a category for every plugin above to enable Save" />
         </Grid>
     </Grid>
 </Window>

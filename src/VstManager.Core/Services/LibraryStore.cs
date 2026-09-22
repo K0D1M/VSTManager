@@ -72,6 +72,8 @@ public class LibraryStore
                 found.IsHidden = existingEntry.IsHidden;
                 found.IgnoreVersionCheck = existingEntry.IgnoreVersionCheck;
                 found.FirstSeenAt = existingEntry.FirstSeenAt;
+                found.CategoryId = existingEntry.CategoryId;
+                found.NeedsCategoryReview = existingEntry.NeedsCategoryReview;
 
                 // A fresh scan re-reads the vendor from disk; keep the stored one only when this
                 // scan came back empty, so an improved detector can correct an earlier answer

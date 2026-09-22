@@ -35,6 +35,28 @@ public class PluginInfo
     public required PluginFormat Format { get; set; }
     public PluginTag Tag { get; set; } = PluginTag.Unclassified;
     public PluginKind Kind { get; set; } = PluginKind.Unclassified;
+
+    /// <summary>
+    /// Which CategoryDefinition (LibraryData.Categories) this copy belongs to, or null if not yet
+    /// assigned. Separate from Kind rather than replacing it — Kind stays exactly as every
+    /// existing call site across both UI heads already reads it; this is purely additive, and for
+    /// the two built-in categories (Instrument/Effect) is kept in sync with Kind so old data and
+    /// new data agree. A custom, user-created category has no Kind equivalent and leaves Kind at
+    /// Unclassified.
+    /// </summary>
+    public string? CategoryId { get; set; }
+
+    /// <summary>
+    /// Set the moment this copy's path is first noticed as new (same scan that sets FirstSeenAt),
+    /// cleared only once a category is actually assigned — deliberately NOT the same thing as
+    /// "IsNew" in the UI layer, which resets every scan and can't alone drive "keep asking until
+    /// answered": a plugin dismissed via the mandatory info window's "Later" would otherwise stop
+    /// being IsNew on the very next scan and never be re-prompted. This flag is what the prompt
+    /// actually keys off, and is what "repeat until entered" really means at the data level.
+    /// Absent (defaults false) for every plugin that existed before this feature shipped, so
+    /// nothing already in a library.json suddenly demands a category on first launch.
+    /// </summary>
+    public bool NeedsCategoryReview { get; set; }
     public string? CurrentVersion { get; set; }
     public string? LatestVersion { get; set; }
     public bool IsFavorite { get; set; }
