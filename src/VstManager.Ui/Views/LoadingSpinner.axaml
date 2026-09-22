@@ -1,0 +1,13 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="VstManager.Ui.Views.LoadingSpinner"
+             Width="40" Height="40">
+
+    <!-- Two counter-rotating arcs, turned from code-behind (see LoadingSpinner.axaml.cs). -->
+    <Panel x:Name="Root">
+        <Arc x:Name="Outer" StartAngle="0" SweepAngle="270" StrokeThickness="3"
+             StrokeLineCap="Round" Stroke="{Binding $parent[UserControl].Foreground}" />
+        <Arc x:Name="Inner" StartAngle="0" SweepAngle="200" StrokeThickness="3" Margin="9"
+             StrokeLineCap="Round" Opacity="0.6" Stroke="{Binding $parent[UserControl].Foreground}" />
+    </Panel>
+</UserControl>

@@ -44,8 +44,7 @@
   </ItemGroup>
 
   <Target Name="BuildWindowsNotificationsSatellite" BeforeTargets="BeforeBuild" Condition="'$(OS)' == 'Windows_NT'">
-    <Exec Command="dotnet build &quot;..\VstManager.Ui.WindowsNotifications\VstManager.Ui.WindowsNotifications.csproj&quot; -c $(Configuration)"
-          WorkingDirectory="$(MSBuildProjectDirectory)" />
+    <Exec Command="dotnet build &quot;..\VstManager.Ui.WindowsNotifications\VstManager.Ui.WindowsNotifications.csproj&quot; -c $(Configuration)" WorkingDirectory="$(MSBuildProjectDirectory)" />
   </Target>
 
   <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
@@ -56,8 +55,7 @@
          bin folder; glob-copy everything from there except its own DLL/PDB, which the explicit
          Reference above already brings in. Condition on Windows_NT so an osx-arm64 build (where
          that folder never gets built) doesn't fail globbing a path that doesn't exist. -->
-    <None Include="..\VstManager.Ui.WindowsNotifications\bin\$(Configuration)\net10.0-windows10.0.19041.0\**\*.*"
-          Exclude="..\VstManager.Ui.WindowsNotifications\bin\$(Configuration)\net10.0-windows10.0.19041.0\VstManager.Ui.WindowsNotifications.dll;..\VstManager.Ui.WindowsNotifications\bin\$(Configuration)\net10.0-windows10.0.19041.0\VstManager.Ui.WindowsNotifications.pdb;..\VstManager.Ui.WindowsNotifications\bin\$(Configuration)\net10.0-windows10.0.19041.0\VstManager.Ui.WindowsNotifications.deps.json">
+    <None Include="..\VstManager.Ui.WindowsNotifications\bin\$(Configuration)\net10.0-windows10.0.19041.0\**\*.*" Exclude="..\VstManager.Ui.WindowsNotifications\bin\$(Configuration)\net10.0-windows10.0.19041.0\VstManager.Ui.WindowsNotifications.dll;..\VstManager.Ui.WindowsNotifications\bin\$(Configuration)\net10.0-windows10.0.19041.0\VstManager.Ui.WindowsNotifications.pdb;..\VstManager.Ui.WindowsNotifications\bin\$(Configuration)\net10.0-windows10.0.19041.0\VstManager.Ui.WindowsNotifications.deps.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
     </None>

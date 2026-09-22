@@ -169,9 +169,20 @@ public partial class PluginEditFormViewModel : ObservableObject
 
     partial void OnLogoStatusTextChanged(string? value) => OnPropertyChanged(nameof(HasLogoStatus));
 
-    partial void OnIsAutoDetectingChanged(bool value) => OnPropertyChanged(nameof(IsBusy));
+    /// <summary>Auto-Detect or Search Manually in flight — they share one spinner.</summary>
+    public bool IsLookingUp => IsAutoDetecting || IsSearchingManually;
 
-    partial void OnIsSearchingManuallyChanged(bool value) => OnPropertyChanged(nameof(IsBusy));
+    partial void OnIsAutoDetectingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsBusy));
+        OnPropertyChanged(nameof(IsLookingUp));
+    }
+
+    partial void OnIsSearchingManuallyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsBusy));
+        OnPropertyChanged(nameof(IsLookingUp));
+    }
 
     partial void OnIsFetchingInfoChanged(bool value) => OnPropertyChanged(nameof(IsBusy));
 

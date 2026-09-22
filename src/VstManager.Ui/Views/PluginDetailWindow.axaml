@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:VstManager.Ui.ViewModels"
         xmlns:model="using:VstManager.Core.Models"
+        xmlns:li="using:VstManager.Ui.Views"
         xmlns:conv="using:VstManager.Ui.Converters"
         x:Class="VstManager.Ui.Views.PluginDetailWindow"
         x:DataType="vm:PluginDetailViewModel"
@@ -133,6 +134,11 @@
                                             <TextBlock Text="Search Manually" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
+                                    <Viewbox Width="26" Height="26" VerticalAlignment="Center"
+                                             IsVisible="{Binding Form.IsLookingUp}">
+                                        <li:LoadingSpinner IsActive="{Binding Form.IsLookingUp}"
+                                                             Foreground="{DynamicResource AccentBrush}" />
+                                    </Viewbox>
                                 </StackPanel>
 
                                 <TextBlock Classes="meta" TextWrapping="Wrap"
@@ -302,7 +308,12 @@
                         </StackPanel>
                         <Border Classes="section">
                             <StackPanel Spacing="10">
-                                <Grid ColumnDefinitions="*,Auto">
+                                <Grid ColumnDefinitions="*,Auto,Auto">
+                                    <Viewbox Grid.Column="2" Width="26" Height="26" Margin="8,0,0,0"
+                                             VerticalAlignment="Center" IsVisible="{Binding Form.IsFetchingInfo}">
+                                        <li:LoadingSpinner IsActive="{Binding Form.IsFetchingInfo}"
+                                                             Foreground="{DynamicResource AccentBrush}" />
+                                    </Viewbox>
                                     <TextBox Grid.Column="0" Classes="search"
                                              Text="{Binding Form.InfoUrl}"
                                              PlaceholderText="https://www.kvraudio.com/product/..." />

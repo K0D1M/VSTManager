@@ -236,6 +236,10 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isScanning;
 
+    /// <summary>What the busy overlay says — a folder scan and a web lookup share it.</summary>
+    [ObservableProperty]
+    private string _busyMessage = "Scanning your plugin folders…";
+
     [ObservableProperty]
     private string _searchText = string.Empty;
 
@@ -515,7 +519,9 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public async Task LoadAsync()
     {
+        BusyMessage = "Scanning your plugin folders…";
         IsScanning = true;
+        var busySince = DateTime.UtcNow;
         StatusLine = "Scanning…";
 
         try
@@ -648,6 +654,7 @@ public partial class MainViewModel : ObservableObject
         }
         finally
         {
+            await HoldBusyOverlayAsync(busySince);
             IsScanning = false;
         }
     }
@@ -896,7 +903,9 @@ public partial class MainViewModel : ObservableObject
             .Where(c => c.IsInstalled)
             .ToList();
 
+        BusyMessage = "Looking up plugin info online…";
         IsScanning = true;
+        var busySince = DateTime.UtcNow;
         try
         {
             // RefreshMetadataCoreAsync already raises "Metadata refresh complete." when it
@@ -905,7 +914,19 @@ public partial class MainViewModel : ObservableObject
         }
         finally
         {
+            await HoldBusyOverlayAsync(busySince);
             IsScanning = false;
+        }
+    }
+
+    /// <summary>A scan can finish in ~0.1s; without a floor the overlay is a flicker nobody can
+    /// read, which looks like nothing happened.</summary>
+    private static async Task HoldBusyOverlayAsync(DateTime since)
+    {
+        var remaining = TimeSpan.FromMilliseconds(700) - (DateTime.UtcNow - since);
+        if (remaining > TimeSpan.Zero)
+        {
+            await Task.Delay(remaining);
         }
     }
 
