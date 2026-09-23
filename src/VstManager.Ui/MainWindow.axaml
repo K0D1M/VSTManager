@@ -148,15 +148,15 @@
              left-aligned icon+text row — an explicit ask, not a tweak, since the old row read as
              cramped with a small 34x34 thumbnail fighting the text for space. -->
         <DataTemplate x:Key="CardTemplate" x:DataType="vm:PluginCardViewModel">
-            <Border Classes="card" Classes.selected="{Binding IsSelected}" Width="252"
+            <Border Classes="card" Classes.selected="{Binding IsSelected}"
                     DoubleTapped="OnPluginDoubleTapped"
                     Focusable="True"
                     ContextFlyout="{StaticResource PluginMenu}"
                     PointerPressed="OnPluginPointerPressed">
                 <StackPanel Spacing="10" HorizontalAlignment="Center">
 
-                    <Grid ColumnDefinitions="*,Auto,*" Width="220">
-                        <Border Grid.Column="1" Width="64" Height="64"
+                    <Grid Classes="cardTop" ColumnDefinitions="*,Auto,*">
+                        <Border Grid.Column="1" Classes="cardLogo"
                                 CornerRadius="{DynamicResource RadiusMedium}"
                                 Background="{DynamicResource SurfaceAltBrush}"
                                 ClipToBounds="True">
@@ -164,7 +164,7 @@
                                 <TextBlock Text="{Binding Initial}"
                                            IsVisible="{Binding Logo, Converter={x:Static ObjectConverters.IsNull}}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"
-                                           FontSize="26" FontWeight="Bold"
+                                           Classes="cardInitial" FontWeight="Bold"
                                            Foreground="{DynamicResource TextSecondaryBrush}" />
                                 <Image Source="{Binding Logo}" Stretch="UniformToFill" />
                                 <Border Background="#99000000" IsVisible="{Binding IsRefreshingMetadata}"
@@ -193,10 +193,10 @@
                                    HorizontalAlignment="Center" TextAlignment="Center" />
                     </StackPanel>
 
-                    <TextBlock Classes="meta" Text="{Binding SummaryLine}"
+                    <TextBlock Classes="meta cardDetail" Text="{Binding SummaryLine}"
                                HorizontalAlignment="Center" />
 
-                    <WrapPanel ItemSpacing="6" LineSpacing="6" HorizontalAlignment="Center">
+                    <WrapPanel Classes="cardDetail" ItemSpacing="6" LineSpacing="6" HorizontalAlignment="Center">
                         <Border Classes="chip status"
                                 Classes.legit="{Binding IsLegit}"
                                 Classes.cracked="{Binding IsCracked}"
@@ -243,7 +243,7 @@
                      pure 2*/1.4* split pushed the vendor into the middle of empty space. -->
                 <Grid ColumnDefinitions="Auto,*,220,150,Auto" VerticalAlignment="Center">
 
-                    <Border Grid.Column="0" Width="26" Height="26" Margin="0,0,12,0"
+                    <Border Grid.Column="0" Classes="rowIcon" Margin="0,0,12,0"
                             CornerRadius="{DynamicResource RadiusSmall}"
                             Background="{DynamicResource SurfaceAltBrush}" ClipToBounds="True">
                         <Panel>
@@ -295,6 +295,29 @@
     </Window.Resources>
 
     <Window.Styles>
+        <!-- Density: Default sizes here, overridden by the scroller's compact/large class. -->
+        <Style Selector="Border.card"><Setter Property="Width" Value="252" /></Style>
+        <Style Selector="Grid.cardTop"><Setter Property="Width" Value="220" /></Style>
+        <Style Selector="Border.cardLogo"><Setter Property="Width" Value="64" /><Setter Property="Height" Value="64" /></Style>
+        <Style Selector="TextBlock.cardInitial"><Setter Property="FontSize" Value="26" /></Style>
+        <Style Selector="Border.rowIcon"><Setter Property="Width" Value="26" /><Setter Property="Height" Value="26" /></Style>
+
+        <Style Selector="ScrollViewer.compact Border.card"><Setter Property="Width" Value="196" /></Style>
+        <Style Selector="ScrollViewer.compact Grid.cardTop"><Setter Property="Width" Value="170" /></Style>
+        <Style Selector="ScrollViewer.compact Border.cardLogo"><Setter Property="Width" Value="44" /><Setter Property="Height" Value="44" /></Style>
+        <Style Selector="ScrollViewer.compact TextBlock.cardInitial"><Setter Property="FontSize" Value="18" /></Style>
+        <Style Selector="ScrollViewer.compact TextBlock.cardDetail"><Setter Property="IsVisible" Value="False" /></Style>
+        <Style Selector="ScrollViewer.compact WrapPanel.cardDetail"><Setter Property="IsVisible" Value="False" /></Style>
+        <Style Selector="ScrollViewer.compact Border.rowIcon"><Setter Property="Width" Value="20" /><Setter Property="Height" Value="20" /></Style>
+        <Style Selector="ScrollViewer.compact Border.row"><Setter Property="Padding" Value="10,4" /><Setter Property="Margin" Value="0,0,0,4" /></Style>
+
+        <Style Selector="ScrollViewer.large Border.card"><Setter Property="Width" Value="320" /></Style>
+        <Style Selector="ScrollViewer.large Grid.cardTop"><Setter Property="Width" Value="288" /></Style>
+        <Style Selector="ScrollViewer.large Border.cardLogo"><Setter Property="Width" Value="96" /><Setter Property="Height" Value="96" /></Style>
+        <Style Selector="ScrollViewer.large TextBlock.cardInitial"><Setter Property="FontSize" Value="38" /></Style>
+        <Style Selector="ScrollViewer.large Border.rowIcon"><Setter Property="Width" Value="36" /><Setter Property="Height" Value="36" /></Style>
+        <Style Selector="ScrollViewer.large Border.row"><Setter Property="Padding" Value="14,14" /></Style>
+
         <!-- Pulses the cloud icon while actively syncing, matching the WPF toolbar's
              DataTrigger + Storyboard. Alternate playback is Avalonia's auto-reverse. -->
         <Style Selector="Path.cloudIcon.syncing">
@@ -415,6 +438,17 @@
                     <RadioButton Classes="segment plain" GroupName="layout" Content="☰"
                                  IsChecked="{Binding IsList}"
                                  ToolTip.Tip="List view" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="segmentGroup">
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <RadioButton Classes="segment plain" GroupName="density" Content="S"
+                                 IsChecked="{Binding IsCompact}" ToolTip.Tip="Compact" />
+                    <RadioButton Classes="segment plain" GroupName="density" Content="M"
+                                 IsChecked="{Binding IsDefaultDensity}" ToolTip.Tip="Default" />
+                    <RadioButton Classes="segment plain" GroupName="density" Content="L"
+                                 IsChecked="{Binding IsLarge}" ToolTip.Tip="Large" />
                 </StackPanel>
             </Border>
 
@@ -737,6 +771,7 @@
             <!-- One section per category (Settings → Categories order), then Unclassified. One
                  scroller for the whole page: a section has no fixed height of its own. -->
             <ScrollViewer x:Name="GridScroll" Padding="20,0,20,20" HorizontalScrollBarVisibility="Disabled"
+                          Classes.compact="{Binding IsCompact}" Classes.large="{Binding IsLarge}"
                           IsVisible="{Binding IsGrid}">
                 <ItemsControl x:Name="GridSections" ItemsSource="{Binding Sections}">
                     <ItemsControl.ItemsPanel>
@@ -771,6 +806,7 @@
             </ScrollViewer>
 
             <ScrollViewer x:Name="ListScroll" Padding="20,0,20,20" HorizontalScrollBarVisibility="Disabled"
+                          Classes.compact="{Binding IsCompact}" Classes.large="{Binding IsLarge}"
                           IsVisible="{Binding IsList}">
                 <ItemsControl x:Name="ListSections" ItemsSource="{Binding Sections}">
                     <ItemsControl.ItemsPanel>

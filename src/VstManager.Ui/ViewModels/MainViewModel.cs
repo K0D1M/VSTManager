@@ -46,6 +46,13 @@ public enum LayoutMode
     List
 }
 
+public enum ViewDensity
+{
+    Compact,
+    Default,
+    Large
+}
+
 /// <summary>Which install-status bucket the Filter popup narrows to.</summary>
 public enum InstalledFilterOption
 {
@@ -129,6 +136,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         _layout = Enum.TryParse<LayoutMode>(settings.LayoutMode, out var lm) ? lm : LayoutMode.Grid;
+        _density = Enum.TryParse<ViewDensity>(settings.ViewDensity, out var vd) ? vd : ViewDensity.Default;
         _sort = Enum.TryParse<SortOption>(settings.SortOption, out var so) ? so : SortOption.Name;
         _sortDescending = settings.SortDescending;
         _cloudSyncEnabled = settings.CloudSyncEnabled;
@@ -254,6 +262,27 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private LayoutMode _layout = LayoutMode.Grid;
+
+    [ObservableProperty]
+    private ViewDensity _density = ViewDensity.Default;
+
+    public bool IsCompact
+    {
+        get => Density == ViewDensity.Compact;
+        set { if (value) { Density = ViewDensity.Compact; } }
+    }
+
+    public bool IsDefaultDensity
+    {
+        get => Density == ViewDensity.Default;
+        set { if (value) { Density = ViewDensity.Default; } }
+    }
+
+    public bool IsLarge
+    {
+        get => Density == ViewDensity.Large;
+        set { if (value) { Density = ViewDensity.Large; } }
+    }
 
     [ObservableProperty]
     private bool _showHidden;
@@ -495,6 +524,15 @@ public partial class MainViewModel : ObservableObject
         _library.SortDescending = value;
         SaveLibrary();
         ApplyFilters();
+    }
+
+    partial void OnDensityChanged(ViewDensity value)
+    {
+        _library.ViewDensity = value.ToString();
+        SaveLibrary();
+        OnPropertyChanged(nameof(IsCompact));
+        OnPropertyChanged(nameof(IsDefaultDensity));
+        OnPropertyChanged(nameof(IsLarge));
     }
 
     partial void OnLayoutChanged(LayoutMode value)

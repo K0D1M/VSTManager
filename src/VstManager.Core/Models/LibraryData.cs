@@ -9,6 +9,7 @@ public class LibraryData
     public bool AutostartEnabled { get; set; }
     public DateTime? LastUpdateCheck { get; set; }
     public string LayoutMode { get; set; } = "Grid";
+    public string ViewDensity { get; set; } = "Default";
     public bool HasSeenLogoInstructions { get; set; }
 
     /// <summary>
