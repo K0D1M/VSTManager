@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -34,7 +34,9 @@ public enum FormatFilterOption
 {
     All,
     Vst2,
-    Vst3
+    Vst3,
+    Aax,
+    Clap
 }
 
 public enum LayoutMode
@@ -1036,6 +1038,8 @@ public partial class MainViewModel : ObservableObject
         {
             FormatFilterOption.Vst2 => !vm.IsInstalled || vm.HasFormat(PluginFormat.Vst2),
             FormatFilterOption.Vst3 => !vm.IsInstalled || vm.HasFormat(PluginFormat.Vst3),
+            FormatFilterOption.Aax => !vm.IsInstalled || vm.HasFormat(PluginFormat.Aax),
+            FormatFilterOption.Clap => !vm.IsInstalled || vm.HasFormat(PluginFormat.Clap),
             _ => true
         };
 
@@ -1089,7 +1093,9 @@ public partial class MainViewModel : ObservableObject
 
                 var vst3Paths = _scanPathProvider.GetVst3Paths(_library.CustomScanFolders);
                 var vst2Paths = _scanPathProvider.GetVst2Paths(_library.CustomScanFolders);
-                var scanned = _scanner.Scan(vst3Paths, vst2Paths);
+                var aaxPaths = _scanPathProvider.GetAaxPaths(_library.CustomScanFolders);
+                var clapPaths = _scanPathProvider.GetClapPaths(_library.CustomScanFolders);
+                var scanned = _scanner.Scan(vst3Paths, vst2Paths, aaxPaths, clapPaths);
 
                 var merged = _libraryStore.MergeOnRescan(_library.Plugins, scanned);
                 _library.Plugins = merged;
@@ -1817,7 +1823,7 @@ public partial class MainViewModel : ObservableObject
         });
     }
 
-    private static string FormatLabel(PluginFormat format) => format == PluginFormat.Vst3 ? "VST3" : "VST2";
+    private static string FormatLabel(PluginFormat format) => format.Label();
 
     /// <summary>
     /// Looks up candidates for a name/vendor the user controls, for the "Search Manually"
@@ -3222,6 +3228,8 @@ public partial class MainViewModel : ObservableObject
 
     public IReadOnlyList<string> DefaultVst3Paths => ScanPathProvider.DefaultVst3Paths;
     public IReadOnlyList<string> DefaultVst2Paths => ScanPathProvider.DefaultVst2Paths;
+    public IReadOnlyList<string> DefaultAaxClapPaths =>
+        ScanPathProvider.DefaultAaxPaths.Concat(ScanPathProvider.DefaultClapPaths).ToList();
 
     public bool ShouldShowLogoInstructions => !_library.HasSeenLogoInstructions;
 

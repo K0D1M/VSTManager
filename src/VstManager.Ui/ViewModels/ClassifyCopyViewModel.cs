@@ -50,7 +50,7 @@ public partial class ClassifyCopyViewModel : ObservableObject
 #endif
     }
 
-    public string FormatLabel => Copy.Format == PluginFormat.Vst2 ? "VST2" : "VST3";
+    public string FormatLabel => Copy.Format.Label();
 
     public string Path => Copy.Path;
 

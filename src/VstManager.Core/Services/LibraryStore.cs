@@ -68,7 +68,9 @@ public class LibraryStore
                 found.Tag = existingEntry.Tag;
 #endif
                 found.Kind = existingEntry.Kind;
-                found.CurrentVersion = existingEntry.CurrentVersion;
+                // The file's own version wins; the stored one is only a fallback for files that
+                // report none (it may have come from the registry or a manual refresh).
+                found.CurrentVersion ??= existingEntry.CurrentVersion;
                 found.LatestVersion = existingEntry.LatestVersion;
                 found.IsFavorite = existingEntry.IsFavorite;
                 found.IsHidden = existingEntry.IsHidden;

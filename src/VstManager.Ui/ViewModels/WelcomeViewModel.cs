@@ -18,6 +18,9 @@ public partial class WelcomeViewModel : ObservableObject
 
     public IReadOnlyList<string> DefaultVst2Paths => ScanPathProvider.DefaultVst2Paths;
 
+    public IReadOnlyList<string> DefaultAaxClapPaths =>
+        ScanPathProvider.DefaultAaxPaths.Concat(ScanPathProvider.DefaultClapPaths).ToList();
+
     public ObservableCollection<string> CustomScanFolders { get; } = new();
 
     public void AddFolder(string? folder)

@@ -191,7 +191,11 @@ public partial class SettingsViewModel : ObservableObject
 
     /// <summary>The always-scanned locations, shown read-only so the list isn't a mystery.</summary>
     public IReadOnlyList<string> DefaultScanFolders { get; } =
-        ScanPathProvider.DefaultVst3Paths.Concat(ScanPathProvider.DefaultVst2Paths).ToList();
+        ScanPathProvider.DefaultVst3Paths
+            .Concat(ScanPathProvider.DefaultVst2Paths)
+            .Concat(ScanPathProvider.DefaultAaxPaths)
+            .Concat(ScanPathProvider.DefaultClapPaths)
+            .ToList();
 
     public void AddScanFolder(string folder)
     {

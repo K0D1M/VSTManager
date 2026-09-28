@@ -175,7 +175,7 @@ public partial class PluginDisplayViewModel : ObservableObject
             .Select(i => i.Format)
             .Distinct()
             .OrderBy(f => f)
-            .Select(f => f == PluginFormat.Vst2 ? "VST2" : "VST3");
+            .Select(f => f.Label());
         InstalledFormatsText = string.Join(" + ", formats);
 
         InstalledSummaryText = string.IsNullOrWhiteSpace(CurrentVersion)

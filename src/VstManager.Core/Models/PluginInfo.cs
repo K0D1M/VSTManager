@@ -3,7 +3,21 @@ namespace VstManager.Core.Models;
 public enum PluginFormat
 {
     Vst2,
-    Vst3
+    Vst3,
+    Aax,
+    Clap
+}
+
+public static class PluginFormatLabels
+{
+    public static string Label(this PluginFormat format) => format switch
+    {
+        PluginFormat.Vst2 => "VST2",
+        PluginFormat.Vst3 => "VST3",
+        PluginFormat.Aax => "AAX",
+        PluginFormat.Clap => "CLAP",
+        _ => format.ToString().ToUpperInvariant()
+    };
 }
 
 #if !NO_LICENSE_STATUS

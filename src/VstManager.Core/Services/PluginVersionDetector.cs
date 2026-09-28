@@ -24,8 +24,20 @@ public class PluginVersionDetector
         try
         {
             var info = FileVersionInfo.GetVersionInfo(path);
-            var version = !string.IsNullOrWhiteSpace(info.ProductVersion) ? info.ProductVersion : info.FileVersion;
-            return string.IsNullOrWhiteSpace(version) ? null : version.Trim();
+            var product = info.ProductVersion?.Trim();
+            var file = info.FileVersion?.Trim();
+
+            // Some vendors put a truncated number in ProductVersion (Pigments: "7.0" beside a
+            // FileVersion of "7.0.1.6772"); the short one reads as older than the real release.
+            if (!string.IsNullOrEmpty(product) && !string.IsNullOrEmpty(file)
+                && file.Length > product.Length
+                && file.StartsWith(product + ".", StringComparison.Ordinal))
+            {
+                return file;
+            }
+
+            var version = !string.IsNullOrEmpty(product) ? product : file;
+            return string.IsNullOrEmpty(version) ? null : version;
         }
         catch (Exception ex) when (ex is FileNotFoundException or IOException)
         {
@@ -179,7 +191,7 @@ public class PluginVersionDetector
     }
 
     /// <summary>
-    /// Walks up from a binary inside a VST3 bundle to the ".vst3" bundle directory itself.
+    /// Walks up from a binary inside a VST3 or AAX bundle to the bundle directory itself.
     /// The scanned path may be either the bundle folder or the nested binary
     /// (e.g. "X.vst3\Contents\x86_64-win\X.vst3"), so this handles both.
     /// </summary>
@@ -191,7 +203,9 @@ public class PluginVersionDetector
         // few levels up. Stops the walk from wandering into unrelated parent folders.
         for (var depth = 0; depth < 4 && !string.IsNullOrEmpty(current); depth++)
         {
-            if (current.EndsWith(".vst3", StringComparison.OrdinalIgnoreCase) && Directory.Exists(current))
+            if ((current.EndsWith(".vst3", StringComparison.OrdinalIgnoreCase)
+                 || current.EndsWith(".aaxplugin", StringComparison.OrdinalIgnoreCase))
+                && Directory.Exists(current))
             {
                 return current;
             }

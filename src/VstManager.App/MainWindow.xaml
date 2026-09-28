@@ -1,4 +1,4 @@
-﻿<Window x:Class="VstManager.App.MainWindow"
+<Window x:Class="VstManager.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -839,6 +839,10 @@
                                                  IsChecked="{Binding FormatFilter, Converter={StaticResource EnumEqualsConverter}, ConverterParameter={x:Static vm:FormatFilterOption.Vst2}}" />
                                     <RadioButton Content="VST3" GroupName="Format" Style="{StaticResource FilterPill}"
                                                  IsChecked="{Binding FormatFilter, Converter={StaticResource EnumEqualsConverter}, ConverterParameter={x:Static vm:FormatFilterOption.Vst3}}" />
+                                    <RadioButton Content="AAX" GroupName="Format" Style="{StaticResource FilterPill}"
+                                                 IsChecked="{Binding FormatFilter, Converter={StaticResource EnumEqualsConverter}, ConverterParameter={x:Static vm:FormatFilterOption.Aax}}" />
+                                    <RadioButton Content="CLAP" GroupName="Format" Style="{StaticResource FilterPill}"
+                                                 IsChecked="{Binding FormatFilter, Converter={StaticResource EnumEqualsConverter}, ConverterParameter={x:Static vm:FormatFilterOption.Clap}}" />
                                 </StackPanel>
 
                                 <CheckBox Content="Show hidden plugins" IsChecked="{Binding ShowHidden}"

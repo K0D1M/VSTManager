@@ -184,9 +184,13 @@ public partial class PluginCardViewModel : ObservableObject
         IsHidden = _item.IsHiddenSummary;
         IgnoreVersionCheck = _item.IgnoreVersionCheckSummary;
 
-        CurrentVersion = _item.Installs
+        // The newest installed copy: a leftover older copy (or an uninstalled one) elsewhere on
+        // disk must not make an up-to-date plugin look outdated.
+        var installs = _item.ActiveInstalls.Any() ? _item.ActiveInstalls : _item.Installs;
+        CurrentVersion = installs
             .Select(i => i.CurrentVersion)
-            .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Aggregate((string?)null, (best, v) => best is null || VersionComparer.IsNewer(v, best) ? v : best);
         LatestVersion = _item.Installs
             .Select(i => i.LatestVersion)
             .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
@@ -196,7 +200,7 @@ public partial class PluginCardViewModel : ObservableObject
             .Select(i => i.Format)
             .Distinct()
             .OrderBy(f => f)
-            .Select(f => f == PluginFormat.Vst2 ? "VST2" : "VST3"));
+            .Select(f => f.Label()));
 
         Tags = _item.Tags.Take(3).Select(t => t.Name).ToList();
         TagIds = new HashSet<string>(_item.Tags.Select(t => t.Id), StringComparer.OrdinalIgnoreCase);

@@ -8,7 +8,7 @@ namespace VstManager.Ui.Converters;
 public class FormatLabelConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value is PluginFormat f ? (f == PluginFormat.Vst2 ? "VST2" : "VST3") : string.Empty;
+        value is PluginFormat f ? f.Label() : string.Empty;
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();

@@ -68,7 +68,9 @@ public enum FormatFilterOption
 {
     All,
     Vst2,
-    Vst3
+    Vst3,
+    Aax,
+    Clap
 }
 
 /// <summary>
@@ -438,6 +440,18 @@ public partial class MainViewModel : ObservableObject
         set { if (value) { FormatFilter = FormatFilterOption.Vst3; } }
     }
 
+    public bool IsFormatAax
+    {
+        get => FormatFilter == FormatFilterOption.Aax;
+        set { if (value) { FormatFilter = FormatFilterOption.Aax; } }
+    }
+
+    public bool IsFormatClap
+    {
+        get => FormatFilter == FormatFilterOption.Clap;
+        set { if (value) { FormatFilter = FormatFilterOption.Clap; } }
+    }
+
     public bool HasSelection => SelectedCount > 0;
 
     /// <summary>
@@ -486,6 +500,8 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsFormatAll));
         OnPropertyChanged(nameof(IsFormatVst2));
         OnPropertyChanged(nameof(IsFormatVst3));
+        OnPropertyChanged(nameof(IsFormatAax));
+        OnPropertyChanged(nameof(IsFormatClap));
         OnPropertyChanged(nameof(IsAnyFilterActive));
         ApplyFilters();
     }
@@ -625,7 +641,9 @@ public partial class MainViewModel : ObservableObject
 
                 var vst3 = _scanPathProvider.GetVst3Paths(_library.CustomScanFolders);
                 var vst2 = _scanPathProvider.GetVst2Paths(_library.CustomScanFolders);
-                var scanned = _scanner.Scan(vst3, vst2);
+                var aax = _scanPathProvider.GetAaxPaths(_library.CustomScanFolders);
+                var clap = _scanPathProvider.GetClapPaths(_library.CustomScanFolders);
+                var scanned = _scanner.Scan(vst3, vst2, aax, clap);
 
                 var merged = _libraryStore.MergeOnRescan(_library.Plugins, scanned);
                 _library.Plugins = merged;
@@ -643,8 +661,22 @@ public partial class MainViewModel : ObservableObject
                 // is recognised as new — same badges set, same first-ever-scan exemption, so a
                 // brand-new library.json's initial scan doesn't retroactively demand categories
                 // for a user's whole existing collection.
+                // A new copy of a plugin already in the library (e.g. an AAX build of Kontakt
+                // beside its VST3) is not a new plugin: it takes the known copy's category
+                // instead of asking again.
+                var knownCategories = merged
+                    .Where(p => !badges.Contains(p.Path) && p.CategoryId is not null)
+                    .GroupBy(p => PluginNameMatcher.Normalize(p.Name))
+                    .ToDictionary(g => g.Key, g => g.First().CategoryId);
+
                 foreach (var plugin in merged.Where(p => badges.Contains(p.Path)))
                 {
+                    if (knownCategories.TryGetValue(PluginNameMatcher.Normalize(plugin.Name), out var categoryId))
+                    {
+                        plugin.CategoryId = categoryId;
+                        continue;
+                    }
+
                     plugin.NeedsCategoryReview = true;
                 }
 
@@ -2682,6 +2714,8 @@ public partial class MainViewModel : ObservableObject
             {
                 FormatFilterOption.Vst2 => !p.IsInstalled || p.ActiveInstalls.Any(i => i.Format == PluginFormat.Vst2),
                 FormatFilterOption.Vst3 => !p.IsInstalled || p.ActiveInstalls.Any(i => i.Format == PluginFormat.Vst3),
+                FormatFilterOption.Aax => !p.IsInstalled || p.ActiveInstalls.Any(i => i.Format == PluginFormat.Aax),
+                FormatFilterOption.Clap => !p.IsInstalled || p.ActiveInstalls.Any(i => i.Format == PluginFormat.Clap),
                 _ => true
             })
             // Multiple selected tags narrow rather than widen (a plugin must carry all of them),

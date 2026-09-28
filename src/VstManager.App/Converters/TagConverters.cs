@@ -322,8 +322,7 @@ public class FormatToLabelConverter : IValueConverter
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         value switch
         {
-            PluginFormat.Vst3 => "VST3",
-            PluginFormat.Vst2 => "VST2",
+            PluginFormat f => f.Label(),
             _ => string.Empty
         };
 

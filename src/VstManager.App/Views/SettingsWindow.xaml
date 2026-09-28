@@ -219,7 +219,7 @@
                             <StackPanel>
                                 <TextBlock Text="Default locations" Style="{StaticResource SettingsLabel}" />
                                 <TextBlock Style="{StaticResource SettingsHint}" Margin="0,3,0,8"
-                                           Text="The standard Windows VST folders. These are always scanned and can't be removed." />
+                                           Text="The standard Windows VST, AAX and CLAP folders. These are always scanned and can't be removed." />
                                 <ItemsControl ItemsSource="{Binding DefaultVst3Paths}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -230,6 +230,15 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                                 <ItemsControl ItemsSource="{Binding DefaultVst2Paths}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" FontSize="12" Margin="0,1"
+                                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding}"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <ItemsControl ItemsSource="{Binding DefaultAaxClapPaths}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding}" FontSize="12" Margin="0,1"

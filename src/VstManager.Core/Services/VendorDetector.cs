@@ -66,7 +66,8 @@ public class VendorDetector
     private static readonly string[] NonVendorFolders =
     {
         "vst3", "vst2", "vst", "vstplugins", "steinberg", "common files",
-        "program files", "program files (x86)", "plugins", "contents", "resources", "x86_64-win"
+        "program files", "program files (x86)", "plugins", "contents", "resources", "x86_64-win",
+        "avid", "audio", "plug-ins", "clap", "x64"
     };
 
     /// <summary>
