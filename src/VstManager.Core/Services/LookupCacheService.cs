@@ -37,7 +37,7 @@ public class LookupCacheService
     public static string GetDefaultPath()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, "VstManager", "lookup-cache.json");
+        return Path.Combine(appData, AppDataLocation.FolderName, "lookup-cache.json");
     }
 
     /// <summary>The stored entry regardless of age, or null if this plugin was never looked up.</summary>

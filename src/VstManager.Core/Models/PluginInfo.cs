@@ -6,6 +6,7 @@ public enum PluginFormat
     Vst3
 }
 
+#if !NO_LICENSE_STATUS
 public enum PluginTag
 {
     Unclassified,
@@ -20,6 +21,7 @@ public enum PluginTagSummary
     Cracked,
     Both
 }
+#endif
 
 public enum PluginKind
 {
@@ -33,7 +35,9 @@ public class PluginInfo
     public required string Name { get; set; }
     public required string Path { get; set; }
     public required PluginFormat Format { get; set; }
+#if !NO_LICENSE_STATUS
     public PluginTag Tag { get; set; } = PluginTag.Unclassified;
+#endif
     public PluginKind Kind { get; set; } = PluginKind.Unclassified;
 
     /// <summary>

@@ -17,7 +17,7 @@ public class ManualLogoOverrideService
     public static string GetDefaultPath()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, "VstManager", "manual-logos.json");
+        return Path.Combine(appData, AppDataLocation.FolderName, "manual-logos.json");
     }
 
     private const string LocalFileMarker = "local:";

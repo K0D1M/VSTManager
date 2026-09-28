@@ -456,6 +456,9 @@ public partial class SettingsViewModel : ObservableObject
 
     public string CloudStatusMessage => _main.CloudStatusMessage;
 
+    /// <summary>Provider selection and Google sign-in bind straight to the owner.</summary>
+    public MainViewModel Main => _main;
+
     public string CloudDeviceId => _main.CloudDeviceId;
 
     [ObservableProperty]
@@ -586,6 +589,19 @@ public partial class SettingsViewModel : ObservableObject
             if (_main.PluginUpdateCheckIntervalHours != value)
             {
                 _main.PluginUpdateCheckIntervalHours = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public bool CheckForPluginUpdatesOnStartup
+    {
+        get => _main.CheckForPluginUpdatesOnStartup;
+        set
+        {
+            if (_main.CheckForPluginUpdatesOnStartup != value)
+            {
+                _main.CheckForPluginUpdatesOnStartup = value;
                 OnPropertyChanged();
             }
         }

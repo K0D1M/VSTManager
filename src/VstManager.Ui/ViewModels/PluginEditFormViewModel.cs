@@ -37,12 +37,14 @@ public partial class PluginEditFormViewModel : ObservableObject
     [ObservableProperty]
     private string? _selectedCategoryId;
 
+#if !NO_LICENSE_STATUS
     /// <summary>
     /// Null means "leave the tag alone on Save" — a mixed-tag plugin is never forced to one
     /// value unless the user explicitly picks a radio.
     /// </summary>
     [ObservableProperty]
     private PluginTag? _selectedTag;
+#endif
 
     [ObservableProperty]
     private bool _isDetectingCurrentVersion;
@@ -102,12 +104,14 @@ public partial class PluginEditFormViewModel : ObservableObject
         _latestVersion = card.LatestVersion;
         _kind = card.Kind;
         _selectedCategoryId = card.CategoryId;
+#if !NO_LICENSE_STATUS
         _selectedTag = card.Tag switch
         {
             PluginTagSummary.Legit => PluginTag.Legit,
             PluginTagSummary.Cracked => PluginTag.Cracked,
             _ => null
         };
+#endif
     }
 
     public bool HasLatestVersion => !string.IsNullOrWhiteSpace(LatestVersion);
@@ -129,6 +133,7 @@ public partial class PluginEditFormViewModel : ObservableObject
         set { if (value) { Kind = PluginKind.Effect; } }
     }
 
+#if !NO_LICENSE_STATUS
     public bool IsLegit
     {
         get => SelectedTag == PluginTag.Legit;
@@ -140,6 +145,7 @@ public partial class PluginEditFormViewModel : ObservableObject
         get => SelectedTag == PluginTag.Cracked;
         set { if (value) { SelectedTag = PluginTag.Cracked; } }
     }
+#endif
 
     partial void OnKindChanged(PluginKind value)
     {
@@ -147,11 +153,13 @@ public partial class PluginEditFormViewModel : ObservableObject
         OnPropertyChanged(nameof(IsEffect));
     }
 
+#if !NO_LICENSE_STATUS
     partial void OnSelectedTagChanged(PluginTag? value)
     {
         OnPropertyChanged(nameof(IsLegit));
         OnPropertyChanged(nameof(IsCracked));
     }
+#endif
 
     partial void OnLatestVersionChanged(string? value) => OnPropertyChanged(nameof(HasLatestVersion));
 

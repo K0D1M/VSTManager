@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:VstManager.Ui.ViewModels"
+        xmlns:li="using:VstManager.Ui.Views"
         xmlns:model="using:VstManager.Core.Models"
         xmlns:conv="using:VstManager.Ui.Converters"
         x:Class="VstManager.Ui.Views.SettingsWindow"
@@ -76,7 +77,7 @@
                             <ToggleSwitch Content="Launch VST Manager at login"
                                           IsChecked="{Binding AutostartEnabled}" />
                             <TextBlock Classes="meta" Margin="26,0,0,0" TextWrapping="Wrap"
-                                       Foreground="{DynamicResource CrackedBrush}"
+                                       Foreground="{DynamicResource DangerBrush}"
                                        IsVisible="{Binding HasAutostartError}"
                                        Text="{Binding AutostartError}" />
                         </StackPanel>
@@ -97,8 +98,11 @@
                         <StackPanel Spacing="2">
                             <TextBlock Classes="sectionHeader" Text="Plugin update checks" />
                             <TextBlock Classes="subtitle" TextWrapping="Wrap"
-                                       Text="How often VST Manager looks online for newer plugin versions while it's running. Always checks once on launch regardless of this setting." />
+                                       Text="How often VST Manager looks online for newer plugin versions while it's running. Plugins already marked outdated are skipped." />
                         </StackPanel>
+
+                        <ToggleSwitch Content="Check for plugin updates on startup"
+                                      IsChecked="{Binding CheckForPluginUpdatesOnStartup}" />
 
                         <!-- Tag must actually be a double, not a XAML string literal — a bare
                              Tag="0.25" boxes as System.String, so SelectedValue's binding to the
@@ -236,7 +240,7 @@
                                                         Command="{Binding $parent[Window].((vm:SettingsViewModel)DataContext).RemoveScanFolderCommand}"
                                                         CommandParameter="{Binding}"
                                                         ToolTip.Tip="Stop scanning this folder">
-                                                    <TextBlock Text="✕" Foreground="{DynamicResource CrackedBrush}" />
+                                                    <TextBlock Text="✕" Foreground="{DynamicResource DangerBrush}" />
                                                 </Button>
                                             </Grid>
                                         </DataTemplate>
@@ -325,7 +329,7 @@
                                                     Command="{Binding $parent[Window].((vm:SettingsViewModel)DataContext).DeleteTagCommand}"
                                                     CommandParameter="{Binding}"
                                                     ToolTip.Tip="Delete this tag and remove it from every plugin">
-                                                <TextBlock Text="✕" Foreground="{DynamicResource CrackedBrush}" />
+                                                <TextBlock Text="✕" Foreground="{DynamicResource DangerBrush}" />
                                             </Button>
                                         </Grid>
                                     </DataTemplate>
@@ -410,7 +414,7 @@
                                                     Command="{Binding $parent[Window].((vm:SettingsViewModel)DataContext).DeleteCategoryCommand}"
                                                     CommandParameter="{Binding}"
                                                     ToolTip.Tip="Delete this category and unassign it from every plugin">
-                                                <TextBlock Text="✕" Foreground="{DynamicResource CrackedBrush}" />
+                                                <TextBlock Text="✕" Foreground="{DynamicResource DangerBrush}" />
                                             </Button>
                                         </Grid>
                                     </DataTemplate>
@@ -440,21 +444,72 @@
                         </StackPanel>
                         <Border Classes="section">
                             <StackPanel Spacing="12">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <!-- MEGA's badge: brand red circle behind the wordmark glyph,
-                                         so "which cloud" reads at a glance rather than only from
-                                         the text next to it — matches the WPF Settings window. -->
-                                    <Viewbox Width="18" Height="18">
-                                        <Panel Width="721" Height="721">
-                                            <Ellipse Fill="#FFD31B00" />
-                                            <Path Data="{StaticResource MegaGlyph}"
-                                                  Fill="{DynamicResource MegaGlyphFillBrush}" />
-                                        </Panel>
-                                    </Viewbox>
-                                    <ToggleSwitch Content="Keep this machine in sync with MEGA"
-                                                  IsChecked="{Binding CloudSyncEnabled}"
-                                                  Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <StackPanel Spacing="6">
+                                    <TextBlock Classes="label" Text="Service" />
+                                    <Border Classes="segmentGroup" HorizontalAlignment="Left">
+                                        <StackPanel Orientation="Horizontal" Spacing="2">
+                                            <RadioButton Classes="segment plain" GroupName="cloudProvider"
+                                                         IsChecked="{Binding Main.IsMegaSelected}">
+                                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                                    <!-- MEGA's badge: brand red circle behind the wordmark glyph. -->
+                                                    <Viewbox Width="16" Height="16">
+                                                        <Panel Width="721" Height="721">
+                                                            <Ellipse Fill="#FFD31B00" />
+                                                            <Path Data="{StaticResource MegaGlyph}"
+                                                                  Fill="{DynamicResource MegaGlyphFillBrush}" />
+                                                        </Panel>
+                                                    </Viewbox>
+                                                    <TextBlock Text="MEGA" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </RadioButton>
+                                            <RadioButton Classes="segment plain" GroupName="cloudProvider"
+                                                         IsChecked="{Binding Main.IsGoogleDriveSelected}">
+                                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                                    <Viewbox Width="16" Height="16">
+                                                        <Canvas Width="24" Height="24">
+                                                            <Path Data="{StaticResource DriveGreen}" Fill="#FF0F9D58" />
+                                                            <Path Data="{StaticResource DriveYellow}" Fill="#FFF4B400" />
+                                                            <Path Data="{StaticResource DriveBlue}" Fill="#FF4285F4" />
+                                                        </Canvas>
+                                                    </Viewbox>
+                                                    <TextBlock Text="Google Drive" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </RadioButton>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
+
+                                <!-- Google account: sign-in happens in the system browser. -->
+                                <Border Classes="section" Padding="12" IsVisible="{Binding Main.IsGoogleDriveSelected}">
+                                    <StackPanel Spacing="8">
+                                        <Grid ColumnDefinitions="*,Auto,Auto">
+                                            <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                       Text="{Binding Main.GoogleAccountText}" />
+                                            <li:LoadingSpinner Grid.Column="1" Width="20" Height="20" Margin="0,0,8,0"
+                                                               IsActive="{Binding Main.IsGoogleSigningIn}"
+                                                               Foreground="{DynamicResource AccentBrush}" />
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                <Button Classes="accent" Content="Sign in with Google" Padding="14,6"
+                                                        Command="{Binding Main.SignInGoogleCommand}"
+                                                        IsVisible="{Binding !Main.IsGoogleSignedIn}"
+                                                        IsEnabled="{Binding Main.GoogleDriveAvailable}" />
+                                                <Button Classes="ghost" Content="Sign out" Padding="14,6"
+                                                        Command="{Binding Main.SignOutGoogleCommand}"
+                                                        IsVisible="{Binding Main.IsGoogleSignedIn}" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <TextBlock Classes="meta" TextWrapping="Wrap"
+                                                   IsVisible="{Binding !Main.GoogleDriveAvailable}"
+                                                   Text="Google Drive isn't set up in this build (no OAuth client found)." />
+                                        <TextBlock Classes="meta" TextWrapping="Wrap"
+                                                   Text="Settings are stored in a hidden app folder in your Drive. Sign in with the same Google account on another machine to pair it." />
+                                    </StackPanel>
+                                </Border>
+
+                                <ToggleSwitch Content="Keep this machine in sync"
+                                              IsChecked="{Binding CloudSyncEnabled}"
+                                              Foreground="{DynamicResource TextPrimaryBrush}" />
                                 <TextBlock Classes="meta" TextWrapping="Wrap"
                                            Text="{Binding CloudStatusMessage}" />
                                 <StackPanel Orientation="Horizontal" Spacing="8">
@@ -473,12 +528,12 @@
                             </StackPanel>
                         </Border>
 
-                        <StackPanel Spacing="2">
+                        <StackPanel Spacing="2" IsVisible="{Binding Main.IsMegaSelected}">
                             <TextBlock Classes="sectionHeader" Text="Pairing" />
                             <TextBlock Classes="subtitle" TextWrapping="Wrap"
                                        Text="Machines sharing a sync id share a library. Copy this id to your other machine to pair them." />
                         </StackPanel>
-                        <Border Classes="section">
+                        <Border Classes="section" IsVisible="{Binding Main.IsMegaSelected}">
                             <StackPanel Spacing="12">
                                 <StackPanel Spacing="6">
                                     <TextBlock Classes="label" Text="This machine's sync id" />

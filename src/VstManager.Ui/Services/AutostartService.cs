@@ -20,8 +20,16 @@ public static class AutostartService
     /// one app to the user, so they must not both register to launch at login — whichever was
     /// configured last owns the entry, and enabling it here repoints it at this executable.
     /// </summary>
+#if NO_LICENSE_STATUS
+    // The NoStatus build is its own app (own data folder), so it registers separately.
+    private const string ValueName = "VstManagerNoStatus";
+    private const string LaunchAgentLabel = "com.vstmanager.nostatus";
+    private const string DesktopEntryName = "vstmanager-nostatus.desktop";
+#else
     private const string ValueName = "VstManager";
     private const string LaunchAgentLabel = "com.vstmanager.app";
+    private const string DesktopEntryName = "vstmanager.desktop";
+#endif
 
     /// <summary>
     /// Whether launch-at-login is currently registered. Presence of the entry is the whole
@@ -112,7 +120,7 @@ public static class AutostartService
 
         return OperatingSystem.IsMacOS()
             ? Path.Combine(home, "Library", "LaunchAgents", $"{LaunchAgentLabel}.plist")
-            : Path.Combine(home, ".config", "autostart", "vstmanager.desktop");
+            : Path.Combine(home, ".config", "autostart", DesktopEntryName);
     }
 
     /// <summary>

@@ -31,7 +31,11 @@ public partial class PluginDetailWindow : Window
         _vm.CandidateChooser = candidates => MatchPickerWindow.PickAsync(this, _vm.Plugin.Name, candidates);
         _vm.LogoPreviewLoader = LoadLogoPreviewAsync;
 
-        Closed += (_, _) => CleanupLogoPreviewFile();
+        Closed += (_, _) =>
+        {
+            CleanupLogoPreviewFile();
+            CleanupEditorOutputs();
+        };
 
         DataContext = _vm;
     }
@@ -128,6 +132,7 @@ public partial class PluginDetailWindow : Window
             return false;
         }
 
+        _adjustSourcePath = null;
         return ShowPreview(localPath, isTempFile: true);
     }
 
@@ -161,6 +166,44 @@ public partial class PluginDetailWindow : Window
             _vm.Form.IsLogoPreviewValid = false;
             _vm.Form.LogoStatusText = "That image couldn't be read. PNG, JPG, BMP and GIF work.";
             return false;
+        }
+    }
+
+    private async void LoadImageUrl_Click(object? sender, RoutedEventArgs e) => await LoadImageUrlAsync();
+
+    private async void ImageUrlBox_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            await LoadImageUrlAsync();
+        }
+    }
+
+    /// <summary>
+    /// Previews a direct image address. Save then stores it through the same URL-override path
+    /// Get Info uses, so the choice survives restarts and later lookups.
+    /// </summary>
+    private async Task LoadImageUrlAsync()
+    {
+        var url = _vm.Form.LogoUrl?.Trim();
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            _vm.Form.LogoStatusText = "Paste a full image address first (starting with https://).";
+            return;
+        }
+
+        _vm.Form.LogoStatusText = "Loading image…";
+        if (await LoadLogoPreviewAsync(url!))
+        {
+            // Save prefers a local file over a URL, so a previously picked file would win.
+            _vm.Form.LocalLogoFilePath = null;
+            _vm.Form.LogoStatusText = "Image loaded. Click Save to keep it.";
+        }
+        else
+        {
+            _vm.Form.LogoStatusText = "Couldn't load an image from that address. PNG, JPG, BMP and GIF work.";
         }
     }
 
@@ -235,9 +278,82 @@ public partial class PluginDetailWindow : Window
             return;
         }
 
+        _adjustSourcePath = null;
         _vm.Form.LocalLogoFilePath = path;
         _vm.Form.LogoUrl = null;
         _vm.Form.LogoStatusText = $"Using {Path.GetFileName(path)}. Click Save to keep it.";
+    }
+
+    // The image the editor works from: kept separate from the staged preview so a second
+    // Adjust starts from the original again, not from the already-cropped result.
+    private string? _adjustSourcePath;
+    private readonly List<string> _editorOutputs = [];
+
+    private async void AdjustThumbnail_Click(object? sender, RoutedEventArgs e)
+    {
+        // "" marks "the plugin's current artwork", which has no file of its own here.
+        var sourcePath = _adjustSourcePath ?? _vm.Form.LocalLogoFilePath ?? _vm.Form.LogoPreviewLocalPath;
+        if (sourcePath == string.Empty)
+        {
+            sourcePath = null;
+        }
+        Bitmap? owned = null;
+
+        try
+        {
+            if (sourcePath is not null && File.Exists(sourcePath))
+            {
+                owned = new Bitmap(sourcePath);
+            }
+
+            var source = owned ?? _vm.Plugin.Logo;
+            if (source is null)
+            {
+                _vm.Form.LogoStatusText = "There's no image to adjust yet. Browse for one or fetch it by URL first.";
+                return;
+            }
+
+            var result = await ThumbnailEditorWindow.EditAsync(this, source);
+            if (result is null)
+            {
+                return;
+            }
+
+            _editorOutputs.Add(result);
+            _adjustSourcePath = sourcePath ?? string.Empty;
+            if (!ShowPreview(result, isTempFile: false))
+            {
+                return;
+            }
+
+            _vm.Form.LocalLogoFilePath = result;
+            _vm.Form.LogoUrl = null;
+            _vm.Form.LogoStatusText = "Thumbnail adjusted. Click Save to keep it.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            _vm.Form.LogoStatusText = "That image couldn't be opened for adjusting.";
+        }
+        finally
+        {
+            owned?.Dispose();
+        }
+    }
+
+    private void CleanupEditorOutputs()
+    {
+        foreach (var path in _editorOutputs)
+        {
+            try
+            {
+                File.Delete(path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+            }
+        }
+
+        _editorOutputs.Clear();
     }
 
     /// <summary>Deletes the downloaded preview temp file; wired to Closed as well as each reload.</summary>

@@ -15,3 +15,8 @@
 /.vscode
 /.idea
 /src/VstManager.Ui/.idea
+
+# Google OAuth client secret - never commit
+google-client.json
+client_secret_*.json
+/build

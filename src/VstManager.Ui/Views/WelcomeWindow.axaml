@@ -72,7 +72,7 @@
                                         <Button Grid.Column="1" Classes="ghost" Padding="8,4" Margin="8,0,0,0"
                                                 Command="{Binding $parent[Window].((vm:WelcomeViewModel)DataContext).RemoveFolderCommand}"
                                                 CommandParameter="{Binding}">
-                                            <TextBlock Text="✕" Foreground="{DynamicResource CrackedBrush}" />
+                                            <TextBlock Text="✕" Foreground="{DynamicResource DangerBrush}" />
                                         </Button>
                                     </Grid>
                                 </DataTemplate>

@@ -16,7 +16,7 @@ public class LibraryStore
     public static string GetDefaultPath()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, "VstManager", "library.json");
+        return Path.Combine(appData, AppDataLocation.FolderName, "library.json");
     }
 
     public LibraryData Load()
@@ -64,7 +64,9 @@ public class LibraryStore
         {
             if (existingByPath.TryGetValue(found.Path, out var existingEntry))
             {
+#if !NO_LICENSE_STATUS
                 found.Tag = existingEntry.Tag;
+#endif
                 found.Kind = existingEntry.Kind;
                 found.CurrentVersion = existingEntry.CurrentVersion;
                 found.LatestVersion = existingEntry.LatestVersion;

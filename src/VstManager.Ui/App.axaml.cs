@@ -13,7 +13,12 @@ public partial class App : Application
     // Same GUID as the WPF app's mutex (VstManager.App/App.xaml.cs) — the two heads are one app
     // to the user, so only one of either should ever run at a time, matching the autostart
     // Run-value collision this project already documents for the same reason.
+#if NO_LICENSE_STATUS
+    // Separate app from the normal build (own data folder), so it gets its own instance lock.
+    private const string SingleInstanceMutexName = "VstManagerNoStatus-SingleInstance-8D7A4B52-EF7E-422B-9E36-C30CFDB13802";
+#else
     private const string SingleInstanceMutexName = "VstManager-SingleInstance-8D7A4B52-EF7E-422B-9E36-C30CFDB13802";
+#endif
 
     private Mutex? _singleInstanceMutex;
 

@@ -55,7 +55,7 @@
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                    FontSize="24" FontWeight="Bold"
                                    Foreground="{DynamicResource TextSecondaryBrush}" />
-                        <Image Source="{Binding Plugin.Logo}" Stretch="UniformToFill" />
+                        <Image Source="{Binding Plugin.Logo}" Stretch="Uniform" />
                     </Panel>
                 </Border>
 
@@ -65,12 +65,14 @@
                                Foreground="{DynamicResource TextPrimaryBrush}" />
                     <TextBlock Classes="subtitle" Text="{Binding Plugin.Vendor}" />
                     <WrapPanel ItemSpacing="6" LineSpacing="6" Margin="0,4,0,0">
+                        <!--#if LICENSE_STATUS-->
                         <Border Classes="chip status"
                                 Classes.legit="{Binding Plugin.IsLegit}"
                                 Classes.cracked="{Binding Plugin.IsCracked}"
                                 Classes.muted="{Binding Plugin.IsUnclassified}">
                             <TextBlock Text="{Binding Plugin.TagLabel}" />
                         </Border>
+                        <!--#endif-->
                         <Border Classes="chip" IsVisible="{Binding Plugin.IsInstalled}">
                             <TextBlock Text="{Binding Plugin.Formats}" />
                         </Border>
@@ -149,8 +151,13 @@
 
                         <StackPanel Spacing="2">
                             <TextBlock Classes="sectionHeader" Text="Classification" />
+                            <!--#if LICENSE_STATUS-->
                             <TextBlock Classes="subtitle"
                                        Text="Used by the Instruments / Effects grouping and the Legit / Cracked filter." />
+                            <!--#else-->
+                            <TextBlock Classes="subtitle"
+                                       Text="Used by the Instruments / Effects grouping." />
+                            <!--#endif-->
                         </StackPanel>
                         <Border Classes="section">
                             <Grid ColumnDefinitions="Auto,16,Auto">
@@ -167,6 +174,7 @@
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
+                                <!--#if LICENSE_STATUS-->
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Classes="label" Text="Status" />
                                     <Border Classes="segmentGroup" HorizontalAlignment="Left">
@@ -180,6 +188,7 @@
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
+                                <!--#endif-->
                             </Grid>
                         </Border>
 
@@ -353,19 +362,36 @@
                                                        Classes="meta"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                                        IsVisible="{Binding !Form.IsLogoPreviewValid}" />
-                                            <Image x:Name="LogoPreviewImage" Stretch="UniformToFill"
+                                            <Image x:Name="LogoPreviewImage" Stretch="Uniform"
                                                    IsVisible="{Binding Form.IsLogoPreviewValid}" />
                                         </Panel>
                                     </Border>
 
                                     <StackPanel Grid.Column="1" Margin="14,0,0,0" Spacing="8"
                                                 VerticalAlignment="Center">
-                                        <Button Classes="ghost" Padding="12,7" HorizontalAlignment="Left"
-                                                Content="Browse for Image…"
-                                                Click="BrowseForImage_Click" />
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Button Classes="ghost" Padding="12,7"
+                                                    Content="Browse for Image…"
+                                                    Click="BrowseForImage_Click" />
+                                            <Button Classes="ghost" Padding="12,7"
+                                                    Content="Adjust…"
+                                                    ToolTip.Tip="Crop, zoom and move the thumbnail"
+                                                    Click="AdjustThumbnail_Click" />
+                                        </StackPanel>
                                         <TextBlock Classes="meta" TextWrapping="Wrap"
                                                    Text="Whatever you choose here replaces the artwork for every copy of this plugin." />
                                     </StackPanel>
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBox Grid.Column="0" Classes="search"
+                                             x:Name="ImageUrlBox"
+                                             Text="{Binding Form.LogoUrl}"
+                                             PlaceholderText="Image URL (https://…/logo.png)"
+                                             KeyDown="ImageUrlBox_KeyDown" />
+                                    <Button Grid.Column="1" Classes="ghost" Margin="8,0,0,0" Padding="14,7"
+                                            Content="Load"
+                                            Click="LoadImageUrl_Click" />
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -387,7 +413,7 @@
 
                         <Border Classes="section" IsVisible="{Binding !Plugin.IsInstalled}">
                             <TextBlock Text="This plugin is not installed on this machine."
-                                       TextWrapping="Wrap" Foreground="{DynamicResource CrackedBrush}" />
+                                       TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" />
                         </Border>
 
                         <!-- ActiveInstalls, not Installs: a plugin with one live copy and one
@@ -411,7 +437,7 @@
                                             <Button Grid.Column="3" Classes="ghost" Padding="8,5" Margin="6,0,0,0"
                                                     Tag="{Binding Path}" Click="RemoveFromScanning_Click"
                                                     ToolTip.Tip="Remove from scanning (keeps the file on disk)">
-                                                <TextBlock Text="✕" Foreground="{DynamicResource CrackedBrush}" />
+                                                <TextBlock Text="✕" Foreground="{DynamicResource DangerBrush}" />
                                             </Button>
                                         </Grid>
                                     </Border>
@@ -429,7 +455,7 @@
                                     Click="MarkAsNotAPlugin_Click"
                                     ToolTip.Tip="Excludes this file by name from future scans, on this and any other machine">
                                 <StackPanel Orientation="Horizontal" Spacing="7">
-                                    <TextBlock Text="⚠" Foreground="{DynamicResource CrackedBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="⚠" Foreground="{DynamicResource DangerBrush}" VerticalAlignment="Center" />
                                     <TextBlock Text="Mark as Not a Plugin" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>

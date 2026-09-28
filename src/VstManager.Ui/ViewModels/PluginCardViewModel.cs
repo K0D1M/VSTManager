@@ -74,8 +74,10 @@ public partial class PluginCardViewModel : ObservableObject
     [ObservableProperty]
     private bool _isOutdated;
 
+#if !NO_LICENSE_STATUS
     [ObservableProperty]
     private PluginTagSummary _tag;
+#endif
 
     [ObservableProperty]
     private PluginKind _kind;
@@ -121,12 +123,15 @@ public partial class PluginCardViewModel : ObservableObject
     /// <summary>What the badge actually keys off: genuinely outdated, and not silenced.</summary>
     public bool ShowOutdatedBadge => IsOutdated && !IgnoreVersionCheck;
 
+#if !NO_LICENSE_STATUS
     public bool IsLegit => Tag == PluginTagSummary.Legit;
     public bool IsCracked => Tag == PluginTagSummary.Cracked;
+#endif
 
     /// <summary>Menu label, so one item covers both directions rather than showing a dead "Hide".</summary>
     public string HideMenuLabel => IsHidden ? "Unhide" : "Hide";
 
+#if !NO_LICENSE_STATUS
     /// <summary>Drives the quiet chip styling — no classification means nothing to highlight.</summary>
     public bool IsUnclassified => Tag == PluginTagSummary.Unclassified;
 
@@ -137,6 +142,7 @@ public partial class PluginCardViewModel : ObservableObject
         PluginTagSummary.Both => "Mixed",
         _ => "Unclassified"
     };
+#endif
 
     /// <summary>First letter, shown in place of a logo that hasn't loaded or doesn't exist.</summary>
     public string Initial => string.IsNullOrWhiteSpace(Name) ? "?" : Name[..1].ToUpperInvariant();
@@ -168,7 +174,9 @@ public partial class PluginCardViewModel : ObservableObject
     /// <summary>Re-reads everything derived from the underlying item after it changed.</summary>
     public void RefreshFromItem()
     {
+#if !NO_LICENSE_STATUS
         Tag = _item.TagSummary;
+#endif
         Kind = _item.KindSummary;
         CategoryId = _item.CategoryIdSummary;
         NeedsCategoryReview = _item.NeedsCategoryReviewSummary;
@@ -211,6 +219,7 @@ public partial class PluginCardViewModel : ObservableObject
 
     partial void OnIgnoreVersionCheckChanged(bool value) => OnPropertyChanged(nameof(ShowOutdatedBadge));
 
+#if !NO_LICENSE_STATUS
     // Tag drives four bindings; Avalonia won't infer that from the generated setter.
     partial void OnTagChanged(PluginTagSummary value)
     {
@@ -219,4 +228,5 @@ public partial class PluginCardViewModel : ObservableObject
         OnPropertyChanged(nameof(IsUnclassified));
         OnPropertyChanged(nameof(TagLabel));
     }
+#endif
 }

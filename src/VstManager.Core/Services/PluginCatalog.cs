@@ -21,7 +21,7 @@ public class PluginCatalog
     public static string GetCachePath()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, "VstManager", "catalog.cache.json");
+        return Path.Combine(appData, AppDataLocation.FolderName, "catalog.cache.json");
     }
 
     /// <summary>

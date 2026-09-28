@@ -1,4 +1,4 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
@@ -277,6 +277,9 @@ public partial class MainWindow : Window
         _vm.SelectOnly(card);
         _rangeAnchor = card;
 
+        // Opens on release rather than press (like WPF), and only if this didn't turn into a
+        // drag onto a folder.
+        _clickedCard = card;
         ArmDrag(e, () => BuildPluginDragData(card));
     }
 
@@ -306,6 +309,7 @@ public partial class MainWindow : Window
     private Point? _dragStartPoint;
     private Func<DataTransfer>? _dragDataFactory;
     private PointerPressedEventArgs? _dragPressArgs;
+    private PluginCardViewModel? _clickedCard;
 
     private void ArmDrag(PointerPressedEventArgs e, Func<DataTransfer> dataFactory)
     {
@@ -334,10 +338,21 @@ public partial class MainWindow : Window
         }
 
         ClearArmedDrag();
+        _clickedCard = null;
         _ = RunDragAsync(pressArgs, factory());
     }
 
-    private void OnWindowPointerReleased(object? sender, PointerReleasedEventArgs e) => ClearArmedDrag();
+    private void OnWindowPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        ClearArmedDrag();
+
+        var card = _clickedCard;
+        _clickedCard = null;
+        if (card is not null && e.InitialPressMouseButton == MouseButton.Left)
+        {
+            _vm.OpenDetailsCommand.Execute(card);
+        }
+    }
 
     private void ClearArmedDrag()
     {
@@ -357,15 +372,6 @@ public partial class MainWindow : Window
             // The shell occasionally refuses to start a second drag while one is still
             // unwinding — same tolerance WPF's own DragSource_MouseMove has for the COM
             // equivalent of this failure.
-        }
-    }
-
-    private void OnPluginDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        if (sender is Control { DataContext: PluginCardViewModel card })
-        {
-            _vm.OpenDetailsCommand.Execute(card);
-            e.Handled = true;
         }
     }
 

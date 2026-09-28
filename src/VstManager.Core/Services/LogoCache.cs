@@ -31,7 +31,7 @@ public class LogoCache
     public static string GetDefaultCacheDirectory()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, "VstManager", "logos");
+        return Path.Combine(appData, AppDataLocation.FolderName, "logos");
     }
 
     public static string GetSlug(CatalogEntry entry)

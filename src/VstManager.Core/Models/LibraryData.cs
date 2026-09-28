@@ -10,6 +10,7 @@ public class LibraryData
     public DateTime? LastUpdateCheck { get; set; }
     public string LayoutMode { get; set; } = "Grid";
     public string ViewDensity { get; set; } = "Default";
+    public string CloudProvider { get; set; } = "Mega";
     public bool HasSeenLogoInstructions { get; set; }
 
     /// <summary>

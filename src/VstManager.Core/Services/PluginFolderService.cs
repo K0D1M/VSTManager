@@ -32,7 +32,7 @@ public class PluginFolderService
     public static string GetDefaultPath()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, "VstManager", "plugin-folders.json");
+        return Path.Combine(appData, AppDataLocation.FolderName, "plugin-folders.json");
     }
 
     /// <summary>The folder this plugin is filed in, or null when it is unfiled.</summary>

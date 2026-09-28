@@ -156,13 +156,15 @@
         <Setter Property="Background" Value="{DynamicResource OutdatedBrush}" />
     </Style>
 
+    <!--#if LICENSE_STATUS-->
     <Style Selector="Border.chip.legit">
         <Setter Property="Background" Value="{DynamicResource LegitBrush}" />
     </Style>
 
     <Style Selector="Border.chip.cracked">
-        <Setter Property="Background" Value="{DynamicResource CrackedBrush}" />
+        <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
     </Style>
+    <!--#endif-->
 
     <!-- Unclassified is the absence of a classification, so it stays quiet rather than
          shouting in white on a filled background like Legit and Cracked do. -->
@@ -378,6 +380,7 @@
         <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}" />
     </Style>
 
+    <!--#if LICENSE_STATUS-->
     <!-- Legit/Cracked mode-segment icons (see MainWindow.axaml). Stroke is set per-instance via an
          #ElementName binding to the enclosing RadioButton's own Foreground, not here — these icons
          sit as inline Content, not inside RadioButton.segment's ControlTemplate above, so there is
@@ -390,6 +393,7 @@
         <Setter Property="Width" Value="12" />
         <Setter Property="Height" Value="12" />
     </Style>
+    <!--#endif-->
 
     <!-- A whole card acting as one radio: the circle is dropped entirely and selection is shown
          by the border, so clicking anywhere on the row picks it. Used by the match picker, where
@@ -425,15 +429,17 @@
         <Setter Property="Foreground" Value="#FFFFFFFF" />
     </Style>
 
+    <!--#if LICENSE_STATUS-->
     <Style Selector="RadioButton.segment.legit:checked">
         <Setter Property="Background" Value="{DynamicResource LegitBrush}" />
         <Setter Property="Foreground" Value="#FFFFFFFF" />
     </Style>
 
     <Style Selector="RadioButton.segment.cracked:checked">
-        <Setter Property="Background" Value="{DynamicResource CrackedBrush}" />
+        <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
         <Setter Property="Foreground" Value="#FFFFFFFF" />
     </Style>
+    <!--#endif-->
 
     <!-- Segments with no semantic colour of their own (grid/list) use the accent. -->
     <Style Selector="RadioButton.segment.plain:checked">

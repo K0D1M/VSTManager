@@ -1,0 +1,50 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="VstManager.Ui.Views.ThumbnailEditorWindow"
+        Title="Adjust Thumbnail"
+        Width="380" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackgroundGradient}">
+
+    <StackPanel Margin="24,20,24,20" Spacing="14">
+
+        <StackPanel Spacing="4">
+            <TextBlock Classes="sectionHeader" Text="Adjust thumbnail" />
+            <TextBlock Classes="subtitle" TextWrapping="Wrap"
+                       Text="Drag to move, scroll or use the slider to zoom. What's inside the square becomes the thumbnail." />
+        </StackPanel>
+
+        <Border x:Name="Frame" Width="256" Height="256" HorizontalAlignment="Center"
+                Background="{DynamicResource SurfaceAltBrush}"
+                BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                ClipToBounds="True" Cursor="SizeAll"
+                PointerPressed="Frame_PointerPressed"
+                PointerMoved="Frame_PointerMoved"
+                PointerReleased="Frame_PointerReleased"
+                PointerWheelChanged="Frame_PointerWheelChanged">
+            <!-- No background on the canvas: it is what Apply renders, so anything outside the
+                 image stays transparent in the saved thumbnail. -->
+            <Canvas x:Name="Stage" Width="254" Height="254">
+                <Image x:Name="Picture" Stretch="Fill" />
+            </Canvas>
+        </Border>
+
+        <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+            <TextBlock Grid.Column="0" Text="−" Classes="meta" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <Slider Grid.Column="1" x:Name="ZoomSlider" Minimum="1" Maximum="8"
+                    ValueChanged="ZoomSlider_ValueChanged" />
+            <TextBlock Grid.Column="2" Text="+" Classes="meta" VerticalAlignment="Center" Margin="8,0,0,0" />
+        </Grid>
+
+        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+            <Button Grid.Column="0" Classes="ghost" Content="Fit whole" Padding="12,6"
+                    Click="Fit_Click" ToolTip.Tip="Show the whole image" />
+            <Button Grid.Column="1" Classes="ghost" Content="Fill" Padding="12,6" Margin="6,0,0,0"
+                    Click="Fill_Click" ToolTip.Tip="Cover the whole square" />
+            <Button Grid.Column="3" Classes="ghost" Content="Cancel" Padding="14,6"
+                    Click="Cancel_Click" />
+            <Button Grid.Column="4" Classes="accent" Content="Apply" Padding="16,6" Margin="6,0,0,0"
+                    Click="Apply_Click" />
+        </Grid>
+    </StackPanel>
+</Window>

@@ -74,7 +74,7 @@
         <TextBox Classes="search" Text="{Binding ColorHex}" Margin="0,0,0,10" />
 
         <TextBlock Classes="meta" TextWrapping="Wrap"
-                   Foreground="{DynamicResource CrackedBrush}"
+                   Foreground="{DynamicResource DangerBrush}"
                    IsVisible="{Binding ValidationError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                    Text="{Binding ValidationError}" Margin="0,0,0,10" />
 

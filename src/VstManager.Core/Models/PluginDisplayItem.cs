@@ -33,6 +33,7 @@ public class PluginDisplayItem
     /// </summary>
     public bool IsRemembered => !IsInstalled && Installs.Count > 0;
 
+#if !NO_LICENSE_STATUS
     public PluginTagSummary TagSummary
     {
         get
@@ -49,6 +50,7 @@ public class PluginDisplayItem
             };
         }
     }
+#endif
 
     /// <summary>
     /// Instrument/Effect is strictly exclusive per plugin, so all installed copies are

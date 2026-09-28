@@ -84,7 +84,14 @@ public sealed class CloudSyncService
         }, CancellationToken.None);
     }
 
-    public async Task SyncAsync(CancellationToken cancellationToken = default)
+    /// <param name="confirmBeforeOverwriting">
+    /// True right after sync is (re-)enabled: local may have drifted unsupervised while sync was
+    /// off, so even a one-sided "local changed" is asked about rather than uploaded automatically
+    /// — the user might want to keep watching this session, but they might also want to discard
+    /// local edits they now regret and pull the remote copy instead. False for every routine
+    /// background run, where a plain local-only change should upload without interrupting.
+    /// </param>
+    public async Task SyncAsync(CancellationToken cancellationToken = default, bool confirmBeforeOverwriting = false)
     {
         if (!_provider.IsConfigured)
         {
@@ -127,25 +134,36 @@ public sealed class CloudSyncService
                 return;
             }
 
+            if (lastSyncedAt is null)
+            {
+                // Never synced on this machine before (fresh install, or sync just turned on) —
+                // both files already have real content and neither is "the changed one". Treat
+                // this exactly like a same-run conflict rather than defaulting to local, which
+                // would silently overwrite a remote copy from another machine.
+                await ResolveConflictAsync(localAt.Value, remoteAt.Value, cancellationToken);
+                return;
+            }
+
             // A second of slack absorbs filesystem/clock granularity, which would otherwise make
             // a just-synced pair of files look changed on the very next run.
             var slack = TimeSpan.FromSeconds(1);
-            var localChanged = lastSyncedAt is null || localAt > lastSyncedAt + slack;
-            var remoteChanged = lastSyncedAt is null || remoteAt > lastSyncedAt + slack;
+            var localChanged = localAt > lastSyncedAt + slack;
+            var remoteChanged = remoteAt > lastSyncedAt + slack;
 
             switch (localChanged, remoteChanged)
             {
                 case (false, false):
                     MarkSynced($"Up to date with {_provider.DisplayName}.");
                     break;
+                case (true, false) when confirmBeforeOverwriting:
+                case (true, true):
+                    await ResolveConflictAsync(localAt.Value, remoteAt.Value, cancellationToken);
+                    break;
                 case (true, false):
                     await UploadAsync(cancellationToken);
                     break;
                 case (false, true):
                     await DownloadAsync(cancellationToken);
-                    break;
-                case (true, true):
-                    await ResolveConflictAsync(localAt.Value, remoteAt.Value, cancellationToken);
                     break;
             }
         }

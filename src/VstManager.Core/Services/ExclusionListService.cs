@@ -19,7 +19,7 @@ public class ExclusionListService
     public static string GetDefaultLocalOverridePath()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, "VstManager", "excluded-files.local.json");
+        return Path.Combine(appData, AppDataLocation.FolderName, "excluded-files.local.json");
     }
 
     public bool IsExcluded(string filePath) =>

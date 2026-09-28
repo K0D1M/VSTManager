@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -22,6 +22,7 @@ namespace VstManager.Ui.ViewModels;
 /// </summary>
 public sealed record FolderMenuEntry(string Label, string? FolderId);
 
+#if !NO_LICENSE_STATUS
 /// <summary>Which tag bucket the library list is filtered to.</summary>
 public enum ManagementMode
 {
@@ -29,6 +30,7 @@ public enum ManagementMode
     Legit,
     Cracked
 }
+#endif
 
 /// <summary>How the library list is ordered.</summary>
 public enum SortOption
@@ -105,7 +107,10 @@ public partial class MainViewModel : ObservableObject
     private readonly LookupCacheService _lookupCache = new();
     private readonly InstalledProgramsProvider _installedPrograms = new();
     private readonly DataPortabilityService _dataPortability = new();
-    private readonly ICloudSyncProvider _cloudProvider;
+    private readonly SwitchableCloudProvider _cloudProvider;
+    private readonly MegaS4SyncProvider _megaProvider;
+    private readonly GoogleDriveSyncProvider _driveProvider = new();
+    private readonly Task _driveSessionRestored;
     private readonly CloudSyncService _cloudSync;
 
     private readonly List<PluginCardViewModel> _all = new();
@@ -143,6 +148,7 @@ public partial class MainViewModel : ObservableObject
         _showNotifications = settings.ShowNotifications;
         _minimizeToTray = settings.MinimizeToTray;
         _pluginUpdateCheckIntervalHours = settings.PluginUpdateCheckIntervalHours;
+        _checkForPluginUpdatesOnStartup = settings.CheckForPluginUpdatesOnStartup;
 
         // Read from the OS, not from library.json: the entry can be removed behind the app's
         // back (another tool, a user editing the registry or LaunchAgents), and the real state
@@ -157,7 +163,14 @@ public partial class MainViewModel : ObservableObject
             _libraryStore.Save(settings);
         }
 
-        _cloudProvider = new MegaS4SyncProvider(settings.CloudDeviceId);
+        _megaProvider = new MegaS4SyncProvider(settings.CloudDeviceId);
+        _isGoogleDriveSelected = settings.CloudProvider == "GoogleDrive";
+        _cloudProvider = new SwitchableCloudProvider(
+            _isGoogleDriveSelected ? _driveProvider : _megaProvider);
+
+        // Silent: reuses a saved refresh token, never opens a browser at startup. The first
+        // sync awaits this so it doesn't run against a not-yet-restored Drive session.
+        _driveSessionRestored = RestoreDriveSessionAsync();
         _cloudSync = new CloudSyncService(
             _cloudProvider,
             _dataPortability,
@@ -251,8 +264,10 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _searchText = string.Empty;
 
+#if !NO_LICENSE_STATUS
     [ObservableProperty]
     private ManagementMode _mode = ManagementMode.All;
+#endif
 
     [ObservableProperty]
     private SortOption _sort = SortOption.Name;
@@ -367,6 +382,7 @@ public partial class MainViewModel : ObservableObject
         set { if (value) { Layout = LayoutMode.List; } }
     }
 
+#if !NO_LICENSE_STATUS
     public bool IsModeAll
     {
         get => Mode == ManagementMode.All;
@@ -384,6 +400,7 @@ public partial class MainViewModel : ObservableObject
         get => Mode == ManagementMode.Cracked;
         set { if (value) { Mode = ManagementMode.Cracked; } }
     }
+#endif
 
     public bool IsStatusAll
     {
@@ -437,6 +454,7 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnSearchTextChanged(string value) => ApplyFilters();
 
+#if !NO_LICENSE_STATUS
     partial void OnModeChanged(ManagementMode value)
     {
         OnPropertyChanged(nameof(IsModeAll));
@@ -444,6 +462,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsModeCracked));
         ApplyFilters();
     }
+#endif
 
     partial void OnShowHiddenChanged(bool value)
     {
@@ -744,6 +763,7 @@ public partial class MainViewModel : ObservableObject
         ApplyToTargets(card, (info, value) => info.IsHidden = value, !card.IsHidden);
     }
 
+#if !NO_LICENSE_STATUS
     [RelayCommand]
     private void MarkLegit(PluginCardViewModel? card) => SetTag(card, PluginTag.Legit);
 
@@ -792,6 +812,7 @@ public partial class MainViewModel : ObservableObject
         SaveLibrary();
         ApplyFilters();
     }
+#endif
 
     [RelayCommand]
     private void MarkInstrument(PluginCardViewModel? card) => SetKind(card, PluginKind.Instrument);
@@ -799,6 +820,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void MarkEffect(PluginCardViewModel? card) => SetKind(card, PluginKind.Effect);
 
+#if !NO_LICENSE_STATUS
     /// <summary>
     /// Legit/Cracked is stored per installed copy, so a plugin with a VST2 and a VST3 build gets
     /// both written — that is what makes the summary chip resolve to one value rather than "Mixed".
@@ -812,6 +834,7 @@ public partial class MainViewModel : ObservableObject
 
         ApplyToTargets(card, (info, _) => info.Tag = tag, true);
     }
+#endif
 
     private void SetKind(PluginCardViewModel? card, PluginKind kind)
     {
@@ -1220,6 +1243,15 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private double _pluginUpdateCheckIntervalHours = 6;
 
+    [ObservableProperty]
+    private bool _checkForPluginUpdatesOnStartup = true;
+
+    partial void OnCheckForPluginUpdatesOnStartupChanged(bool value)
+    {
+        _library.CheckForPluginUpdatesOnStartup = value;
+        SaveLibrary();
+    }
+
     partial void OnPluginUpdateCheckIntervalHoursChanged(double value)
     {
         _library.PluginUpdateCheckIntervalHours = value;
@@ -1244,7 +1276,7 @@ public partial class MainViewModel : ObservableObject
     /// </param>
     private async Task RunUpdateChecksAsync(bool skipInitialCheck)
     {
-        if (!skipInitialCheck)
+        if (!skipInitialCheck && CheckForPluginUpdatesOnStartup)
         {
             // The launch check trusts the lookup cache, so a normal start costs no network; the
             // repeating ones bypass it, since the cache stays "fresh" for a week and would
@@ -1300,19 +1332,15 @@ public partial class MainViewModel : ObservableObject
         _isCheckingForUpdates = true;
         try
         {
-            var targets = _all.Where(c => c.IsInstalled).ToList();
-            if (targets.Count == 0)
-            {
-                return;
-            }
-
             var before = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-            foreach (var card in targets.Where(c => c.ShowOutdatedBadge))
+            foreach (var card in _all.Where(c => c.IsInstalled && c.ShowOutdatedBadge))
             {
                 before[card.BaseName] = card.LatestVersion;
             }
 
-            if (_library.CheckForPluginUpdatesOnStartup)
+            // Already known to be outdated: looking them up again only re-confirms it.
+            var targets = _all.Where(c => c.IsInstalled && !c.ShowOutdatedBadge).ToList();
+            if (targets.Count > 0)
             {
                 await EnrichFromWebAsync(targets, ignoreCache);
             }
@@ -1432,7 +1460,9 @@ public partial class MainViewModel : ObservableObject
     private void ClearFilters()
     {
         SearchText = string.Empty;
+#if !NO_LICENSE_STATUS
         Mode = ManagementMode.All;
+#endif
         FavoritesOnly = false;
         OutdatedOnly = false;
         ShowHidden = false;
@@ -1464,6 +1494,7 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public event EventHandler<IReadOnlyList<PluginCardViewModel>>? NewPluginsNeedInfo;
 
+#if !NO_LICENSE_STATUS
     /// <summary>
     /// Tags one specific copy, rather than every copy of the plugin. This is the one place that
     /// distinction matters: a plugin can have a legitimate install alongside a cracked one, and
@@ -1483,6 +1514,7 @@ public partial class MainViewModel : ObservableObject
         card.RefreshFromItem();
         ApplyFilters();
     }
+#endif
 
     // ---- cloud sync ---------------------------------------------------------
 
@@ -1510,7 +1542,10 @@ public partial class MainViewModel : ObservableObject
 
         if (value)
         {
-            _ = SyncCloudNowCommand.ExecuteAsync(null);
+            // Local may have drifted while sync was off — ask before a one-sided local change
+            // silently overwrites whatever is on the remote (this is exactly the "I made edits,
+            // then turned sync on, and want the option to keep the cloud copy instead" case).
+            _ = RunCloudSyncAsync(confirmBeforeOverwriting: true);
         }
         else
         {
@@ -1520,7 +1555,9 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task SyncCloudNowAsync()
+    private Task SyncCloudNowAsync() => RunCloudSyncAsync(confirmBeforeOverwriting: false);
+
+    private async Task RunCloudSyncAsync(bool confirmBeforeOverwriting)
     {
         if (!CloudSyncEnabled)
         {
@@ -1528,17 +1565,119 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
+        await _driveSessionRestored;
+
         if (!_cloudProvider.IsConfigured)
         {
             CloudState = CloudSyncState.NotConfigured;
-            CloudStatusMessage = "The cloud service isn't set up in this build yet.";
+            CloudStatusMessage = IsGoogleDriveSelected && _driveProvider.HasClient
+                ? "Sign in to Google Drive in Settings → Cloud."
+                : "The cloud service isn't set up in this build yet.";
             return;
         }
 
-        await _cloudSync.SyncAsync();
+        await _cloudSync.SyncAsync(confirmBeforeOverwriting: confirmBeforeOverwriting);
     }
 
     public Task UploadToCloudAsync() => _cloudSync.ForceUploadAsync();
+
+    // ---- cloud provider: MEGA or Google Drive ----
+
+    [ObservableProperty]
+    private bool _isGoogleDriveSelected;
+
+    public bool IsMegaSelected
+    {
+        get => !IsGoogleDriveSelected;
+        set { if (value) { IsGoogleDriveSelected = false; } }
+    }
+
+    public bool GoogleDriveAvailable => _driveProvider.HasClient;
+
+    public bool IsGoogleSignedIn => _driveProvider.IsSignedIn;
+
+    public string GoogleAccountText => _driveProvider.IsSignedIn
+        ? $"Signed in as {_driveProvider.SignedInEmail ?? "your Google account"}"
+        : "Not signed in";
+
+    [ObservableProperty]
+    private bool _isGoogleSigningIn;
+
+    partial void OnIsGoogleDriveSelectedChanged(bool value)
+    {
+        _cloudProvider.Current = value ? _driveProvider : _megaProvider;
+        _library.CloudProvider = value ? "GoogleDrive" : "Mega";
+        // A different remote: the last-sync time belongs to the old one and would skew the
+        // upload/download/conflict decision on the first sync against the new one.
+        _library.LastCloudSyncAt = null;
+        _libraryStore.Save(_library);
+        OnPropertyChanged(nameof(IsMegaSelected));
+
+        if (CloudSyncEnabled)
+        {
+            _ = SyncCloudNowCommand.ExecuteAsync(null);
+        }
+    }
+
+    private async Task RestoreDriveSessionAsync()
+    {
+        try
+        {
+            await _driveProvider.RestoreSessionAsync();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Google Drive session restore failed: {ex.Message}");
+        }
+
+        Dispatcher.UIThread.Post(RaiseGoogleAccountChanged);
+    }
+
+    private void RaiseGoogleAccountChanged()
+    {
+        OnPropertyChanged(nameof(IsGoogleSignedIn));
+        OnPropertyChanged(nameof(GoogleAccountText));
+    }
+
+    [RelayCommand]
+    private async Task SignInGoogleAsync()
+    {
+        IsGoogleSigningIn = true;
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+            await _driveProvider.SignInAsync(timeout.Token);
+            CloudStatusMessage = "Signed in to Google Drive.";
+            if (CloudSyncEnabled && IsGoogleDriveSelected)
+            {
+                _ = SyncCloudNowCommand.ExecuteAsync(null);
+            }
+        }
+        catch (Exception ex)
+        {
+            CloudStatusMessage = ex is OperationCanceledException
+                ? "Google sign-in was cancelled or timed out."
+                : $"Google sign-in failed: {ex.Message}";
+        }
+        finally
+        {
+            IsGoogleSigningIn = false;
+            RaiseGoogleAccountChanged();
+        }
+    }
+
+    [RelayCommand]
+    private async Task SignOutGoogleAsync()
+    {
+        await _driveProvider.SignOutAsync();
+        if (IsGoogleDriveSelected)
+        {
+            CloudState = CloudSyncState.NotConfigured;
+            CloudStatusMessage = "Signed out of Google Drive.";
+        }
+
+        RaiseGoogleAccountChanged();
+    }
 
     public Task RestoreFromCloudAsync() => _cloudSync.ForceDownloadAsync();
 
@@ -2095,11 +2234,22 @@ public partial class MainViewModel : ObservableObject
     /// converter and must be told the file changed, while this binds the Bitmap itself, so
     /// assigning a new one repaints. The old bitmap is disposed rather than left to the finalizer.
     /// </summary>
+    /// <summary>
+    /// Decodes a logo at thumbnail size. Logo files are often 1000–2000 px wide but are only
+    /// ever drawn in a box of at most 96 px, and a full-size decode costs width × height × 4
+    /// bytes each — across a library that was hundreds of MB. 256 px wide stays sharp at 2x.
+    /// </summary>
+    private static Bitmap LoadThumbnail(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Bitmap.DecodeToWidth(stream, 256, BitmapInterpolationMode.HighQuality);
+    }
+
     private async Task ApplyLogoFileAsync(string baseName, string path)
     {
         try
         {
-            var bitmap = await Task.Run(() => new Bitmap(path));
+            var bitmap = await Task.Run(() => LoadThumbnail(path));
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -2324,7 +2474,7 @@ public partial class MainViewModel : ObservableObject
                     continue;
                 }
 
-                var bitmap = await Task.Run(() => new Bitmap(path));
+                var bitmap = await Task.Run(() => LoadThumbnail(path));
                 await Dispatcher.UIThread.InvokeAsync(() => card.Logo = bitmap);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
@@ -2514,12 +2664,14 @@ public partial class MainViewModel : ObservableObject
             && (!OutdatedOnly || p.IsOutdated)
             && (SelectedFolderId is null
                 || string.Equals(_pluginFolders.GetFolderId(p.BaseName), SelectedFolderId, StringComparison.OrdinalIgnoreCase))
+#if !NO_LICENSE_STATUS
             && (Mode switch
             {
                 ManagementMode.Legit => p.IsLegit,
                 ManagementMode.Cracked => p.IsCracked,
                 _ => true
             })
+#endif
             && (InstalledFilter switch
             {
                 InstalledFilterOption.InstalledOnly => p.IsInstalled,

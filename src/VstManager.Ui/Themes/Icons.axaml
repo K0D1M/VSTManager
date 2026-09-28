@@ -14,6 +14,10 @@
     <!-- MEGA's "M" wordmark glyph, re-based into a 0,0..721,721 space — see the identical note in
          VstManager.App/Themes/Styles.xaml, which this is ported from verbatim. Drawn over a red
          circle the same size (see the MEGA badge in Views/SettingsWindow.axaml's Cloud tab). -->
+    <!-- Google Drive mark as its three coloured bands, 24x24 box. -->
+    <StreamGeometry x:Key="DriveGreen">M8.5,3 L1,16 L4.5,22 L12,9 Z</StreamGeometry>
+    <StreamGeometry x:Key="DriveYellow">M8.5,3 L15.5,3 L23,16 L16,16 Z</StreamGeometry>
+    <StreamGeometry x:Key="DriveBlue">M4.5,22 L19.5,22 L23,16 L8,16 Z</StreamGeometry>
     <StreamGeometry x:Key="MegaGlyph">M147.5 214.5 h85 l128 130 129-130 h82 v293 h-86 V337.75 L380.834 442.5 h-40.668 L235.5 337.75 V507.5 h-88 z</StreamGeometry>
 
     <!-- Settings tab icons, ported verbatim from VstManager.App/Themes/Styles.xaml (same source
@@ -31,12 +35,14 @@
          rather than a filled glyph. -->
     <StreamGeometry x:Key="IconInfo">M12,21.5 A9.5,9.5 0 1 1 12,2.5 A9.5,9.5 0 1 1 12,21.5 M12,11 L12,16.5 M12,7.5 L12,7.6</StreamGeometry>
 
+    <!--#if LICENSE_STATUS-->
     <!-- Legit/Cracked mode-segment icons (MainWindow.axaml's All/Legit/Cracked toolbar toggle),
          ported verbatim from WPF's Styles.xaml:20-21 — WPF itself renders that particular spot
          with the flat ✔/☠ Unicode characters via a Tag-bound TextBlock, but these proper vector
          geometries already existed there for other uses, and look better than the flat glyphs. -->
     <StreamGeometry x:Key="IconCheck">M4,12.5 L9.5,18 L20,6</StreamGeometry>
     <StreamGeometry x:Key="IconSkull">M12,2.5 C7,2.5 4.5,6 4.5,9.8 C4.5,12.1 5.7,14 7.5,15.1 L7.5,18.4 C7.5,19.5 8.4,20.4 9.5,20.4 L14.5,20.4 C15.6,20.4 16.5,19.5 16.5,18.4 L16.5,15.1 C18.3,14 19.5,12.1 19.5,9.8 C19.5,6 17,2.5 12,2.5 Z M9,10.4 L9.4,10.4 M14.6,10.4 L15,10.4 M10.7,16.6 L10.7,16.7 M13.3,16.6 L13.3,16.7</StreamGeometry>
+    <!--#endif-->
 
     <!-- Filter button icon (MainWindow.axaml's toolbar). Ported verbatim from WPF's Styles.xaml:29
          — a FILLED funnel silhouette, unlike the stroke-based icons above, so it renders with

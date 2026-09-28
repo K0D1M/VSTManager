@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -7,15 +7,24 @@
     <Platforms>AnyCPU;ARM64</Platforms>
   </PropertyGroup>
 
+  <!-- Avalonia NoStatus build (-p:NoLicenseStatus=true, passed down from VstManager.Ui): the
+       Legit/Cracked model and a separate %APPDATA% folder. WPF/WinUI never set it. -->
+  <PropertyGroup Condition="'$(NoLicenseStatus)' == 'true'">
+    <DefineConstants>$(DefineConstants);NO_LICENSE_STATUS</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <!-- MEGA S4 is S3-compatible, so the stock AWS SDK talks to it with a custom ServiceURL. -->
     <PackageReference Include="AWSSDK.S3" Version="3.7.413" />
+    <PackageReference Include="Google.Apis.Drive.v3" Version="1.76.0.4273" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="catalog.json" />
     <EmbeddedResource Include="excluded-files.json" />
+    <!-- Google OAuth desktop client; gitignored, embedded only when present locally. -->
+    <EmbeddedResource Include="google-client.json" Condition="Exists('google-client.json')" />
   </ItemGroup>
 
 </Project>

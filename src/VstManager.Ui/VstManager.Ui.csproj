@@ -15,6 +15,88 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
 
+  <!-- NoStatus variant (dotnet build -p:NoLicenseStatus=true): the Legit/Cracked feature is
+       compiled out entirely. C# uses #if !NO_LICENSE_STATUS. XAML has no conditional compilation,
+       so status regions sit between comment markers "#if LICENSE_STATUS", optional "#else" and
+       "#endif", and PreprocessConditionalXaml below cuts them before Avalonia compiles. It runs
+       for the normal build too, which keeps the #if side and drops any #else side. -->
+  <PropertyGroup>
+    <KeepLicenseStatus>true</KeepLicenseStatus>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(NoLicenseStatus)' == 'true'">
+    <DefineConstants>$(DefineConstants);NO_LICENSE_STATUS</DefineConstants>
+    <KeepLicenseStatus>false</KeepLicenseStatus>
+  </PropertyGroup>
+
+  <UsingTask TaskName="PreprocessConditionalXamlTask" TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Files ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <OutputDir ParameterType="System.String" Required="true" />
+      <LicenseStatus ParameterType="System.Boolean" Required="true" />
+      <Processed ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var region = new Regex(
+            @"^[ \t]*<!--#if LICENSE_STATUS-->[^\n]*\n(?<keep>.*?)(?:^[ \t]*<!--#else-->[^\n]*\n(?<alt>.*?))?^[ \t]*<!--#endif-->[^\n]*\n",
+            RegexOptions.Singleline | RegexOptions.Multiline);
+        var result = new List<ITaskItem>();
+        foreach (var file in Files)
+        {
+            var text = File.ReadAllText(file.GetMetadata("FullPath"));
+            if (!text.Contains("<!--#if LICENSE_STATUS-->"))
+            {
+                continue;
+            }
+
+            var crlf = text.Contains("\r\n");
+            var output = region.Replace(text.Replace("\r\n", "\n"),
+                m => LicenseStatus ? m.Groups["keep"].Value : m.Groups["alt"].Value);
+            if (output.Contains("<!--#if LICENSE_STATUS-->") || output.Contains("<!--#endif-->"))
+            {
+                Log.LogError("Unbalanced LICENSE_STATUS markers in " + file.ItemSpec);
+                return false;
+            }
+            if (crlf)
+            {
+                output = output.Replace("\n", "\r\n");
+            }
+
+            var relative = file.ItemSpec;
+            var target = Path.Combine(OutputDir, relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(target));
+            if (!File.Exists(target) || File.ReadAllText(target) != output)
+            {
+                File.WriteAllText(target, output, new System.Text.UTF8Encoding(true));
+            }
+
+            var item = new Microsoft.Build.Utilities.TaskItem(target);
+            file.CopyMetadataTo(item);
+            item.SetMetadata("Link", relative);
+            item.SetMetadata("OriginalItemSpec", file.ItemSpec);
+            result.Add(item);
+        }
+        Processed = result.ToArray();
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="PreprocessConditionalXaml" BeforeTargets="PrepareForBuild">
+    <PreprocessConditionalXamlTask Files="@(AvaloniaXaml)"
+                                   OutputDir="$([System.IO.Path]::Combine($(MSBuildProjectDirectory), $(IntermediateOutputPath), conditional-xaml))"
+                                   LicenseStatus="$(KeepLicenseStatus)">
+      <Output TaskParameter="Processed" ItemName="_ConditionalXaml" />
+    </PreprocessConditionalXamlTask>
+    <ItemGroup>
+      <AvaloniaXaml Remove="@(_ConditionalXaml->'%(OriginalItemSpec)')" />
+      <AvaloniaXaml Include="@(_ConditionalXaml)" />
+      <FileWrites Include="@(_ConditionalXaml)" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <ProjectReference Include="..\VstManager.Core\VstManager.Core.csproj" />
 

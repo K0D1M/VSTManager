@@ -26,7 +26,7 @@ public class PluginTagService
     public static string GetDefaultPath()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, "VstManager", "plugin-tags.json");
+        return Path.Combine(appData, AppDataLocation.FolderName, "plugin-tags.json");
     }
 
     public PluginTagAssignment? GetAssignment(string baseName) =>

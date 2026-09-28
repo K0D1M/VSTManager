@@ -25,8 +25,10 @@
             <Color x:Key="AccentColor">#FF8A5CF6</Color>
             <Color x:Key="AccentColorHover">#FF9D74F8</Color>
             <Color x:Key="TealAccentColor">#FF2DD4BF</Color>
+            <!--#if LICENSE_STATUS-->
             <Color x:Key="LegitColor">#FF34D399</Color>
-            <Color x:Key="CrackedColor">#FFF87171</Color>
+            <!--#endif-->
+            <Color x:Key="DangerColor">#FFF87171</Color>
             <Color x:Key="UnclassifiedColor">#FF64748B</Color>
             <Color x:Key="OutdatedColor">#FFF59E0B</Color>
 
@@ -53,8 +55,10 @@
             <Color x:Key="AccentColor">#FF6D28D9</Color>
             <Color x:Key="AccentColorHover">#FF7C3AED</Color>
             <Color x:Key="TealAccentColor">#FF0D9488</Color>
+            <!--#if LICENSE_STATUS-->
             <Color x:Key="LegitColor">#FF059669</Color>
-            <Color x:Key="CrackedColor">#FFDC2626</Color>
+            <!--#endif-->
+            <Color x:Key="DangerColor">#FFDC2626</Color>
             <Color x:Key="UnclassifiedColor">#FF64748B</Color>
             <Color x:Key="OutdatedColor">#FFD97706</Color>
 
@@ -80,8 +84,10 @@
     <SolidColorBrush x:Key="AccentBrush" Color="{DynamicResource AccentColor}" />
     <SolidColorBrush x:Key="AccentHoverBrush" Color="{DynamicResource AccentColorHover}" />
     <SolidColorBrush x:Key="TealAccentBrush" Color="{DynamicResource TealAccentColor}" />
+    <!--#if LICENSE_STATUS-->
     <SolidColorBrush x:Key="LegitBrush" Color="{DynamicResource LegitColor}" />
-    <SolidColorBrush x:Key="CrackedBrush" Color="{DynamicResource CrackedColor}" />
+    <!--#endif-->
+    <SolidColorBrush x:Key="DangerBrush" Color="{DynamicResource DangerColor}" />
     <SolidColorBrush x:Key="UnclassifiedBrush" Color="{DynamicResource UnclassifiedColor}" />
     <SolidColorBrush x:Key="OutdatedBrush" Color="{DynamicResource OutdatedColor}" />
     <SolidColorBrush x:Key="OverlayHoverBrush" Color="{DynamicResource OverlayHoverColor}" />

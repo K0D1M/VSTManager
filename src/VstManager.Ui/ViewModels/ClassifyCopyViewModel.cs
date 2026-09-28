@@ -44,14 +44,17 @@ public partial class ClassifyCopyViewModel : ObservableObject
     public ClassifyCopyViewModel(PluginInfo copy)
     {
         Copy = copy;
+#if !NO_LICENSE_STATUS
         _isLegit = copy.Tag == PluginTag.Legit;
         _isCracked = copy.Tag == PluginTag.Cracked;
+#endif
     }
 
     public string FormatLabel => Copy.Format == PluginFormat.Vst2 ? "VST2" : "VST3";
 
     public string Path => Copy.Path;
 
+#if !NO_LICENSE_STATUS
     [ObservableProperty]
     private bool _isLegit;
 
@@ -79,4 +82,5 @@ public partial class ClassifyCopyViewModel : ObservableObject
     public PluginTag SelectedTag => IsLegit ? PluginTag.Legit
         : IsCracked ? PluginTag.Cracked
         : PluginTag.Unclassified;
+#endif
 }

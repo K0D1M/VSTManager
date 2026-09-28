@@ -23,8 +23,13 @@
 
         <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,16">
             <TextBlock Classes="sectionHeader" Text="Give these plugins a category" />
+            <!--#if LICENSE_STATUS-->
             <TextBlock Classes="subtitle" TextWrapping="Wrap"
                        Text="A category is required for each plugin below. Plugins with more than one copy can also be marked Legit or Cracked per copy — anything left unmarked there stays unclassified." />
+            <!--#else-->
+            <TextBlock Classes="subtitle" TextWrapping="Wrap"
+                       Text="A category is required for each plugin below." />
+            <!--#endif-->
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
@@ -77,6 +82,7 @@
                                                            VerticalAlignment="Center"
                                                            TextTrimming="CharacterEllipsis"
                                                            ToolTip.Tip="{Binding Path}" />
+                                                <!--#if LICENSE_STATUS-->
                                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6"
                                                             Margin="10,0,0,0">
                                                     <ToggleButton Classes="filterToggle" Content="Legit"
@@ -84,6 +90,7 @@
                                                     <ToggleButton Classes="filterToggle" Content="Cracked"
                                                                   IsChecked="{Binding IsCracked}" />
                                                 </StackPanel>
+                                                <!--#endif-->
                                             </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>

@@ -72,10 +72,12 @@ public partial class ClassifyPluginsWindow : Window
             var category = _main.AvailableCategories.FirstOrDefault(c => c.Id == plugin.SelectedCategoryId);
             _main.SetCategory(plugin.Plugin, category);
 
+#if !NO_LICENSE_STATUS
             foreach (var copy in plugin.Copies)
             {
                 _main.SetCopyTag(plugin.Plugin, copy.Copy, copy.SelectedTag);
             }
+#endif
         }
 
         Close();

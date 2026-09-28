@@ -18,7 +18,7 @@ public class ManualMetadataOverrideService
     public static string GetDefaultPath()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, "VstManager", "manual-metadata.json");
+        return Path.Combine(appData, AppDataLocation.FolderName, "manual-metadata.json");
     }
 
     public ManualMetadataOverride? GetOverride(string baseName) =>

@@ -144,6 +144,7 @@ public partial class PluginDetailViewModel : ObservableObject
             }
         }
 
+#if !NO_LICENSE_STATUS
         if (Form.SelectedTag == PluginTag.Legit)
         {
             _main.MarkLegitCommand.Execute(Plugin);
@@ -152,6 +153,7 @@ public partial class PluginDetailViewModel : ObservableObject
         {
             _main.MarkCrackedCommand.Execute(Plugin);
         }
+#endif
 
         // Artwork last, and a local file wins: choosing one clears the URL, so both being set
         // means the file was picked most recently.
