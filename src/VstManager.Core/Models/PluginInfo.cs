@@ -5,7 +5,8 @@ public enum PluginFormat
     Vst2,
     Vst3,
     Aax,
-    Clap
+    Clap,
+    Au
 }
 
 public static class PluginFormatLabels
@@ -16,6 +17,7 @@ public static class PluginFormatLabels
         PluginFormat.Vst3 => "VST3",
         PluginFormat.Aax => "AAX",
         PluginFormat.Clap => "CLAP",
+        PluginFormat.Au => "AU",
         _ => format.ToString().ToUpperInvariant()
     };
 }

@@ -195,6 +195,7 @@ public partial class SettingsViewModel : ObservableObject
             .Concat(ScanPathProvider.DefaultVst2Paths)
             .Concat(ScanPathProvider.DefaultAaxPaths)
             .Concat(ScanPathProvider.DefaultClapPaths)
+            .Concat(ScanPathProvider.DefaultAuPaths)
             .ToList();
 
     public void AddScanFolder(string folder)

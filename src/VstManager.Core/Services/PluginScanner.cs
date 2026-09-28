@@ -18,8 +18,12 @@ public class PluginScanner
         IEnumerable<string> vst3Folders,
         IEnumerable<string> vst2Folders,
         IEnumerable<string>? aaxFolders = null,
-        IEnumerable<string>? clapFolders = null)
+        IEnumerable<string>? clapFolders = null,
+        IEnumerable<string>? auFolders = null)
     {
+        // On macOS every format ships as a bundle folder, and VST2 is ".vst" rather than ".dll".
+        var mac = OperatingSystem.IsMacOS();
+
         var results = new List<PluginInfo>();
 
         foreach (var folder in vst3Folders.Distinct(StringComparer.OrdinalIgnoreCase))
@@ -29,7 +33,7 @@ public class PluginScanner
 
         foreach (var folder in vst2Folders.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            results.AddRange(ScanFolder(folder, "*.dll", PluginFormat.Vst2));
+            results.AddRange(ScanFolder(folder, mac ? "*.vst" : "*.dll", PluginFormat.Vst2));
         }
 
         // AAX ships as a ".aaxplugin" bundle folder with a same-named binary inside, exactly
@@ -45,6 +49,11 @@ public class PluginScanner
             results.AddRange(ScanFolder(folder, "*.clap", PluginFormat.Clap));
         }
 
+        foreach (var folder in (auFolders ?? []).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            results.AddRange(ScanFolder(folder, "*.component", PluginFormat.Au));
+        }
+
         return results;
     }
 
@@ -58,7 +67,9 @@ public class PluginScanner
         IEnumerable<string> entries;
         try
         {
-            entries = Directory.EnumerateFileSystemEntries(folder, searchPattern, SearchOption.AllDirectories);
+            entries = OperatingSystem.IsMacOS()
+                ? OutermostBundles(folder, searchPattern)
+                : Directory.EnumerateFileSystemEntries(folder, searchPattern, SearchOption.AllDirectories);
         }
         catch (UnauthorizedAccessException)
         {
@@ -69,7 +80,7 @@ public class PluginScanner
             yield break;
         }
 
-        foreach (var path in DeduplicateBundles(entries))
+        foreach (var path in OperatingSystem.IsMacOS() ? entries : DeduplicateBundles(entries))
         {
             if (_exclusionList.IsExcluded(path))
             {
@@ -92,6 +103,31 @@ public class PluginScanner
                 CurrentVersion = _versionDetector.DetectFromFile(path)
             };
         }
+    }
+
+    /// <summary>
+    /// macOS: the bundle folder itself is the plugin, and anything nested inside one (a
+    /// shell's inner components, helper bundles) is not a separate plugin. The extension is
+    /// re-checked because a "*.vst" pattern must not pick up ".vst3". UNVERIFIED on a real Mac.
+    /// </summary>
+    private static List<string> OutermostBundles(string folder, string searchPattern)
+    {
+        var extension = searchPattern.TrimStart('*');
+        var bundles = Directory.EnumerateDirectories(folder, searchPattern, SearchOption.AllDirectories)
+            .Where(d => string.Equals(Path.GetExtension(d), extension, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(d => d.Length)
+            .ToList();
+
+        var kept = new List<string>();
+        foreach (var bundle in bundles)
+        {
+            if (!kept.Any(outer => bundle.StartsWith(outer + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
+            {
+                kept.Add(bundle);
+            }
+        }
+
+        return kept;
     }
 
     private static IEnumerable<string> DeduplicateBundles(IEnumerable<string> entries)

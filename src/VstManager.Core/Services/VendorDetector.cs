@@ -67,7 +67,7 @@ public class VendorDetector
     {
         "vst3", "vst2", "vst", "vstplugins", "steinberg", "common files",
         "program files", "program files (x86)", "plugins", "contents", "resources", "x86_64-win",
-        "avid", "audio", "plug-ins", "clap", "x64"
+        "avid", "audio", "plug-ins", "clap", "x64", "components", "library", "application support"
     };
 
     /// <summary>
@@ -81,6 +81,7 @@ public class VendorDetector
     public string? Detect(string path, string pluginName)
     {
         return DetectFromModuleInfo(path)
+               ?? DetectFromAudioComponent(path)
                ?? DetectFromVersionResource(path)
                ?? DetectFromVendorManifest(path)
                ?? DetectFromFolder(path, pluginName);
@@ -235,6 +236,22 @@ public class VendorDetector
     /// product-named instead — so it's accepted only when it can't be one of those, and only
     /// after every authored source above has declined.
     /// </summary>
+    /// <summary>
+    /// macOS Audio Units name each component "Vendor: Product" in their Info.plist, written by
+    /// the plugin's author. UNVERIFIED on a real Mac.
+    /// </summary>
+    private static string? DetectFromAudioComponent(string path)
+    {
+        if (!OperatingSystem.IsMacOS() || PluginVersionDetector.FindBundleRoot(path) is not { } bundleRoot)
+        {
+            return null;
+        }
+
+        var name = BundleInfoPlist.Read(bundleRoot)?.AudioComponentName;
+        var colon = name?.IndexOf(':') ?? -1;
+        return colon > 0 ? Sanitize(name![..colon]) : null;
+    }
+
     private static string? DetectFromFolder(string path, string pluginName)
     {
         // For a bundle, step up past Contents/<arch> to the .vst3 folder before taking a parent.

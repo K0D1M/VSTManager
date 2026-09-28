@@ -127,7 +127,7 @@ public class LibraryStore
     {
         try
         {
-            return File.Exists(path) ? File.GetLastWriteTimeUtc(path) : null;
+            return File.Exists(path) || Directory.Exists(path) ? File.GetLastWriteTimeUtc(path) : null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

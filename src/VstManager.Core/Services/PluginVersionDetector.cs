@@ -16,7 +16,21 @@ public class PluginVersionDetector
     {
         return DetectFromVersionResource(path)
                ?? DetectFromVst3ModuleInfo(path)
-               ?? DetectFromVendorManifest(path);
+               ?? DetectFromVendorManifest(path)
+               ?? DetectFromInfoPlist(path);
+    }
+
+    /// <summary>macOS bundles carry their version in Contents/Info.plist. UNVERIFIED on a real Mac.</summary>
+    private static string? DetectFromInfoPlist(string path)
+    {
+        if (!OperatingSystem.IsMacOS() || FindBundleRoot(path) is not { } bundleRoot)
+        {
+            return null;
+        }
+
+        var info = BundleInfoPlist.Read(bundleRoot);
+        var version = !string.IsNullOrWhiteSpace(info?.ShortVersion) ? info.ShortVersion : info?.BundleVersion;
+        return string.IsNullOrWhiteSpace(version) ? null : version.Trim();
     }
 
     private static string? DetectFromVersionResource(string path)
@@ -195,6 +209,8 @@ public class PluginVersionDetector
     /// The scanned path may be either the bundle folder or the nested binary
     /// (e.g. "X.vst3\Contents\x86_64-win\X.vst3"), so this handles both.
     /// </summary>
+    private static readonly string[] BundleExtensions = [".vst3", ".aaxplugin", ".component", ".vst", ".clap"];
+
     public static string? FindBundleRoot(string path)
     {
         var current = Directory.Exists(path) ? path : Path.GetDirectoryName(path);
@@ -203,8 +219,7 @@ public class PluginVersionDetector
         // few levels up. Stops the walk from wandering into unrelated parent folders.
         for (var depth = 0; depth < 4 && !string.IsNullOrEmpty(current); depth++)
         {
-            if ((current.EndsWith(".vst3", StringComparison.OrdinalIgnoreCase)
-                 || current.EndsWith(".aaxplugin", StringComparison.OrdinalIgnoreCase))
+            if (BundleExtensions.Any(e => current.EndsWith(e, StringComparison.OrdinalIgnoreCase))
                 && Directory.Exists(current))
             {
                 return current;

@@ -521,16 +521,19 @@
                             <TextBlock Text="Format" Classes="meta" />
                             <Border Classes="segmentGroup">
                                 <StackPanel Orientation="Horizontal" Spacing="2">
-                                    <RadioButton Classes="segment" GroupName="filterFormat" Padding="8,6" Content="All"
+                                    <RadioButton Classes="segment" GroupName="filterFormat" Padding="{OnPlatform '8,6', macOS='5,6'}" Content="All"
                                                  IsChecked="{Binding IsFormatAll}" />
-                                    <RadioButton Classes="segment" GroupName="filterFormat" Padding="8,6" Content="VST2"
+                                    <RadioButton Classes="segment" GroupName="filterFormat" Padding="{OnPlatform '8,6', macOS='5,6'}" Content="VST2"
                                                  IsChecked="{Binding IsFormatVst2}" />
-                                    <RadioButton Classes="segment" GroupName="filterFormat" Padding="8,6" Content="VST3"
+                                    <RadioButton Classes="segment" GroupName="filterFormat" Padding="{OnPlatform '8,6', macOS='5,6'}" Content="VST3"
                                                  IsChecked="{Binding IsFormatVst3}" />
-                                    <RadioButton Classes="segment" GroupName="filterFormat" Padding="8,6" Content="AAX"
+                                    <RadioButton Classes="segment" GroupName="filterFormat" Padding="{OnPlatform '8,6', macOS='5,6'}" Content="AAX"
                                                  IsChecked="{Binding IsFormatAax}" />
-                                    <RadioButton Classes="segment" GroupName="filterFormat" Padding="8,6" Content="CLAP"
+                                    <RadioButton Classes="segment" GroupName="filterFormat" Padding="{OnPlatform '8,6', macOS='5,6'}" Content="CLAP"
                                                  IsChecked="{Binding IsFormatClap}" />
+                                    <RadioButton Classes="segment" GroupName="filterFormat" Padding="5,6" Content="AU"
+                                                 IsVisible="{x:Static vm:MainViewModel.ShowAuFormat}"
+                                                 IsChecked="{Binding IsFormatAu}" />
                                 </StackPanel>
                             </Border>
                         </StackPanel>

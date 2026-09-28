@@ -70,7 +70,8 @@ public enum FormatFilterOption
     Vst2,
     Vst3,
     Aax,
-    Clap
+    Clap,
+    Au
 }
 
 /// <summary>
@@ -452,6 +453,15 @@ public partial class MainViewModel : ObservableObject
         set { if (value) { FormatFilter = FormatFilterOption.Clap; } }
     }
 
+    public bool IsFormatAu
+    {
+        get => FormatFilter == FormatFilterOption.Au;
+        set { if (value) { FormatFilter = FormatFilterOption.Au; } }
+    }
+
+    /// <summary>Audio Units only exist on macOS, so the AU filter option only appears there.</summary>
+    public static bool ShowAuFormat => OperatingSystem.IsMacOS();
+
     public bool HasSelection => SelectedCount > 0;
 
     /// <summary>
@@ -502,6 +512,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsFormatVst3));
         OnPropertyChanged(nameof(IsFormatAax));
         OnPropertyChanged(nameof(IsFormatClap));
+        OnPropertyChanged(nameof(IsFormatAu));
         OnPropertyChanged(nameof(IsAnyFilterActive));
         ApplyFilters();
     }
@@ -643,7 +654,8 @@ public partial class MainViewModel : ObservableObject
                 var vst2 = _scanPathProvider.GetVst2Paths(_library.CustomScanFolders);
                 var aax = _scanPathProvider.GetAaxPaths(_library.CustomScanFolders);
                 var clap = _scanPathProvider.GetClapPaths(_library.CustomScanFolders);
-                var scanned = _scanner.Scan(vst3, vst2, aax, clap);
+                var au = _scanPathProvider.GetAuPaths(_library.CustomScanFolders);
+                var scanned = _scanner.Scan(vst3, vst2, aax, clap, au);
 
                 var merged = _libraryStore.MergeOnRescan(_library.Plugins, scanned);
                 _library.Plugins = merged;
@@ -2716,6 +2728,7 @@ public partial class MainViewModel : ObservableObject
                 FormatFilterOption.Vst3 => !p.IsInstalled || p.ActiveInstalls.Any(i => i.Format == PluginFormat.Vst3),
                 FormatFilterOption.Aax => !p.IsInstalled || p.ActiveInstalls.Any(i => i.Format == PluginFormat.Aax),
                 FormatFilterOption.Clap => !p.IsInstalled || p.ActiveInstalls.Any(i => i.Format == PluginFormat.Clap),
+                FormatFilterOption.Au => !p.IsInstalled || p.ActiveInstalls.Any(i => i.Format == PluginFormat.Au),
                 _ => true
             })
             // Multiple selected tags narrow rather than widen (a plugin must carry all of them),
