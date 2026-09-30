@@ -218,24 +218,9 @@ public partial class SettingsWindow : Window
 
     // ---- about ----------------------------------------------------------------
 
-    /// <summary>
-    /// Confirms before installing, exactly as WPF's own CheckForUpdates does with its MessageBox
-    /// — wording branches the same way, depending on whether a matching installer asset was found
-    /// on the release (UpdateAssetDownloadUrl not null) or this will just open the browser instead.
-    /// </summary>
-    private async void UpdateNow_Click(object? sender, RoutedEventArgs e)
-    {
-        var hasInstaller = _vm.UpdateButtonText == "Update Now";
-
-        var message = hasInstaller
-            ? "A new version is ready to install. VST Manager will close and the installer will open. Continue?"
-            : "A new version is available. Open the release page?";
-
-        if (await ConfirmDialog.ShowAsync(this, "Update Available", message, "Continue"))
-        {
-            await _vm.InstallOrOpenReleaseAsync();
-        }
-    }
+    /// <summary>No Skip here: choosing Settings → Update means the user wants it now.</summary>
+    private async void UpdateNow_Click(object? sender, RoutedEventArgs e) =>
+        await UpdateAvailableWindow.ShowAsync(this, _vm.Main, offerSkip: false);
 
     private void AuthorLink_Click(object? sender, PointerPressedEventArgs e) => OpenUrl("https://github.com/K0D1M");
 

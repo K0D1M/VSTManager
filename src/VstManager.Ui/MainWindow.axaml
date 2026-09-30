@@ -390,7 +390,14 @@
                     <TextBlock Text="⚙" FontSize="15" />
                 </Button>
                 <Button Classes="accent" Command="{Binding RescanCommand}"
-                        IsEnabled="{Binding !IsScanning}" Content="Rescan" />
+                        IsEnabled="{Binding !IsScanning}">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <Path Data="{StaticResource IconSearch}" Width="13" Height="13" Stretch="Uniform"
+                              Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="2.2"
+                              StrokeLineCap="Round" VerticalAlignment="Center" />
+                        <TextBlock Text="Rescan" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
 
                 <!-- Always exits, even with "Minimize to tray" on — Close() alone would just hide
                      the window in that case (see OnMainWindowClosing). -->

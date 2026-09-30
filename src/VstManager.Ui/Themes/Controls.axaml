@@ -345,6 +345,13 @@
         <Setter Property="HorizontalContentAlignment" Value="Left" />
     </Style>
 
+    <!-- Fluent has its own "accent" button class that paints the template with the OS accent
+         colour, overriding the Background above; set it at template level so the app accent wins. -->
+    <Style Selector="Button.accent /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
+    </Style>
+
     <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}" />
     </Style>

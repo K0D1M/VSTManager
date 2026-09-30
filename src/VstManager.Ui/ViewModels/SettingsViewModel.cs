@@ -116,7 +116,6 @@ public partial class SettingsViewModel : ObservableObject
     /// user first via ConfirmDialog, which needs this window as an owner — something a bound
     /// Command can't do cleanly, same reasoning as this project's other "confirm then act" actions.
     /// </summary>
-    public Task InstallOrOpenReleaseAsync() => _main.InstallOrOpenReleaseAsync();
 
     // ---- appearance ---------------------------------------------------------
 

@@ -42,6 +42,7 @@
                  surface colour, so it needs its own token rather than TextPrimaryColor: white
                  reads on that red in dark mode, matching WPF's IsDarkTheme trigger. -->
             <Color x:Key="MegaGlyphFillColor">#FFFFFFFF</Color>
+            <Color x:Key="OnAccentGlyphColor">#FF1B1206</Color>
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Light">
@@ -67,6 +68,7 @@
             <Color x:Key="ShadowColor">#22000000</Color>
 
             <Color x:Key="MegaGlyphFillColor">#FF000000</Color>
+            <Color x:Key="OnAccentGlyphColor">#FFFFFFFF</Color>
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>
@@ -93,6 +95,7 @@
     <SolidColorBrush x:Key="OverlayHoverBrush" Color="{DynamicResource OverlayHoverColor}" />
     <SolidColorBrush x:Key="OverlayPressedBrush" Color="{DynamicResource OverlayPressedColor}" />
     <SolidColorBrush x:Key="MegaGlyphFillBrush" Color="{DynamicResource MegaGlyphFillColor}" />
+    <SolidColorBrush x:Key="OnAccentGlyphBrush" Color="{DynamicResource OnAccentGlyphColor}" />
 
     <LinearGradientBrush x:Key="WindowBackgroundGradient" StartPoint="0%,0%" EndPoint="100%,100%">
         <GradientStop Color="{DynamicResource WindowBackgroundColor}" Offset="0" />

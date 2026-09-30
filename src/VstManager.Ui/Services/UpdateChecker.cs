@@ -6,7 +6,14 @@ using System.Text.Json.Serialization;
 
 namespace VstManager.Ui.Services;
 
-public record UpdateCheckResult(bool UpdateAvailable, string? LatestVersion, string? ReleaseUrl, string? AssetDownloadUrl, string? Error);
+public record UpdateCheckResult(
+    bool UpdateAvailable,
+    string? LatestVersion,
+    string? ReleaseUrl,
+    string? AssetDownloadUrl,
+    string? Error,
+    string? ReleaseNotes = null,
+    long? AssetSize = null);
 
 /// <summary>
 /// Ported from VstManager.App/Services/UpdateChecker.cs — same GitHub API call, same version
@@ -60,11 +67,11 @@ public class UpdateChecker
             var latestVersion = release.TagName.TrimStart('v', 'V');
             var isNewer = IsNewerVersion(latestVersion, CurrentVersion);
 
-            var assetUrl = release.Assets?
-                .FirstOrDefault(a => string.Equals(a.Name, InstallerAssetName, StringComparison.OrdinalIgnoreCase))
-                ?.BrowserDownloadUrl;
+            var asset = release.Assets?
+                .FirstOrDefault(a => string.Equals(a.Name, InstallerAssetName, StringComparison.OrdinalIgnoreCase));
 
-            return new UpdateCheckResult(isNewer, latestVersion, release.HtmlUrl, assetUrl, null);
+            return new UpdateCheckResult(isNewer, latestVersion, release.HtmlUrl, asset?.BrowserDownloadUrl, null,
+                release.Body, asset?.Size > 0 ? asset.Size : null);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
@@ -76,21 +83,38 @@ public class UpdateChecker
     /// Downloads the release installer to a local path. Returns false (never throws) on any
     /// network/IO failure, so the caller can fall back to a manual "open release page" flow.
     /// </summary>
-    public async Task<bool> DownloadInstallerAsync(string downloadUrl, string destinationPath, CancellationToken cancellationToken = default)
+    public async Task<bool> DownloadInstallerAsync(
+        string downloadUrl,
+        string destinationPath,
+        IProgress<(long Read, long? Total)>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             using var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             response.EnsureSuccessStatusCode();
+            var total = response.Content.Headers.ContentLength;
 
-            await using var httpStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            await using var fileStream = File.Create(destinationPath);
-            await httpStream.CopyToAsync(fileStream, cancellationToken);
+            await using (var httpStream = await response.Content.ReadAsStreamAsync(cancellationToken))
+            await using (var fileStream = File.Create(destinationPath))
+            {
+                var buffer = new byte[81920];
+                long read = 0;
+                int n;
+                while ((n = await httpStream.ReadAsync(buffer, cancellationToken)) > 0)
+                {
+                    await fileStream.WriteAsync(buffer.AsMemory(0, n), cancellationToken);
+                    read += n;
+                    progress?.Report((read, total));
+                }
+            }
 
             return true;
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or IOException)
         {
+            // A half-written installer must never be launched later by mistake.
+            try { File.Delete(destinationPath); } catch (IOException) { }
             return false;
         }
     }
@@ -113,6 +137,9 @@ public class UpdateChecker
         [JsonPropertyName("html_url")]
         public string? HtmlUrl { get; set; }
 
+        [JsonPropertyName("body")]
+        public string? Body { get; set; }
+
         [JsonPropertyName("assets")]
         public List<GitHubAsset>? Assets { get; set; }
     }
@@ -124,5 +151,8 @@ public class UpdateChecker
 
         [JsonPropertyName("browser_download_url")]
         public string? BrowserDownloadUrl { get; set; }
+
+        [JsonPropertyName("size")]
+        public long Size { get; set; }
     }
 }

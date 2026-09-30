@@ -1823,6 +1823,71 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isInstallingUpdate;
 
+    [ObservableProperty]
+    private string? _latestAppVersion;
+
+    [ObservableProperty]
+    private string? _appReleaseNotes;
+
+    [ObservableProperty]
+    private long? _appInstallerSize;
+
+    public bool HasAppInstaller => UpdateAssetDownloadUrl is not null;
+
+    /// <summary>The launch prompt only: Settings still offers a version the user skipped.</summary>
+    public bool ShouldOfferAppUpdateAtLaunch =>
+        IsUpdateAvailable && !string.Equals(LatestAppVersion, _library.SkippedAppVersion, StringComparison.OrdinalIgnoreCase);
+
+    public void SkipAppVersion()
+    {
+        _library.SkippedAppVersion = LatestAppVersion;
+        SaveLibrary();
+    }
+
+    public void OpenReleasePage()
+    {
+        if (LatestReleaseUrl is not null)
+        {
+            Process.Start(new ProcessStartInfo(LatestReleaseUrl) { UseShellExecute = true });
+        }
+    }
+
+    /// <summary>Downloads the installer; the path on success, null on failure or cancel.</summary>
+    public async Task<string?> DownloadAppInstallerAsync(IProgress<(long Read, long? Total)> progress, CancellationToken cancellationToken)
+    {
+        if (UpdateAssetDownloadUrl is null)
+        {
+            return null;
+        }
+
+        IsInstallingUpdate = true;
+        try
+        {
+            var destinationPath = Path.Combine(Path.GetTempPath(), UpdateChecker.InstallerAssetName);
+            return await _updateChecker.DownloadInstallerAsync(UpdateAssetDownloadUrl, destinationPath, progress, cancellationToken)
+                ? destinationPath
+                : null;
+        }
+        finally
+        {
+            IsInstallingUpdate = false;
+        }
+    }
+
+    /// <summary>
+    /// Runs the installer and exits, as WPF does. On macOS this opens the .dmg in Finder; the user
+    /// finishes the install by hand there.
+    /// </summary>
+    public void LaunchInstallerAndExit(string installerPath)
+    {
+        Process.Start(new ProcessStartInfo(installerPath) { UseShellExecute = true });
+
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.Shutdown();
+        }
+    }
+
     /// <summary>
     /// Runs the check only — does not confirm or install. SettingsWindow.axaml.cs's click handler
     /// (and the startup call in MainWindow.axaml.cs's OnLoaded) decides what to do with the result,
@@ -1854,62 +1919,14 @@ public partial class MainViewModel : ObservableObject
             LatestReleaseUrl = result.ReleaseUrl;
             UpdateAssetDownloadUrl = result.AssetDownloadUrl;
             UpdateButtonText = UpdateAssetDownloadUrl is not null ? "Update Now" : "A new update is available";
+            LatestAppVersion = result.LatestVersion;
+            AppReleaseNotes = result.ReleaseNotes;
+            AppInstallerSize = result.AssetSize;
+            OnPropertyChanged(nameof(HasAppInstaller));
         }
         finally
         {
             IsCheckingForAppUpdate = false;
-        }
-    }
-
-    /// <summary>
-    /// If a matching installer asset was found, downloads and launches it, then exits the app —
-    /// otherwise just opens the release page in the browser. The caller (SettingsWindow.axaml.cs)
-    /// is expected to have already confirmed with the user before calling this, exactly as WPF
-    /// confirms before calling its own equivalent.
-    /// </summary>
-    public async Task InstallOrOpenReleaseAsync()
-    {
-        if (UpdateAssetDownloadUrl is not null)
-        {
-            await InstallUpdateAsync(UpdateAssetDownloadUrl);
-        }
-        else if (LatestReleaseUrl is not null)
-        {
-            Process.Start(new ProcessStartInfo(LatestReleaseUrl) { UseShellExecute = true });
-        }
-    }
-
-    /// <summary>
-    /// Returns "download failed" as a message the caller can show, or null on success — mirrors
-    /// WPF's own no-verification download-then-launch-then-exit sequence exactly (confirmed with
-    /// the user: parity, not a hardening pass). UseShellExecute on macOS opens/mounts the .dmg in
-    /// Finder rather than silently installing — there is no scriptable macOS equivalent of running
-    /// a Windows installer unattended, so the user still finishes the install by hand there.
-    /// </summary>
-    private async Task InstallUpdateAsync(string downloadUrl)
-    {
-        IsInstallingUpdate = true;
-        try
-        {
-            var destinationPath = Path.Combine(Path.GetTempPath(), UpdateChecker.InstallerAssetName);
-            var success = await _updateChecker.DownloadInstallerAsync(downloadUrl, destinationPath);
-
-            if (!success)
-            {
-                UpdateStatusText = "Couldn't download the update. Try again later, or use the button again to open the release page instead.";
-                return;
-            }
-
-            Process.Start(new ProcessStartInfo(destinationPath) { UseShellExecute = true });
-
-            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-            {
-                desktop.Shutdown();
-            }
-        }
-        finally
-        {
-            IsInstallingUpdate = false;
         }
     }
 

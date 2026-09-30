@@ -1,0 +1,102 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:li="using:VstManager.Ui.Views"
+        x:Class="VstManager.Ui.Views.UpdateAvailableWindow"
+        Title="Update available"
+        Width="560" Height="640" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackgroundGradient}">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="28,20,28,24">
+
+        <!-- Header: update mark, title, version jump -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="16">
+            <Border Width="56" Height="56" CornerRadius="14" Background="{DynamicResource AccentBrush}">
+                <Path Data="{StaticResource IconUpdate}" Stroke="{DynamicResource OnAccentGlyphBrush}" StrokeThickness="2.2"
+                      StrokeLineCap="Round" StrokeJoin="Round" Stretch="Uniform" Width="30" Height="30" />
+            </Border>
+            <StackPanel Spacing="6" VerticalAlignment="Center">
+                <TextBlock x:Name="TitleText" FontSize="20" FontWeight="Bold"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                <StackPanel x:Name="VersionRow" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                    <Border Padding="8,2" CornerRadius="6" Background="{DynamicResource SurfaceAltBrush}">
+                        <TextBlock x:Name="CurrentVersionText" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </Border>
+                    <TextBlock Text="→" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <Border Padding="8,2" CornerRadius="6" Background="{DynamicResource SurfaceAltBrush}">
+                        <TextBlock x:Name="NewVersionText" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+
+        <TextBlock Grid.Row="1" Text="WHAT'S NEW" Margin="0,22,0,8" FontSize="11" FontWeight="Bold"
+                   LetterSpacing="1" Foreground="{DynamicResource TextSecondaryBrush}" />
+
+        <!-- Release notes: fixed box, scrolls, dims while the update runs -->
+        <Border x:Name="NotesCard" Grid.Row="2" Classes="section" Padding="0" MaxHeight="260" VerticalAlignment="Top">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="NotesPanel" Spacing="6" Margin="18,16,18,16" />
+            </ScrollViewer>
+        </Border>
+
+        <!-- Footer: one of three states -->
+        <Panel Grid.Row="3" Margin="0,18,0,0">
+
+            <StackPanel x:Name="AvailablePanel" Spacing="12">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock x:Name="InstallerText" Classes="meta" />
+                    <TextBlock x:Name="CloseNoteText" Grid.Column="1" Classes="meta" Text="VST Manager will close to run it" />
+                </Grid>
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                    <Button Grid.Column="0" Classes="ghost" Padding="4,8" Click="ViewOnGitHub_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="View on GitHub" Foreground="{DynamicResource AccentBrush}" />
+                            <Path Data="{StaticResource IconExternal}" Stroke="{DynamicResource AccentBrush}"
+                                  StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"
+                                  Stretch="Uniform" Width="12" Height="12" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="SkipButton" Grid.Column="2" Classes="ghost" Content="Skip this version"
+                            Margin="0,0,6,0" Click="Skip_Click" />
+                    <Button Grid.Column="3" Classes="ghost" Content="Later" Margin="0,0,8,0" Click="Later_Click" />
+                    <Button x:Name="InstallButton" Grid.Column="4" Classes="accent" Padding="16,8" Click="Install_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Path x:Name="InstallIcon" Data="{StaticResource IconDownload}" Stroke="White" StrokeThickness="2"
+                                  StrokeLineCap="Round" StrokeJoin="Round" Stretch="Uniform" Width="14" Height="14" />
+                            <TextBlock x:Name="InstallButtonText" Text="Install now" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+                <TextBlock x:Name="ErrorText" Classes="meta" TextWrapping="Wrap" IsVisible="False"
+                           Foreground="{DynamicResource DangerBrush}" />
+            </StackPanel>
+
+            <Border x:Name="ProgressPanel" Classes="section" IsVisible="False">
+                <StackPanel Spacing="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="Downloading update…" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock x:Name="ProgressText" Grid.Column="1" Classes="meta" />
+                    </Grid>
+                    <ProgressBar x:Name="DownloadBar" Height="8" Minimum="0" Maximum="100"
+                                 Foreground="{DynamicResource AccentBrush}" />
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="meta" VerticalAlignment="Center" Text="You can keep working while it downloads." />
+                        <Button Grid.Column="1" Classes="ghost" Content="Cancel" Click="Cancel_Click" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="StartingPanel" Classes="section" IsVisible="False">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <li:LoadingSpinner IsActive="True" Width="24" Height="24" Foreground="{DynamicResource AccentBrush}" />
+                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                        <TextBlock Text="Closing VST Manager and starting the installer…" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Classes="meta" Text="Your library and settings are kept." />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Panel>
+    </Grid>
+</Window>

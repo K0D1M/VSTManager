@@ -219,7 +219,11 @@ public partial class MainWindow : Window
         // The app's own self-update check, distinct from StartUpdateChecks above (which is the
         // per-plugin "newer version on KVR" checker) — matching WPF, which runs this once on
         // every launch. Fire-and-forget: a failed check here is not worth delaying anything for.
-        _ = _vm.CheckForAppUpdateCommand.ExecuteAsync(null);
+        await _vm.CheckForAppUpdateCommand.ExecuteAsync(null);
+        if (_vm.ShouldOfferAppUpdateAtLaunch && IsVisible)
+        {
+            await UpdateAvailableWindow.ShowAsync(this, _vm, offerSkip: true);
+        }
     }
 
     // ---- selection ---------------------------------------------------------

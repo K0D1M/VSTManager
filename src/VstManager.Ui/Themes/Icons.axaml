@@ -67,5 +67,10 @@
          CloudGlyph for its "Cloud copy" side. A plain monitor/desktop silhouette, drawn fresh in
          the same stroke-based style as the other icons above. -->
     <StreamGeometry x:Key="IconComputer">M2.5,4.5 L21.5,4.5 L21.5,15.5 L2.5,15.5 Z M8,19.5 L16,19.5 M9.5,15.5 L9.5,17.5 M14.5,15.5 L14.5,17.5</StreamGeometry>
+    <StreamGeometry x:Key="IconSearch">M10.5,17 A6.5,6.5 0 1 1 10.5,4 A6.5,6.5 0 1 1 10.5,17 M15.2,15.2 L20,20</StreamGeometry>
+    <!-- Update mark: a refresh arrow around a download arrow. -->
+    <StreamGeometry x:Key="IconUpdate">M20,12 A8,8 0 1 1 17.66,6.34 M20,4 L20,8 L16,8 M12,8 L12,15 M9,12 L12,15 L15,12</StreamGeometry>
+    <StreamGeometry x:Key="IconDownload">M12,4 L12,15 M7,10 L12,15 L17,10 M5,20 L19,20</StreamGeometry>
+    <StreamGeometry x:Key="IconExternal">M14,4 L20,4 L20,10 M20,4 L11,13 M18,14 L18,19 L5,19 L5,6 L10,6</StreamGeometry>
 
 </ResourceDictionary>
