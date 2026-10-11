@@ -369,7 +369,10 @@
                         VerticalAlignment="Center">
                 <Button Classes="ghost" Command="{Binding ToggleThemeCommand}"
                         ToolTip.Tip="Switch between light and dark">
-                    <TextBlock Text="◐" FontSize="15" />
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="◐" FontSize="15" VerticalAlignment="Center" />
+                        <TextBlock Text="Theme" VerticalAlignment="Center" />
+                    </StackPanel>
                 </Button>
                 <!-- Cloud indicator. Only shown once sync is on, so a user who never enables it
                      never sees a permanently grey icon asking to be explained. A cloud silhouette
@@ -378,19 +381,26 @@
                 <Button Classes="ghost" Command="{Binding SyncCloudNowCommand}"
                         IsVisible="{Binding CloudSyncEnabled}"
                         ToolTip.Tip="{Binding CloudStatusMessage}">
-                    <Path Classes="cloudIcon" Width="20" Height="14" Stretch="Uniform"
-                          VerticalAlignment="Center"
-                          Classes.syncing="{Binding CloudState, Converter={StaticResource CloudStateIsSyncing}}"
-                          Fill="{Binding CloudState, Converter={StaticResource CloudStateBrush}}"
-                          Data="{StaticResource CloudGlyph}" />
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <Path Classes="cloudIcon" Width="20" Height="14" Stretch="Uniform"
+                              VerticalAlignment="Center"
+                              Classes.syncing="{Binding CloudState, Converter={StaticResource CloudStateIsSyncing}}"
+                              Fill="{Binding CloudState, Converter={StaticResource CloudStateBrush}}"
+                              Data="{StaticResource CloudGlyph}" />
+                        <TextBlock Text="Sync" VerticalAlignment="Center" />
+                    </StackPanel>
                 </Button>
 
                 <Button Classes="ghost" Command="{Binding OpenSettingsCommand}"
                         ToolTip.Tip="Settings">
-                    <TextBlock Text="⚙" FontSize="15" />
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="⚙" FontSize="15" VerticalAlignment="Center" />
+                        <TextBlock Text="Settings" VerticalAlignment="Center" />
+                    </StackPanel>
                 </Button>
                 <Button Classes="accent" Command="{Binding RescanCommand}"
-                        IsEnabled="{Binding !IsScanning}">
+                        IsEnabled="{Binding !IsScanning}"
+                        ToolTip.Tip="Rescan your plugin folders">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <Path Data="{StaticResource IconSearch}" Width="13" Height="13" Stretch="Uniform"
                               Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="2.2"
@@ -403,7 +413,10 @@
                      the window in that case (see OnMainWindowClosing). -->
                 <Button Classes="ghost" Click="Quit_Click"
                         ToolTip.Tip="Quit VST Manager">
-                    <TextBlock Text="⏻" FontSize="15" />
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="⏻" FontSize="15" VerticalAlignment="Center" />
+                        <TextBlock Text="Quit" VerticalAlignment="Center" />
+                    </StackPanel>
                 </Button>
             </StackPanel>
         </Grid>
@@ -419,9 +432,11 @@
             <Border Classes="segmentGroup">
                 <StackPanel Orientation="Horizontal" Spacing="2">
                     <RadioButton Classes="segment all" GroupName="mode" Content="All"
-                                 IsChecked="{Binding IsModeAll}" />
+                                 IsChecked="{Binding IsModeAll}"
+                                 ToolTip.Tip="Show all plugins" />
                     <RadioButton x:Name="LegitSegment" Classes="segment legit" GroupName="mode"
-                                 IsChecked="{Binding IsModeLegit}">
+                                 IsChecked="{Binding IsModeLegit}"
+                                 ToolTip.Tip="Show only legit plugins">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <Path Classes="segmentIcon" Data="{StaticResource IconCheck}"
                                   Stroke="{Binding #LegitSegment.Foreground}" />
@@ -429,7 +444,8 @@
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="CrackedSegment" Classes="segment cracked" GroupName="mode"
-                                 IsChecked="{Binding IsModeCracked}">
+                                 IsChecked="{Binding IsModeCracked}"
+                                 ToolTip.Tip="Show only cracked plugins">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <Path Classes="segmentIcon" Data="{StaticResource IconSkull}"
                                   Stroke="{Binding #CrackedSegment.Foreground}" />
@@ -445,10 +461,10 @@
                     <!-- Two-way IsChecked rather than a Command: RadioButton does not invoke
                          Command on a programmatic Select(), and a OneWay binding fights the
                          click. Binding the state directly makes both paths agree. -->
-                    <RadioButton Classes="segment plain" GroupName="layout" Content="▦"
+                    <RadioButton Classes="segment plain" GroupName="layout" Content="▦  Grid"
                                  IsChecked="{Binding IsGrid}"
                                  ToolTip.Tip="Grid view" />
-                    <RadioButton Classes="segment plain" GroupName="layout" Content="☰"
+                    <RadioButton Classes="segment plain" GroupName="layout" Content="☰  List"
                                  IsChecked="{Binding IsList}"
                                  ToolTip.Tip="List view" />
                 </StackPanel>
@@ -456,11 +472,11 @@
 
             <Border Classes="segmentGroup">
                 <StackPanel Orientation="Horizontal" Spacing="2">
-                    <RadioButton Classes="segment plain" GroupName="density" Content="S"
+                    <RadioButton Classes="segment plain" GroupName="density" Content="Compact"
                                  IsChecked="{Binding IsCompact}" ToolTip.Tip="Compact" />
-                    <RadioButton Classes="segment plain" GroupName="density" Content="M"
+                    <RadioButton Classes="segment plain" GroupName="density" Content="Default"
                                  IsChecked="{Binding IsDefaultDensity}" ToolTip.Tip="Default" />
-                    <RadioButton Classes="segment plain" GroupName="density" Content="L"
+                    <RadioButton Classes="segment plain" GroupName="density" Content="Large"
                                  IsChecked="{Binding IsLarge}" ToolTip.Tip="Large" />
                 </StackPanel>
             </Border>
@@ -600,18 +616,24 @@
 
             <Button Classes="ghost" Command="{Binding ReverseSortDirectionCommand}"
                     ToolTip.Tip="Reverse sort direction">
-                <TextBlock Text="⇅" FontSize="14" />
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="⇅" FontSize="14" VerticalAlignment="Center" />
+                        <TextBlock Text="Reverse" VerticalAlignment="Center" />
+                    </StackPanel>
             </Button>
 
             <ToggleButton Classes="filterToggle" Content="★ Favourites"
-                          IsChecked="{Binding FavoritesOnly}" />
+                          IsChecked="{Binding FavoritesOnly}"
+                          ToolTip.Tip="Show only your favourite plugins" />
             <ToggleButton Classes="filterToggle" Content="↻ Updates"
-                          IsChecked="{Binding OutdatedOnly}" />
+                          IsChecked="{Binding OutdatedOnly}"
+                          ToolTip.Tip="Show only plugins with a newer version available" />
             <!-- IconEyeOff (crossed) when hidden plugins are NOT shown, IconEye (open) when they
                  are — the icon reflects the toggle's actual current state, not just a static
                  label, since ShowHidden's own name reads ambiguously at a glance otherwise. -->
             <ToggleButton x:Name="HiddenToggle" Classes="filterToggle"
-                          IsChecked="{Binding ShowHidden}">
+                          IsChecked="{Binding ShowHidden}"
+                          ToolTip.Tip="Show plugins you have hidden">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <Path Classes="tabIcon" Width="13" Height="13"
                           Data="{Binding ShowHidden, Converter={StaticResource BoolToEyeIcon}}"

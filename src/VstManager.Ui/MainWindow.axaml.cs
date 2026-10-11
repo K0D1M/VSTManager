@@ -78,6 +78,8 @@ public partial class MainWindow : Window
         UiScale.Changed += ApplyZoom;
         Closed += (_, _) => UiScale.Changed -= ApplyZoom;
 
+        FitWidthToCards();
+
         // Tunnel, ahead of the ScrollViewer's own wheel handling, so a notch this handles never
         // also triggers the built-in (row-unaware) scroll underneath it.
         GridScroll.AddHandler(PointerWheelChangedEvent, OnLibraryWheel, RoutingStrategies.Tunnel);
@@ -142,6 +144,46 @@ public partial class MainWindow : Window
                 request.Completion.TrySetResult(ConflictResolution.Skip);
             }
         };
+    }
+
+    // ---- startup width ------------------------------------------------------------------
+    // The grid wraps fixed-width cards, so any other width leaves an empty strip at the right.
+    // These mirror the XAML: GridScroll's horizontal Padding (20 + 20), the WrapPanel's
+    // ItemSpacing, and the density styles' card widths.
+
+    private const double GridPagePadding = 40;
+    private const double CardGap = 14;
+    private const double ScreenFraction = 0.8;
+
+    private static double CardWidth(ViewDensity density) => density switch
+    {
+        ViewDensity.Compact => 196,
+        ViewDensity.Large => 320,
+        _ => 252
+    };
+
+    /// <summary>
+    /// Opens at a width that holds a whole number of cards per row: as many as fit in 80% of the
+    /// screen (3 to 6), so the right edge isn't left with a gap. Applies to the grid layout only;
+    /// the list has no natural width to fit.
+    /// </summary>
+    private void FitWidthToCards()
+    {
+        if (!_vm.IsGrid || Screens.Primary is not { } screen)
+        {
+            return;
+        }
+
+        var zoom = UiScale.Factor;
+        var card = CardWidth(_vm.Density);
+
+        // The content is laid out at window width / zoom, so work in content units.
+        var budget = screen.WorkingArea.Width / screen.Scaling * ScreenFraction / zoom;
+        var perRow = (int)Math.Floor((budget - GridPagePadding + CardGap) / (card + CardGap));
+        perRow = Math.Clamp(perRow, 3, 6);
+
+        var content = perRow * card + (perRow - 1) * CardGap + GridPagePadding;
+        Width = Math.Max(MinWidth, content * zoom);
     }
 
     /// <summary>
