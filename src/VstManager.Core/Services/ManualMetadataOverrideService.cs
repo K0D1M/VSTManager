@@ -46,7 +46,15 @@ public class ManualMetadataOverrideService
     /// Records a version correction. Passing null for a version clears that one correction,
     /// letting the detected value take over again.
     /// </summary>
-    public void SetVersionOverride(string baseName, string? currentVersion, string? latestVersion)
+    public void SetVersionOverride(string baseName, string? currentVersion, string? latestVersion) =>
+        SetVersionOverride(baseName, currentVersion, latestVersion, setCurrent: true, setLatest: true);
+
+    /// <summary>
+    /// Records only the versions flagged as set; the other keeps whatever override it had (usually
+    /// none). A pinned latest version permanently hides future updates, so editing the installed
+    /// version must not pin the latest one along with it.
+    /// </summary>
+    public void SetVersionOverride(string baseName, string? currentVersion, string? latestVersion, bool setCurrent, bool setLatest)
     {
         var key = NormalizeKey(baseName);
         _overrides.TryGetValue(key, out var existing);
@@ -55,8 +63,8 @@ public class ManualMetadataOverrideService
         {
             Name = existing?.Name,
             Vendor = existing?.Vendor,
-            CurrentVersion = Normalize(currentVersion),
-            LatestVersion = Normalize(latestVersion)
+            CurrentVersion = setCurrent ? Normalize(currentVersion) : existing?.CurrentVersion,
+            LatestVersion = setLatest ? Normalize(latestVersion) : existing?.LatestVersion
         });
     }
 

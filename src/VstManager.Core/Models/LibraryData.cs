@@ -13,6 +13,7 @@ public class LibraryData
     public string? SkippedAppVersion { get; set; }
     public string LayoutMode { get; set; } = "Grid";
     public string ViewDensity { get; set; } = "Default";
+    public bool SidebarCollapsed { get; set; }
     public string CloudProvider { get; set; } = "Mega";
     public bool HasSeenLogoInstructions { get; set; }
 

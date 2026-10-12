@@ -2703,7 +2703,8 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    public void SetVersions(PluginDisplayViewModel? vm, string? currentVersion, string? latestVersion)
+    public void SetVersions(PluginDisplayViewModel? vm, string? currentVersion, string? latestVersion,
+        bool setCurrent = true, bool setLatest = true)
     {
         if (vm is null || vm.Installs.Count == 0)
         {
@@ -2716,18 +2717,21 @@ public partial class MainViewModel : ObservableObject
         // Persisted as an override, not just into the library: a metadata refresh recomputes
         // LatestVersion from the KVR match, so without this record the correction would be
         // silently overwritten the next time the user refreshed.
-        _manualMetadataOverrides.SetVersionOverride(vm.BaseName, normalizedCurrent, normalizedLatest);
+        _manualMetadataOverrides.SetVersionOverride(vm.BaseName, normalizedCurrent, normalizedLatest, setCurrent, setLatest);
 
         foreach (var copy in vm.Installs)
         {
-            copy.CurrentVersion = normalizedCurrent;
-            copy.LatestVersion = normalizedLatest;
-
             var stored = _library.Plugins.FirstOrDefault(p => string.Equals(p.Path, copy.Path, StringComparison.OrdinalIgnoreCase));
-            if (stored is not null)
+            if (setCurrent)
             {
-                stored.CurrentVersion = normalizedCurrent;
-                stored.LatestVersion = normalizedLatest;
+                copy.CurrentVersion = normalizedCurrent;
+                if (stored is not null) { stored.CurrentVersion = normalizedCurrent; }
+            }
+
+            if (setLatest)
+            {
+                copy.LatestVersion = normalizedLatest;
+                if (stored is not null) { stored.LatestVersion = normalizedLatest; }
             }
         }
 

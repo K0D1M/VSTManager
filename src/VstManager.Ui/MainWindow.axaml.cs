@@ -79,6 +79,7 @@ public partial class MainWindow : Window
         Closed += (_, _) => UiScale.Changed -= ApplyZoom;
 
         FitWidthToCards();
+        SizeChanged += (_, _) => UpdateSidebarForWidth();
 
         // Tunnel, ahead of the ScrollViewer's own wheel handling, so a notch this handles never
         // also triggers the built-in (row-unaware) scroll underneath it.
@@ -178,13 +179,21 @@ public partial class MainWindow : Window
         var card = CardWidth(_vm.Density);
 
         // The content is laid out at window width / zoom, so work in content units.
+        // The sidebar sits beside the grid inside the zoomed content, so it is part of the width.
+        var sidebar = _vm.SidebarWidth;
         var budget = screen.WorkingArea.Width / screen.Scaling * ScreenFraction / zoom;
-        var perRow = (int)Math.Floor((budget - GridPagePadding + CardGap) / (card + CardGap));
+        var perRow = (int)Math.Floor((budget - sidebar - GridPagePadding + CardGap) / (card + CardGap));
         perRow = Math.Clamp(perRow, 3, 6);
 
-        var content = perRow * card + (perRow - 1) * CardGap + GridPagePadding;
+        var content = perRow * card + (perRow - 1) * CardGap + GridPagePadding + sidebar;
         Width = Math.Max(MinWidth, content * zoom);
     }
+
+    /// <summary>Below this content width the sidebar drops to its icon rail so the grid keeps room.</summary>
+    private const double NarrowWindowWidth = 1000;
+
+    private void UpdateSidebarForWidth() =>
+        _vm.IsWindowNarrow = ClientSize.Width / UiScale.Factor < NarrowWindowWidth;
 
     /// <summary>
     /// With "Minimize to tray" on, closing hides the window instead of exiting — the app keeps
@@ -776,6 +785,7 @@ public partial class MainWindow : Window
     private void ApplyZoom()
     {
         ZoomHost.LayoutTransform = new ScaleTransform(UiScale.Factor, UiScale.Factor);
+        UpdateSidebarForWidth();
         _vm.SaveUiScale(UiScale.Factor);
 
         // Nothing to re-measure here: RowHeight below reads live Bounds off the realized

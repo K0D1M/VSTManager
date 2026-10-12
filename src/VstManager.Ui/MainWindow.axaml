@@ -107,7 +107,7 @@
             <Separator />
 
             <MenuItem Classes="pluginMenuItem" Header="Re-detect Version"
-                      ToolTip.Tip="Re-reads the installed version from the plugin file"
+                      ToolTip.Tip="Re-reads the installed version from the plugin file (replacing any hand-set one) and looks up the latest release"
                       Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RefreshMetadataCommand}"
                       CommandParameter="{Binding}" IsEnabled="{Binding IsInstalled}">
                 <MenuItem.Icon>
@@ -355,49 +355,170 @@
     <Panel>
         <LayoutTransformControl x:Name="ZoomHost">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
+    <Grid ColumnDefinitions="Auto,*">
+
+        <!-- Sidebar: navigation (views, folders) plus Settings. Collapses to an icon rail, by
+             choice (remembered) or automatically when the window is narrow. -->
+        <Border Grid.Column="0" Width="{Binding SidebarWidth}"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="0,0,1,0"
+                Padding="12,18,12,14">
+            <DockPanel LastChildFill="True">
+
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10" Height="40" Margin="6,0,0,14">
+                    <Image Source="avares://VstManager.Ui/Assets/app-mark.png" Width="32" Height="32"
+                           VerticalAlignment="Center" />
+                    <TextBlock Text="VST Manager" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}" IsVisible="{Binding !IsSidebarCompact}" />
+                </StackPanel>
+
+                <StackPanel DockPanel.Dock="Bottom" Spacing="2" Margin="0,10,0,0">
+                    <Button Classes="sideAction" Command="{Binding OpenSettingsCommand}" ToolTip.Tip="Settings">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Path Classes="sideIcon" Data="{StaticResource IconGear}" />
+                            <TextBlock Text="Settings" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCompact}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="sideAction" Command="{Binding ToggleSidebarCommand}"
+                            ToolTip.Tip="{Binding SidebarToggleLabel}">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Panel Width="18" Height="18">
+                                <Path Classes="sideIcon" Data="{StaticResource IconSidebarCollapse}"
+                                      IsVisible="{Binding !IsSidebarCollapsed}" />
+                                <Path Classes="sideIcon" Data="{StaticResource IconSidebarExpand}"
+                                      IsVisible="{Binding IsSidebarCollapsed}" />
+                            </Panel>
+                            <TextBlock Text="Collapse" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCompact}" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="2">
+                            <RadioButton Classes="sideItem" GroupName="sideView" IsChecked="{Binding IsViewAll}" ToolTip.Tip="All installed plugins">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <Path Classes="sideIcon" Data="{StaticResource IconViewAll}" />
+                                    <TextBlock Grid.Column="1" Text="All plugins" Margin="12,0,0,0" VerticalAlignment="Center"
+                                               IsVisible="{Binding !IsSidebarCompact}" />
+                                    <Border Grid.Column="2" Classes="sideCount" IsVisible="{Binding !IsSidebarCompact}">
+                                        <TextBlock Text="{Binding ViewCountAll}" />
+                                    </Border>
+                                </Grid>
+                            </RadioButton>
+                            <RadioButton Classes="sideItem" GroupName="sideView" IsChecked="{Binding IsViewFavourites}" ToolTip.Tip="Your favourite plugins">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <Path Classes="sideIcon" Data="{StaticResource IconStar}" />
+                                    <TextBlock Grid.Column="1" Text="Favourites" Margin="12,0,0,0" VerticalAlignment="Center"
+                                               IsVisible="{Binding !IsSidebarCompact}" />
+                                    <Border Grid.Column="2" Classes="sideCount" IsVisible="{Binding !IsSidebarCompact}">
+                                        <TextBlock Text="{Binding ViewCountFavourites}" />
+                                    </Border>
+                                </Grid>
+                            </RadioButton>
+                            <RadioButton Classes="sideItem" GroupName="sideView" IsChecked="{Binding IsViewUpdates}" ToolTip.Tip="Plugins with a newer version available">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <Path Classes="sideIcon" Data="{StaticResource IconRefresh}" />
+                                    <TextBlock Grid.Column="1" Text="Updates available" Margin="12,0,0,0" VerticalAlignment="Center"
+                                               IsVisible="{Binding !IsSidebarCompact}" />
+                                    <Border Grid.Column="2" Classes="sideCount" IsVisible="{Binding !IsSidebarCompact}">
+                                        <TextBlock Text="{Binding ViewCountUpdates}" />
+                                    </Border>
+                                </Grid>
+                            </RadioButton>
+                            <RadioButton Classes="sideItem" GroupName="sideView" IsChecked="{Binding IsViewHidden}" ToolTip.Tip="Plugins you have hidden">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <Path Classes="sideIcon" Data="{StaticResource IconEyeOff}" />
+                                    <TextBlock Grid.Column="1" Text="Hidden" Margin="12,0,0,0" VerticalAlignment="Center"
+                                               IsVisible="{Binding !IsSidebarCompact}" />
+                                    <Border Grid.Column="2" Classes="sideCount" IsVisible="{Binding !IsSidebarCompact}">
+                                        <TextBlock Text="{Binding ViewCountHidden}" />
+                                    </Border>
+                                </Grid>
+                            </RadioButton>
+
+                        <Border Height="1" Margin="8,12" Background="{DynamicResource BorderBrush2}" />
+
+                        <Grid ColumnDefinitions="*,Auto" Margin="10,0,2,4">
+                            <TextBlock Text="FOLDERS" FontSize="11" FontWeight="SemiBold" LetterSpacing="1"
+                                       VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                                       IsVisible="{Binding !IsSidebarCompact}" />
+                            <Button Grid.Column="1" Classes="ghost" Padding="7" ToolTip.Tip="New folder"
+                                    Command="{Binding CreateFolderCommand}">
+                                <Path Data="{StaticResource IconPlus}" Width="14" Height="14" Stretch="Uniform"
+                                      StrokeThickness="2" StrokeLineCap="Round"
+                                      Stroke="{DynamicResource TextSecondaryBrush}" />
+                            </Button>
+                        </Grid>
+
+                        <!-- Folder rows keep the context menu and drag-and-drop they had in the
+                             old Folders panel; a click narrows the library to that folder. -->
+                        <ItemsControl ItemsSource="{Binding VisibleFolders}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:FolderNodeViewModel">
+                                    <Border Classes="sideFolder" Margin="{Binding Indent}"
+                                            ToolTip.Tip="{Binding Name}"
+                                            Classes.dropTarget="{Binding IsDropTarget}"
+                                            Classes.active="{Binding IsSelected}"
+                                            PointerPressed="OnFolderRowPressed"
+                                            DragDrop.AllowDrop="True"
+                                            DragDrop.DragOver="FolderRow_DragOver"
+                                            DragDrop.DragLeave="FolderRow_DragLeave"
+                                            DragDrop.Drop="FolderRow_Drop">
+                                        <Border.ContextFlyout>
+                                            <MenuFlyout>
+                                                <MenuItem Header="New Sub-folder"
+                                                          Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).CreateFolderCommand}"
+                                                          CommandParameter="{Binding Id}" />
+                                                <MenuItem Header="Edit…" Click="EditFolder_Click" />
+                                                <Separator />
+                                                <MenuItem Header="Move to Top Level"
+                                                          Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).MoveFolderToRootCommand}"
+                                                          CommandParameter="{Binding Id}" />
+                                                <Separator />
+                                                <MenuItem Header="Delete Folder" Click="DeleteFolder_Click" />
+                                            </MenuFlyout>
+                                        </Border.ContextFlyout>
+                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                            <Border Width="10" Height="10" CornerRadius="3" VerticalAlignment="Center"
+                                                    Background="{Binding ColorHex, Converter={StaticResource HexToBrush}}" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="10,0,0,0"
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                       IsVisible="{Binding !$parent[Window].((vm:MainViewModel)DataContext).IsSidebarCompact}" />
+                                            <TextBlock Grid.Column="2" Classes="meta" VerticalAlignment="Center"
+                                                       Text="{Binding TotalCount}" IsVisible="{Binding !$parent[Window].((vm:MainViewModel)DataContext).IsSidebarCompact}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Panel IsVisible="{Binding !IsSidebarCompact}">
+                            <TextBlock Classes="meta" TextWrapping="Wrap" Margin="10,2,6,0"
+                                       Text="No folders yet. Use + above, or right-click a plugin to file it."
+                                       IsVisible="{Binding !HasFolders}" />
+                        </Panel>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+    <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto,Auto,*">
 
         <!-- Header ......................................................... -->
         <Grid Grid.Row="0" Margin="20,18,20,10" ColumnDefinitions="*,Auto">
             <StackPanel Grid.Column="0" Spacing="2">
-                <TextBlock Text="VST Manager" FontSize="22" FontWeight="Bold"
-                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Folders /" FontSize="13" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding IsInFolder}" />
+                    <TextBlock Text="{Binding PageTitle}" FontSize="22" FontWeight="Bold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                </StackPanel>
                 <TextBlock Classes="subtitle" Text="{Binding StatusLine}" />
             </StackPanel>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
                         VerticalAlignment="Center">
-                <Button Classes="ghost" Command="{Binding ToggleThemeCommand}"
-                        ToolTip.Tip="Switch between light and dark">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="◐" FontSize="15" VerticalAlignment="Center" />
-                        <TextBlock Text="Theme" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-                <!-- Cloud indicator. Only shown once sync is on, so a user who never enables it
-                     never sees a permanently grey icon asking to be explained. A cloud silhouette
-                     rather than a plain dot, matching the WPF toolbar; the "syncing" class drives
-                     the pulse animation declared above. -->
-                <Button Classes="ghost" Command="{Binding SyncCloudNowCommand}"
-                        IsVisible="{Binding CloudSyncEnabled}"
-                        ToolTip.Tip="{Binding CloudStatusMessage}">
-                    <StackPanel Orientation="Horizontal" Spacing="7">
-                        <Path Classes="cloudIcon" Width="20" Height="14" Stretch="Uniform"
-                              VerticalAlignment="Center"
-                              Classes.syncing="{Binding CloudState, Converter={StaticResource CloudStateIsSyncing}}"
-                              Fill="{Binding CloudState, Converter={StaticResource CloudStateBrush}}"
-                              Data="{StaticResource CloudGlyph}" />
-                        <TextBlock Text="Sync" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-
-                <Button Classes="ghost" Command="{Binding OpenSettingsCommand}"
-                        ToolTip.Tip="Settings">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="⚙" FontSize="15" VerticalAlignment="Center" />
-                        <TextBlock Text="Settings" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
                 <Button Classes="accent" Command="{Binding RescanCommand}"
                         IsEnabled="{Binding !IsScanning}"
                         ToolTip.Tip="Rescan your plugin folders">
@@ -408,9 +529,21 @@
                         <TextBlock Text="Rescan" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
-
-                <!-- Always exits, even with "Minimize to tray" on — Close() alone would just hide
-                     the window in that case (see OnMainWindowClosing). -->
+                <Button Classes="ghost" Command="{Binding ToggleThemeCommand}"
+                        ToolTip.Tip="Switch between light and dark">
+                    <TextBlock Text="◐" FontSize="15" VerticalAlignment="Center" />
+                </Button>
+                <!-- Cloud indicator, only while sync is on; the "syncing" class pulses it. -->
+                <Button Classes="ghost" Command="{Binding SyncCloudNowCommand}"
+                        IsVisible="{Binding CloudSyncEnabled}"
+                        ToolTip.Tip="{Binding CloudStatusMessage}">
+                    <Path Classes="cloudIcon" Width="20" Height="14" Stretch="Uniform"
+                          VerticalAlignment="Center"
+                          Classes.syncing="{Binding CloudState, Converter={StaticResource CloudStateIsSyncing}}"
+                          Fill="{Binding CloudState, Converter={StaticResource CloudStateBrush}}"
+                          Data="{StaticResource CloudGlyph}" />
+                </Button>
+                <!-- Always exits, even with "Minimize to tray" on (see OnMainWindowClosing). -->
                 <Button Classes="ghost" Click="Quit_Click"
                         ToolTip.Tip="Quit VST Manager">
                     <StackPanel Orientation="Horizontal" Spacing="6">
@@ -472,12 +605,36 @@
 
             <Border Classes="segmentGroup">
                 <StackPanel Orientation="Horizontal" Spacing="2">
-                    <RadioButton Classes="segment plain" GroupName="density" Content="Compact"
-                                 IsChecked="{Binding IsCompact}" ToolTip.Tip="Compact" />
-                    <RadioButton Classes="segment plain" GroupName="density" Content="Default"
-                                 IsChecked="{Binding IsDefaultDensity}" ToolTip.Tip="Default" />
-                    <RadioButton Classes="segment plain" GroupName="density" Content="Large"
-                                 IsChecked="{Binding IsLarge}" ToolTip.Tip="Large" />
+                    <RadioButton Classes="segment plain" GroupName="density"
+                                 IsChecked="{Binding IsCompact}" ToolTip.Tip="Compact cards">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Panel Width="16" Height="16" VerticalAlignment="Center">
+                                <Rectangle Width="7" Height="7" RadiusX="1.6" RadiusY="1.6"
+                                           StrokeThickness="1.6" Stroke="{Binding $parent[RadioButton].Foreground}" />
+                            </Panel>
+                            <TextBlock Text="Compact" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton Classes="segment plain" GroupName="density"
+                                 IsChecked="{Binding IsDefaultDensity}" ToolTip.Tip="Default cards">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Panel Width="16" Height="16" VerticalAlignment="Center">
+                                <Rectangle Width="10.4" Height="10.4" RadiusX="2" RadiusY="2"
+                                           StrokeThickness="1.6" Stroke="{Binding $parent[RadioButton].Foreground}" />
+                            </Panel>
+                            <TextBlock Text="Default" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton Classes="segment plain" GroupName="density"
+                                 IsChecked="{Binding IsLarge}" ToolTip.Tip="Large cards">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Panel Width="16" Height="16" VerticalAlignment="Center">
+                                <Rectangle Width="14" Height="14" RadiusX="2.4" RadiusY="2.4"
+                                           StrokeThickness="1.6" Stroke="{Binding $parent[RadioButton].Foreground}" />
+                            </Panel>
+                            <TextBlock Text="Large" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
                 </StackPanel>
             </Border>
 
@@ -614,33 +771,11 @@
                 <ComboBoxItem Content="Sort: Updates" Tag="{x:Static vm:SortOption.UpdateStatus}" />
             </ComboBox>
 
-            <Button Classes="ghost" Command="{Binding ReverseSortDirectionCommand}"
-                    ToolTip.Tip="Reverse sort direction">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="⇅" FontSize="14" VerticalAlignment="Center" />
-                        <TextBlock Text="Reverse" VerticalAlignment="Center" />
-                    </StackPanel>
-            </Button>
-
-            <ToggleButton Classes="filterToggle" Content="★ Favourites"
-                          IsChecked="{Binding FavoritesOnly}"
-                          ToolTip.Tip="Show only your favourite plugins" />
-            <ToggleButton Classes="filterToggle" Content="↻ Updates"
-                          IsChecked="{Binding OutdatedOnly}"
-                          ToolTip.Tip="Show only plugins with a newer version available" />
-            <!-- IconEyeOff (crossed) when hidden plugins are NOT shown, IconEye (open) when they
-                 are — the icon reflects the toggle's actual current state, not just a static
-                 label, since ShowHidden's own name reads ambiguously at a glance otherwise. -->
-            <ToggleButton x:Name="HiddenToggle" Classes="filterToggle"
-                          IsChecked="{Binding ShowHidden}"
-                          ToolTip.Tip="Show plugins you have hidden">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Path Classes="tabIcon" Width="13" Height="13"
-                          Data="{Binding ShowHidden, Converter={StaticResource BoolToEyeIcon}}"
-                          Stroke="{Binding #HiddenToggle.Foreground}" />
-                    <TextBlock Text="Hidden" VerticalAlignment="Center" />
-                </StackPanel>
+            <ToggleButton Classes="sortDir" IsChecked="{Binding SortDescending}"
+                          ToolTip.Tip="Reverse the sort order (lit while reversed)">
+                <TextBlock Text="⇅" FontSize="14" FontWeight="SemiBold" />
             </ToggleButton>
+
 
             <!--#if LICENSE_STATUS-->
             <!-- Bulk tag: mark every currently-visible installed plugin, distinct from the
@@ -687,99 +822,6 @@
                 </StackPanel>
             </Button>
         </WrapPanel>
-
-        <!-- Folders. A place, not a filter chip: the user's own structure, so it gets its own
-             collapsible section rather than one more toggle in the row above. This layout has no
-             sidebar to nest a tree inside like WPF's, so a folder narrows the main grid via
-             SelectedFolderId instead of hosting its own inline grid — clicking a row is "show me
-             just this" and behaves like the other single-choice filters (Legit/Cracked/etc). -->
-        <Border Grid.Row="2" Classes="section" Margin="20,0,20,10" Padding="12,10">
-            <StackPanel Spacing="8">
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-                    <ToggleButton Grid.Column="0" Classes="ghost" Padding="4"
-                                  IsChecked="{Binding IsFoldersExpanded}"
-                                  IsVisible="{Binding HasFolders}">
-                        <Panel>
-                            <TextBlock Text="▾" IsVisible="{Binding $parent[ToggleButton].IsChecked}" />
-                            <TextBlock Text="▸" IsVisible="{Binding !$parent[ToggleButton].IsChecked}" />
-                        </Panel>
-                    </ToggleButton>
-
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBlock Text="📂" FontSize="14" />
-                        <TextBlock Text="Folders" FontWeight="SemiBold" FontSize="14"
-                                   Foreground="{DynamicResource TextPrimaryBrush}" />
-                        <Border Classes="chip" IsVisible="{Binding SelectedFolder, Converter={x:Static ObjectConverters.IsNotNull}}">
-                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                <TextBlock Text="{Binding SelectedFolder.Name}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-
-                    <Button Grid.Column="2" Classes="ghost" Padding="8,4" FontSize="12" Margin="0,0,6,0"
-                            Content="✕ Show All"
-                            IsVisible="{Binding SelectedFolder, Converter={x:Static ObjectConverters.IsNotNull}}"
-                            Command="{Binding ClearFolderFilterCommand}" />
-
-                    <Button Grid.Column="3" Classes="ghost" Padding="8,4" FontSize="12"
-                            ToolTip.Tip="Create a new top-level folder"
-                            Command="{Binding CreateFolderCommand}">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <TextBlock Text="+" FontSize="13" />
-                            <TextBlock Text="New Folder" />
-                        </StackPanel>
-                    </Button>
-                </Grid>
-
-                <ItemsControl ItemsSource="{Binding VisibleFolders}" IsVisible="{Binding IsFoldersExpanded}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:FolderNodeViewModel">
-                            <Border CornerRadius="8" Padding="8,6" Margin="{Binding Indent}"
-                                    Background="Transparent"
-                                    Classes.dropTarget="{Binding IsDropTarget}"
-                                    Classes.active="{Binding IsSelected}"
-                                    PointerPressed="OnFolderRowPressed"
-                                    DragDrop.AllowDrop="True"
-                                    DragDrop.DragOver="FolderRow_DragOver"
-                                    DragDrop.DragLeave="FolderRow_DragLeave"
-                                    DragDrop.Drop="FolderRow_Drop">
-                                <Border.ContextFlyout>
-                                    <MenuFlyout>
-                                        <MenuItem Header="New Sub-folder"
-                                                  Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).CreateFolderCommand}"
-                                                  CommandParameter="{Binding Id}" />
-                                        <MenuItem Header="Edit…" Click="EditFolder_Click" />
-                                        <Separator />
-                                        <MenuItem Header="Move to Top Level"
-                                                  Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).MoveFolderToRootCommand}"
-                                                  CommandParameter="{Binding Id}" />
-                                        <Separator />
-                                        <MenuItem Header="Delete Folder" Click="DeleteFolder_Click" />
-                                    </MenuFlyout>
-                                </Border.ContextFlyout>
-
-                                <DockPanel LastChildFill="True">
-                                    <TextBlock DockPanel.Dock="Right" Classes="meta" VerticalAlignment="Center"
-                                               Text="{Binding TotalCount, StringFormat='{}{0}'}" />
-
-                                    <Border DockPanel.Dock="Left" Width="4" Height="16" CornerRadius="2" Margin="0,0,10,0"
-                                            Background="{Binding ColorHex, Converter={StaticResource HexToBrush}}" />
-
-                                    <TextBlock DockPanel.Dock="Left" Text="{Binding DisplayIcon}" FontSize="14" Margin="0,0,8,0"
-                                               VerticalAlignment="Center" />
-
-                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                                </DockPanel>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-
-                <TextBlock Classes="meta" IsVisible="{Binding !HasFolders}" TextWrapping="Wrap"
-                           Text="No folders yet — use New Folder above, or right-click a plugin to file it once you have one." />
-            </StackPanel>
-        </Border>
 
         <!-- Selection bar, only while something is selected. ................ -->
         <Border Grid.Row="3" Margin="20,0,20,10" Padding="12,8"
@@ -932,6 +974,7 @@
 
         </Panel>
 
+    </Grid>
     </Grid>
         </LayoutTransformControl>
 

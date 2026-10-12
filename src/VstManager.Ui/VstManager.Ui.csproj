@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.7.0</Version>
+    <Version>1.8.2</Version>
     <!-- The taskbar icon comes from the exe's own embedded resource, not the window's Icon=
          (that only covers the title bar/Alt-Tab thumbnail) — same artwork as WPF's app-icon.ico
          (VstManager.App/app-icon.ico), already present here under Assets/ for the window icon.

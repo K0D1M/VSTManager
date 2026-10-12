@@ -119,7 +119,7 @@ public partial class PluginDetailViewModel : ObservableObject
 
         if (currentChanged || latestChanged)
         {
-            _main.SetVersions(Plugin, current, latest);
+            _main.SetVersions(Plugin, current, latest, setCurrent: currentChanged, setLatest: latestChanged);
         }
 
         // Category is the newer, more general control and takes precedence when it changed —

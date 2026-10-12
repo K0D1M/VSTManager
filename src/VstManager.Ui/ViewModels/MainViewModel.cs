@@ -48,6 +48,15 @@ public enum LayoutMode
     List
 }
 
+/// <summary>The sidebar's navigation views; each one is a filter over the whole library.</summary>
+public enum SidebarView
+{
+    All,
+    Favourites,
+    Updates,
+    Hidden
+}
+
 public enum ViewDensity
 {
     Compact,
@@ -145,6 +154,7 @@ public partial class MainViewModel : ObservableObject
 
         _layout = Enum.TryParse<LayoutMode>(settings.LayoutMode, out var lm) ? lm : LayoutMode.Grid;
         _density = Enum.TryParse<ViewDensity>(settings.ViewDensity, out var vd) ? vd : ViewDensity.Default;
+        _isSidebarCollapsed = settings.SidebarCollapsed;
         _sort = Enum.TryParse<SortOption>(settings.SortOption, out var so) ? so : SortOption.Name;
         _sortDescending = settings.SortDescending;
         _cloudSyncEnabled = settings.CloudSyncEnabled;
@@ -257,6 +267,106 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ClearFolderFilter() => SelectedFolderId = null;
 
+    // ---- sidebar ------------------------------------------------------------------------------
+
+    [ObservableProperty]
+    private SidebarView _sidebarView = SidebarView.All;
+
+    partial void OnSidebarViewChanged(SidebarView value)
+    {
+        // The views are the old Favourites / Updates toggles plus a new "hidden only" list;
+        // only one applies at a time.
+        FavoritesOnly = value == SidebarView.Favourites;
+        OutdatedOnly = value == SidebarView.Updates;
+        RaiseSidebarState();
+        ApplyFilters();
+    }
+
+    // Settable for two-way RadioButton binding (same pattern as IsGrid/IsList). Choosing a view
+    // leaves any folder, so the whole library is in scope again.
+    public bool IsViewAll { get => IsView(SidebarView.All); set { if (value) { ChooseView(SidebarView.All); } } }
+    public bool IsViewFavourites { get => IsView(SidebarView.Favourites); set { if (value) { ChooseView(SidebarView.Favourites); } } }
+    public bool IsViewUpdates { get => IsView(SidebarView.Updates); set { if (value) { ChooseView(SidebarView.Updates); } } }
+    public bool IsViewHidden { get => IsView(SidebarView.Hidden); set { if (value) { ChooseView(SidebarView.Hidden); } } }
+
+    private bool IsView(SidebarView view) => SidebarView == view && SelectedFolderId is null;
+
+    private void ChooseView(SidebarView view)
+    {
+        SelectedFolderId = null;
+        SidebarView = view;
+        RaiseSidebarState();
+    }
+
+    [ObservableProperty]
+    private int _viewCountAll;
+
+    [ObservableProperty]
+    private int _viewCountFavourites;
+
+    [ObservableProperty]
+    private int _viewCountUpdates;
+
+    [ObservableProperty]
+    private int _viewCountHidden;
+
+    public bool IsInFolder => SelectedFolderId is not null;
+
+    /// <summary>The header title: the open folder's name, else the current view's.</summary>
+    public string PageTitle => SelectedFolder?.Name ?? SidebarView switch
+    {
+        SidebarView.Favourites => "Favourites",
+        SidebarView.Updates => "Updates available",
+        SidebarView.Hidden => "Hidden",
+        _ => "All plugins"
+    };
+
+    private void RaiseSidebarState()
+    {
+        OnPropertyChanged(nameof(IsViewAll));
+        OnPropertyChanged(nameof(IsViewFavourites));
+        OnPropertyChanged(nameof(IsViewUpdates));
+        OnPropertyChanged(nameof(IsViewHidden));
+        OnPropertyChanged(nameof(IsInFolder));
+        OnPropertyChanged(nameof(PageTitle));
+    }
+
+    [ObservableProperty]
+    private bool _isSidebarCollapsed;
+
+    /// <summary>Set by the window when it is too narrow for the full sidebar; not saved.</summary>
+    [ObservableProperty]
+    private bool _isWindowNarrow;
+
+    /// <summary>Icon rail: chosen by the user, or forced by a narrow window.</summary>
+    public bool IsSidebarCompact => IsSidebarCollapsed || IsWindowNarrow;
+
+    public const double SidebarExpandedWidth = 240;
+    public const double SidebarCompactWidth = 68;
+
+    public double SidebarWidth => IsSidebarCompact ? SidebarCompactWidth : SidebarExpandedWidth;
+
+    public string SidebarToggleLabel => IsSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar";
+
+    partial void OnIsSidebarCollapsedChanged(bool value)
+    {
+        _library.SidebarCollapsed = value;
+        SaveLibrary();
+        RaiseSidebarLayout();
+    }
+
+    partial void OnIsWindowNarrowChanged(bool value) => RaiseSidebarLayout();
+
+    private void RaiseSidebarLayout()
+    {
+        OnPropertyChanged(nameof(IsSidebarCompact));
+        OnPropertyChanged(nameof(SidebarWidth));
+        OnPropertyChanged(nameof(SidebarToggleLabel));
+    }
+
+    [RelayCommand]
+    private void ToggleSidebar() => IsSidebarCollapsed = !IsSidebarCollapsed;
+
     [ObservableProperty]
     private bool _isScanning;
 
@@ -355,6 +465,14 @@ public partial class MainViewModel : ObservableObject
     partial void OnSelectedFolderIdChanged(string? value)
     {
         OnPropertyChanged(nameof(SelectedFolder));
+
+        // A folder is shown whole, not narrowed by whichever view was open before it.
+        if (value is not null && SidebarView != SidebarView.All)
+        {
+            SidebarView = SidebarView.All;
+        }
+
+        RaiseSidebarState();
 
         foreach (var node in VisibleFolders)
         {
@@ -979,6 +1097,17 @@ public partial class MainViewModel : ObservableObject
     private async Task RefreshMetadataAsync(PluginCardViewModel? card)
     {
         var targets = ResolveTargets(card).Where(c => c.IsInstalled).ToList();
+
+        // An explicit re-detect means "read it from the file now": a hand-set installed version
+        // would otherwise be skipped and keep showing the old number after an update.
+        foreach (var target in targets)
+        {
+            if (_manualMetadataOverrides.GetOverride(target.BaseName)?.CurrentVersion is not null)
+            {
+                _manualMetadataOverrides.SetVersionOverride(target.BaseName, null, null, setCurrent: true, setLatest: false);
+            }
+        }
+
         await RefreshMetadataCoreAsync(targets);
     }
 
@@ -2021,7 +2150,8 @@ public partial class MainViewModel : ObservableObject
     /// Writes corrected versions to every copy and records them as a manual override — without
     /// that record a later online refresh would silently put the detected value back.
     /// </summary>
-    public void SetVersions(PluginCardViewModel card, string? currentVersion, string? latestVersion)
+    public void SetVersions(PluginCardViewModel card, string? currentVersion, string? latestVersion,
+        bool setCurrent = true, bool setLatest = true)
     {
         var normalizedCurrent = string.IsNullOrWhiteSpace(currentVersion) ? null : currentVersion.Trim();
         var normalizedLatest = string.IsNullOrWhiteSpace(latestVersion) ? null : latestVersion.Trim();
@@ -2032,20 +2162,24 @@ public partial class MainViewModel : ObservableObject
         // before reaching here whenever Installs was empty, which silently dropped every version
         // correction made on an uninstalled plugin; caught by actually saving one (Arturia
         // "Analog Lab", remembered-only) and finding manual-metadata.json still empty afterwards.
-        _manualMetadataOverrides.SetVersionOverride(card.BaseName, normalizedCurrent, normalizedLatest);
+        _manualMetadataOverrides.SetVersionOverride(card.BaseName, normalizedCurrent, normalizedLatest, setCurrent, setLatest);
 
         if (card.Installs.Count > 0)
         {
             var stored = _library.Plugins.ToDictionary(p => p.Path, StringComparer.OrdinalIgnoreCase);
             foreach (var copy in card.Installs)
             {
-                copy.CurrentVersion = normalizedCurrent;
-                copy.LatestVersion = normalizedLatest;
-
-                if (stored.TryGetValue(copy.Path, out var libraryCopy))
+                stored.TryGetValue(copy.Path, out var libraryCopy);
+                if (setCurrent)
                 {
-                    libraryCopy.CurrentVersion = normalizedCurrent;
-                    libraryCopy.LatestVersion = normalizedLatest;
+                    copy.CurrentVersion = normalizedCurrent;
+                    if (libraryCopy is not null) { libraryCopy.CurrentVersion = normalizedCurrent; }
+                }
+
+                if (setLatest)
+                {
+                    copy.LatestVersion = normalizedLatest;
+                    if (libraryCopy is not null) { libraryCopy.LatestVersion = normalizedLatest; }
                 }
             }
         }
@@ -2698,6 +2832,11 @@ public partial class MainViewModel : ObservableObject
 
         RebuildSections(ordered);
 
+        ViewCountAll = _all.Count(c => c.IsInstalled && !c.IsHidden);
+        ViewCountFavourites = _all.Count(c => c.IsFavorite && !c.IsHidden);
+        ViewCountUpdates = _all.Count(c => c.IsInstalled && c.IsOutdated && !c.IsHidden);
+        ViewCountHidden = _all.Count(c => c.IsHidden);
+
         UpdateStatusLine();
         OnPropertyChanged(nameof(IsFiltered));
         OnPropertyChanged(nameof(IsEmpty));
@@ -2720,7 +2859,7 @@ public partial class MainViewModel : ObservableObject
     {
         var search = SearchText.Trim();
 
-        return (ShowHidden || !p.IsHidden)
+        return (SidebarView == SidebarView.Hidden ? p.IsHidden : ShowHidden || !p.IsHidden)
             && (!FavoritesOnly || p.IsFavorite)
             && (!OutdatedOnly || p.IsOutdated)
             && (SelectedFolderId is null
@@ -2800,6 +2939,7 @@ public partial class MainViewModel : ObservableObject
         // bound to it (the "Showing: X" header) needs telling even though SelectedFolderId
         // itself did not change.
         OnPropertyChanged(nameof(SelectedFolder));
+        OnPropertyChanged(nameof(PageTitle));
 
         // A folder that no longer exists (deleted) leaves the filter stuck narrowing to nothing
         // with no way back except manually clearing it. Re-entrancy guarded: the property setter

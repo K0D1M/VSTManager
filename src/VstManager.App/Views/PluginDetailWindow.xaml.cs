@@ -57,7 +57,14 @@ public partial class PluginDetailWindow : Window
             _mainViewModel.ApplyMetadataOverride(_plugin, Form.Name, Form.Vendor);
         }
 
-        _mainViewModel.SetVersions(_plugin, Form.CurrentVersion, Form.LatestVersion);
+        // Only versions the user actually edited become overrides: a pinned latest version
+        // permanently hides future updates, so an unchanged Save must not record one.
+        var currentChanged = !string.Equals(Form.CurrentVersion?.Trim() ?? string.Empty, _plugin.CurrentVersion ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        var latestChanged = !string.Equals(Form.LatestVersion?.Trim() ?? string.Empty, _plugin.LatestVersion ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        if (currentChanged || latestChanged)
+        {
+            _mainViewModel.SetVersions(_plugin, Form.CurrentVersion, Form.LatestVersion, currentChanged, latestChanged);
+        }
 
         if (Form.Kind != _plugin.Kind)
         {

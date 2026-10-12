@@ -84,6 +84,8 @@
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="{DynamicResource TextPrimaryColor}" />
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="{DynamicResource TextSecondaryColor}" />
     <SolidColorBrush x:Key="AccentBrush" Color="{DynamicResource AccentColor}" />
+    <!-- Selected sidebar item / lit toggle: the accent, faint enough to sit behind text. -->
+    <SolidColorBrush x:Key="AccentTintBrush" Color="{DynamicResource AccentColor}" Opacity="0.16" />
     <SolidColorBrush x:Key="AccentHoverBrush" Color="{DynamicResource AccentColorHover}" />
     <SolidColorBrush x:Key="TealAccentBrush" Color="{DynamicResource TealAccentColor}" />
     <!--#if LICENSE_STATUS-->

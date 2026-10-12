@@ -1,4 +1,4 @@
-"""Build a macOS .icns from the app's .ico.
+"""Build a macOS .icns from the app icon master (build/app-icon-master.png).
 
 macOS packaging normally uses iconutil/sips, which only exist on macOS. This project is built on
 Windows, so the .icns is assembled directly: it is a documented container — an 8-byte header
@@ -35,15 +35,10 @@ TYPES = [
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# The *transparent* variant, not app-icon.ico which the Windows build uses. macOS draws the icon
-# unmasked against the Dock and Finder background, so the rounded corners have to be transparent
-# in the artwork itself; app-icon.ico is fully opaque (alpha is 255 everywhere) and would show as
-# a hard black square. This one is also 1254px, so every icns size down-samples from real detail
-# rather than being upscaled from 256.
-SRC = os.path.join(
-    REPO, "src", "VstManager.App",
-    "a_clean_modern_app_icon_logo_design_on_a_dark_b-transparent.ico",
-)
+# The 1024px master written by build/make-icon.py. macOS draws the icon unmasked against the Dock
+# and Finder background, so the rounded corners are transparent in the artwork itself, and every
+# icns size down-samples from the full-resolution master.
+SRC = os.path.join(REPO, "build", "app-icon-master.png")
 OUT = os.path.join(REPO, "src", "VstManager.Ui", "Assets", "app-icon.icns")
 
 
