@@ -14,6 +14,9 @@ public class LibraryData
     public string LayoutMode { get; set; } = "Grid";
     public string ViewDensity { get; set; } = "Default";
     public bool SidebarCollapsed { get; set; }
+
+    /// <summary>Avalonia-only: keep fades but drop slides, lifts and pops.</summary>
+    public bool ReduceMotion { get; set; }
     public string CloudProvider { get; set; } = "Mega";
     public bool HasSeenLogoInstructions { get; set; }
 

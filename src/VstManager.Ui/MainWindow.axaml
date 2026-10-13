@@ -178,7 +178,7 @@
                             </Panel>
                         </Border>
 
-                        <ToggleButton Grid.Column="2" Classes="star"
+                        <ToggleButton Grid.Column="2" Classes="star" Click="Star_Click"
                                       HorizontalAlignment="Right" VerticalAlignment="Top"
                                       IsChecked="{Binding IsFavorite, Mode=OneWay}"
                                       Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleFavoriteCommand}"
@@ -287,7 +287,7 @@
                                 ToolTip.Tip="{Binding UpdateTooltip}">
                             <TextBlock Text="OUTDATED" />
                         </Border>
-                        <ToggleButton Classes="star"
+                        <ToggleButton Classes="star" Click="Star_Click"
                                       IsChecked="{Binding IsFavorite, Mode=OneWay}"
                                       Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleFavoriteCommand}"
                                       CommandParameter="{Binding}"
@@ -305,6 +305,34 @@
         <Style Selector="Border.cardLogo"><Setter Property="Width" Value="64" /><Setter Property="Height" Value="64" /></Style>
         <Style Selector="TextBlock.cardInitial"><Setter Property="FontSize" Value="26" /></Style>
         <Style Selector="Border.rowIcon"><Setter Property="Width" Value="26" /><Setter Property="Height" Value="26" /></Style>
+
+        <!-- Density changes ease between sizes; the card's own width transition is in Controls.axaml. -->
+        <Style Selector="Border.cardLogo">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Width" Duration="0:0:0.22" Easing="CubicEaseInOut" />
+                    <DoubleTransition Property="Height" Duration="0:0:0.22" Easing="CubicEaseInOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Grid.cardTop">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Width" Duration="0:0:0.22" Easing="CubicEaseInOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <!-- The "a filter is applied" dot breathes gently so it is noticed, unless motion is reduced. -->
+        <Style Selector=":is(Window):not(.reducedMotion) Border.filterDot">
+            <Style.Animations>
+                <Animation Duration="0:0:1.8" IterationCount="INFINITE" Easing="SineEaseInOut">
+                    <KeyFrame Cue="0%"><Setter Property="Opacity" Value="1" /></KeyFrame>
+                    <KeyFrame Cue="50%"><Setter Property="Opacity" Value="0.35" /></KeyFrame>
+                    <KeyFrame Cue="100%"><Setter Property="Opacity" Value="1" /></KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
 
         <Style Selector="ScrollViewer.compact Border.card"><Setter Property="Width" Value="196" /></Style>
         <Style Selector="ScrollViewer.compact Grid.cardTop"><Setter Property="Width" Value="170" /></Style>
@@ -359,7 +387,9 @@
 
         <!-- Sidebar: navigation (views, folders) plus Settings. Collapses to an icon rail, by
              choice (remembered) or automatically when the window is narrow. -->
-        <Border Grid.Column="0" Width="{Binding SidebarWidth}"
+        <!-- Width eases between full and rail; ClipToBounds keeps labels from spilling out while
+             it is part-way. Transitions are cleared in code when motion is reduced. -->
+        <Border x:Name="Sidebar" Grid.Column="0" Width="{Binding SidebarWidth}" ClipToBounds="True"
                 Background="{DynamicResource SurfaceBrush}"
                 BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="0,0,1,0"
                 Padding="12,18,12,14">
@@ -391,10 +421,21 @@
                             <TextBlock Text="Collapse" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCompact}" />
                         </StackPanel>
                     </Button>
+                    <Button Classes="sideAction" Command="{Binding OpenAboutCommand}" ToolTip.Tip="About VST Manager">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Path Classes="sideIconFill" Data="{StaticResource IconAboutFill}" />
+                            <TextBlock Text="About" VerticalAlignment="Center" IsVisible="{Binding !IsSidebarCompact}" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
 
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                     <StackPanel Spacing="2">
+                        <!-- The views share one sliding pill (SideIndicator), moved in code to
+                             whichever item is checked. -->
+                        <Panel>
+                        <Border x:Name="SideIndicator" Classes="sideIndicator" />
+                        <StackPanel x:Name="SideViews" Spacing="2">
                             <RadioButton Classes="sideItem" GroupName="sideView" IsChecked="{Binding IsViewAll}" ToolTip.Tip="All installed plugins">
                                 <Grid ColumnDefinitions="Auto,*,Auto">
                                     <Path Classes="sideIcon" Data="{StaticResource IconViewAll}" />
@@ -435,6 +476,8 @@
                                     </Border>
                                 </Grid>
                             </RadioButton>
+                        </StackPanel>
+                        </Panel>
 
                         <Border Height="1" Margin="8,12" Background="{DynamicResource BorderBrush2}" />
 
@@ -508,7 +551,7 @@
         <!-- Header ......................................................... -->
         <Grid Grid.Row="0" Margin="20,18,20,10" ColumnDefinitions="*,Auto">
             <StackPanel Grid.Column="0" Spacing="2">
-                <StackPanel Orientation="Horizontal" Spacing="8">
+                <StackPanel x:Name="PageTitleRow" Orientation="Horizontal" Spacing="8">
                     <TextBlock Text="Folders /" FontSize="13" VerticalAlignment="Center"
                                Foreground="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding IsInFolder}" />
                     <TextBlock Text="{Binding PageTitle}" FontSize="22" FontWeight="Bold"
@@ -665,7 +708,7 @@
                         <TextBlock Text="Filter" VerticalAlignment="Center" />
                     </StackPanel>
                 </ToggleButton>
-                <Border IsHitTestVisible="False" IsVisible="{Binding IsAnyFilterActive}"
+                <Border Classes="filterDot" IsHitTestVisible="False" IsVisible="{Binding IsAnyFilterActive}"
                         Width="7" Height="7" CornerRadius="4"
                         Background="{DynamicResource AccentBrush}"
                         HorizontalAlignment="Right" VerticalAlignment="Top"
@@ -674,7 +717,7 @@
 
             <Popup PlacementTarget="{Binding #FilterToggle}"
                    Placement="Bottom" IsOpen="{Binding #FilterToggle.IsChecked, Mode=TwoWay}"
-                   IsLightDismissEnabled="True">
+                   IsLightDismissEnabled="True" Opened="OnPopupOpened">
                 <Border Classes="section" Width="260" Margin="0,6,0,0" Padding="12">
                     <StackPanel Spacing="10">
                         <Grid ColumnDefinitions="*,Auto">
@@ -790,7 +833,7 @@
 
             <Popup PlacementTarget="{Binding #MarkAllToggle}"
                    Placement="Bottom" IsOpen="{Binding #MarkAllToggle.IsChecked, Mode=TwoWay}"
-                   IsLightDismissEnabled="True">
+                   IsLightDismissEnabled="True" Opened="OnPopupOpened">
                 <Border Classes="section" Width="200" Margin="0,6,0,0" Padding="6">
                     <StackPanel>
                         <Button Classes="ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"

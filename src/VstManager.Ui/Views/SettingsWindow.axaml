@@ -50,6 +50,15 @@
             <Setter Property="Height" Value="14" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+
+        <!-- The tab icons above that are filled shapes rather than outlines. -->
+        <Style Selector="Path.tabIconFill">
+            <Setter Property="Fill" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="Stretch" Value="Uniform" />
+            <Setter Property="Width" Value="16" />
+            <Setter Property="Height" Value="16" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
     </Window.Styles>
 
     <Grid RowDefinitions="*,Auto" Margin="20,18,20,16">
@@ -60,7 +69,7 @@
             <TabItem>
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Path Classes="tabIcon" Data="{StaticResource IconGeneral}" />
+                        <Path Classes="tabIconFill" Data="{StaticResource SettingsIconGeneral}" />
                         <TextBlock Text="General" />
                     </StackPanel>
                 </TabItem.Header>
@@ -134,10 +143,7 @@
             <TabItem>
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <!-- The same ◐ glyph as the main window's theme-toggle button — WPF has
-                             no Appearance tab to port an icon from, and this is already the
-                             app's own visual shorthand for "theme". -->
-                        <TextBlock Text="◐" FontSize="14" VerticalAlignment="Center" />
+                        <Path Classes="tabIconFill" Data="{StaticResource SettingsIconAppearance}" />
                         <TextBlock Text="Appearance" />
                     </StackPanel>
                 </TabItem.Header>
@@ -194,6 +200,15 @@
                             </ItemsControl>
                         </Border>
 
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="sectionHeader" Text="Motion" />
+                            <TextBlock Classes="subtitle"
+                                       Text="Reduce motion keeps fades but turns off sliding, lifting and bouncing effects." />
+                        </StackPanel>
+                        <Border Classes="section">
+                            <ToggleSwitch Content="Reduce motion" IsChecked="{Binding ReduceMotion}" />
+                        </Border>
+
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -202,7 +217,7 @@
             <TabItem>
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Path Classes="tabIcon" Data="{StaticResource IconSliders}" />
+                        <Path Classes="tabIconFill" Data="{StaticResource SettingsIconScanning}" />
                         <TextBlock Text="Scanning" />
                     </StackPanel>
                 </TabItem.Header>
@@ -266,7 +281,7 @@
             <TabItem>
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Path Classes="tabIcon" Data="{StaticResource IconTag}" />
+                        <Path Classes="tabIconFill" Data="{StaticResource SettingsIconTags}" />
                         <TextBlock Text="Tags" />
                     </StackPanel>
                 </TabItem.Header>
@@ -339,7 +354,7 @@
             <TabItem>
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="🏷" FontSize="14" />
+                        <Path Classes="tabIconFill" Data="{StaticResource SettingsIconCategories}" />
                         <TextBlock Text="Categories" />
                     </StackPanel>
                 </TabItem.Header>
@@ -424,7 +439,7 @@
             <TabItem>
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Path Classes="tabIcon" Data="{StaticResource CloudGlyph}" />
+                        <Path Classes="tabIconFill" Data="{StaticResource SettingsIconCloud}" />
                         <TextBlock Text="Cloud" />
                     </StackPanel>
                 </TabItem.Header>
@@ -566,7 +581,7 @@
             <TabItem>
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Path Classes="tabIcon" Data="{StaticResource IconDatabase}" />
+                        <Path Classes="tabIconFill" Data="{StaticResource SettingsIconData}" />
                         <TextBlock Text="Data" />
                     </StackPanel>
                 </TabItem.Header>
@@ -597,100 +612,6 @@
                                 <TextBlock Classes="label" Text="Importing replaces what's here" />
                                 <TextBlock Classes="meta" TextWrapping="Wrap"
                                            Text="An import overwrites your current library, tags and corrections with the contents of the file. Export first if you want to keep them." />
-                            </StackPanel>
-                        </Border>
-
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <!-- About .......................................................... -->
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Path Classes="tabIcon" Data="{StaticResource IconInfo}" />
-                        <TextBlock Text="About" />
-                    </StackPanel>
-                </TabItem.Header>
-                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel Spacing="14" Margin="0,10,4,0">
-
-                        <Border Classes="section">
-                            <StackPanel Spacing="10" HorizontalAlignment="Center">
-                                <Image Source="avares://VstManager.Ui/Assets/app-icon.ico" Width="64" Height="64" />
-                                <TextBlock Text="VST Manager" Classes="sectionHeader"
-                                           HorizontalAlignment="Center" />
-                                <TextBlock Text="{Binding AppVersion, StringFormat='Version {0}'}"
-                                           Classes="subtitle" HorizontalAlignment="Center" />
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Self-update, ported from VstManager.App's Settings "Updates" tab —
-                             same GitHub-releases check, same state shape (IsCheckingForAppUpdate/
-                             IsUpdateAvailable/IsInstallingUpdate/UpdateStatusText/UpdateButtonText),
-                             just proxied here from MainViewModel (see SettingsViewModel.cs). The
-                             confirm-before-installing step and the actual install trigger live in
-                             SettingsWindow.axaml.cs's UpdateNow_Click, mirroring how this project
-                             already handles every other "about to do something real" action
-                             (Uninstall_Click, RefreshAllMetadata_Click in MainWindow.axaml.cs). -->
-                        <Border Classes="section">
-                            <StackPanel Spacing="10">
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <StackPanel Grid.Column="0" Spacing="2">
-                                        <TextBlock Classes="label" Text="Updates" />
-                                        <TextBlock Classes="meta"
-                                                   Text="{Binding LastUpdateCheck, Converter={StaticResource LastChecked}}" />
-                                    </StackPanel>
-                                    <Button Grid.Column="1" Classes="ghost" Padding="12,6" FontSize="13"
-                                            Content="Check Now"
-                                            Command="{Binding CheckForAppUpdateCommand}"
-                                            IsEnabled="{Binding !IsCheckingForAppUpdate}" />
-                                </Grid>
-
-                                <TextBlock Classes="meta" TextWrapping="Wrap"
-                                           Text="{Binding UpdateStatusText}"
-                                           IsVisible="{Binding UpdateStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-
-                                <Button Classes="accent" HorizontalAlignment="Left" Padding="14,7"
-                                        Content="{Binding UpdateButtonText}"
-                                        Click="UpdateNow_Click"
-                                        IsEnabled="{Binding !IsInstallingUpdate}"
-                                        IsVisible="{Binding IsUpdateAvailable}" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Classes="section">
-                            <StackPanel Spacing="10">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <TextBlock Text="Vibe-coded with ❤️ by" Classes="meta" />
-                                    <TextBlock Text="K0D1M" Classes="meta" Cursor="Hand"
-                                               Foreground="{DynamicResource AccentBrush}"
-                                               PointerPressed="AuthorLink_Click" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <TextBlock Text="Source on" Classes="meta" />
-                                    <TextBlock Text="GitHub" Classes="meta" Cursor="Hand"
-                                               Foreground="{DynamicResource AccentBrush}"
-                                               PointerPressed="RepoLink_Click" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- The actual license this project ships under (see LICENSE at the repo
-                             root) — not a placeholder. GPLv3 itself (section 15/16, and the
-                             "Appropriate Legal Notices" it asks interactive programs to display)
-                             specifically calls for a no-warranty notice and a way to see the
-                             license text, which is what this card exists to satisfy rather than
-                             being decorative. No link out: this info holds regardless of how the
-                             app is packaged, with nothing that can 404 or point at a missing local
-                             file once bundled. -->
-                        <Border Classes="section">
-                            <StackPanel Spacing="6">
-                                <TextBlock Classes="label" Text="Legal" />
-                                <TextBlock Classes="meta" TextWrapping="Wrap"
-                                           Text="Licensed under the GNU General Public License v3.0." />
-                                <TextBlock Classes="meta" TextWrapping="Wrap"
-                                           Text="This program comes with ABSOLUTELY NO WARRANTY. This is free software, and you are welcome to redistribute it under certain conditions — see the LICENSE file in the project's source for the full terms." />
                             </StackPanel>
                         </Border>
 

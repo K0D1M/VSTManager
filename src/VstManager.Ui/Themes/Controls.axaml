@@ -75,14 +75,23 @@
             <Transitions>
                 <BrushTransition Property="Background" Duration="0:0:0.15" />
                 <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
-                <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.15" />
+                <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.17" />
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.17" Easing="CubicEaseOut" />
+                <!-- Compact / Default / Large resize the card smoothly instead of snapping. -->
+                <DoubleTransition Property="Width" Duration="0:0:0.22" Easing="CubicEaseInOut" />
             </Transitions>
         </Setter>
     </Style>
 
     <Style Selector="Border.card:pointerover">
         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-        <Setter Property="BoxShadow" Value="0 6 20 0 #33000000" />
+        <Setter Property="BoxShadow" Value="0 12 28 0 #40000000" />
+    </Style>
+
+    <!-- The hover lift, skipped under Settings → Appearance → Reduce motion (a class on the
+         main window). -->
+    <Style Selector=":is(Window):not(.reducedMotion) Border.card:pointerover">
+        <Setter Property="RenderTransform" Value="translateY(-3px)" />
     </Style>
 
     <Style Selector="Border.card.selected">
@@ -494,8 +503,18 @@
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
+    <!-- Filled sidebar icon (About), same size and tint as the outline ones above. -->
+    <Style Selector="Path.sideIconFill">
+        <Setter Property="Width" Value="18" />
+        <Setter Property="Height" Value="18" />
+        <Setter Property="Stretch" Value="Uniform" />
+        <Setter Property="Fill" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
     <!-- A navigation item: a whole-row RadioButton with no bullet; the selected one gets an
-         accent-tinted pill, accent icon and accent count badge. -->
+         accent icon and accent count badge. Its accent-tinted pill is a separate Border in
+         MainWindow (SideIndicator) that slides between items rather than jumping. -->
     <Style Selector="RadioButton.sideItem">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
@@ -519,8 +538,28 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
     <Style Selector="RadioButton.sideItem:checked">
-        <Setter Property="Background" Value="{DynamicResource AccentTintBrush}" />
+        <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="Border.sideIndicator">
+        <Setter Property="Height" Value="38" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Background" Value="{DynamicResource AccentTintBrush}" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.24" Easing="CubicEaseOut" />
+                <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector=":is(Window).reducedMotion Border.sideIndicator">
+        <Setter Property="Transitions">
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+            </Transitions>
+        </Setter>
     </Style>
     <Style Selector="RadioButton.sideItem:checked Path.sideIcon">
         <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />

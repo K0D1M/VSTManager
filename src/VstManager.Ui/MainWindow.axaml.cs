@@ -1,4 +1,6 @@
 using Avalonia;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
@@ -116,12 +118,17 @@ public partial class MainWindow : Window
             }
         };
 
+        InitMotion();
+
         // The view model stays dialog-free, so opening a window is the view's job.
         _vm.DetailRequested += (_, card) =>
-            new PluginDetailWindow(_vm, card).ShowDialog(this);
+            Motion.RevealOnOpen(new PluginDetailWindow(_vm, card)).ShowDialog(this);
 
         _vm.SettingsRequested += (_, settings) =>
-            new SettingsWindow(settings).ShowDialog(this);
+            Motion.RevealOnOpen(new SettingsWindow(settings)).ShowDialog(this);
+
+        _vm.AboutRequested += (_, settings) =>
+            Motion.RevealOnOpen(new AboutWindow(settings)).ShowDialog(this);
 
         _vm.NewPluginsNeedInfo += (_, plugins) =>
             new ClassifyPluginsWindow(_vm, plugins).ShowDialog(this);
@@ -194,6 +201,140 @@ public partial class MainWindow : Window
 
     private void UpdateSidebarForWidth() =>
         _vm.IsWindowNarrow = ClientSize.Width / UiScale.Factor < NarrowWindowWidth;
+
+    // ---- motion ---------------------------------------------------------------------------
+    // Hover lifts, density resizes and the sidebar pill are XAML transitions; what lives here is
+    // what has to be started on an event: the staggered card entrance, the title slide, popup and
+    // star effects. Settings → Reduce motion sets a class the styles key off, clears the sidebar's
+    // width easing, and makes Motion drop movement in favour of plain fades.
+
+    private Transitions? _sidebarTransitions;
+    private string? _lastPageTitle;
+    private bool _wasScanning;
+    private CancellationTokenSource? _entranceCts;
+
+    private void InitMotion()
+    {
+        _sidebarTransitions = new Transitions
+        {
+            new DoubleTransition
+            {
+                Property = WidthProperty,
+                Duration = TimeSpan.FromMilliseconds(220),
+                Easing = new CubicEaseInOut()
+            }
+        };
+        ApplyMotionSetting();
+
+        foreach (var radio in SideViews.Children.OfType<RadioButton>())
+        {
+            radio.IsCheckedChanged += (_, _) => UpdateSideIndicator();
+        }
+        UpdateSideIndicator();
+
+        _lastPageTitle = _vm.PageTitle;
+        _wasScanning = _vm.IsScanning;
+        _vm.PropertyChanged += (_, e) =>
+        {
+            switch (e.PropertyName)
+            {
+                // Also re-announced on every folder-tree rebuild, so only a real change counts.
+                case nameof(MainViewModel.PageTitle) when _vm.PageTitle != _lastPageTitle:
+                    _lastPageTitle = _vm.PageTitle;
+                    _ = Motion.Reveal(PageTitleRow, dx: -8, dy: 0, durationMs: 260);
+                    ScheduleEntrance();
+                    break;
+                case nameof(MainViewModel.IsScanning):
+                    if (_wasScanning && !_vm.IsScanning)
+                    {
+                        ScheduleEntrance();
+                    }
+                    _wasScanning = _vm.IsScanning;
+                    break;
+                case nameof(MainViewModel.IsGrid):
+                    ScheduleEntrance();
+                    break;
+                case nameof(MainViewModel.ReduceMotion):
+                    ApplyMotionSetting();
+                    break;
+            }
+        };
+    }
+
+    private void ApplyMotionSetting()
+    {
+        Classes.Set("reducedMotion", _vm.ReduceMotion);
+        Sidebar.Transitions = _vm.ReduceMotion ? null : _sidebarTransitions;
+    }
+
+    /// <summary>Slides the shared pill to whichever view is checked; hidden when none is.</summary>
+    private void UpdateSideIndicator()
+    {
+        var radios = SideViews.Children.OfType<RadioButton>().ToList();
+        var index = radios.FindIndex(r => r.IsChecked == true);
+        SideIndicator.Opacity = index < 0 ? 0 : 1;
+        if (index >= 0)
+        {
+            SideIndicator.RenderTransform = Motion.TranslateY(index * (radios[index].Height + SideViews.Spacing));
+        }
+    }
+
+    /// <summary>
+    /// Runs after the filter has rebuilt the sections and layout has placed the new cards
+    /// (Background priority comes after layout), so the entrance plays on what is actually shown.
+    /// A newer request supersedes an older one still waiting.
+    /// </summary>
+    private void ScheduleEntrance()
+    {
+        _entranceCts?.Cancel();
+        var cts = _entranceCts = new CancellationTokenSource();
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!cts.IsCancellationRequested)
+            {
+                RunEntrance(cts.Token);
+            }
+        }, DispatcherPriority.Background);
+    }
+
+    /// <summary>Fades and lifts the cards in view into place, top-left first, 30 ms apart.</summary>
+    private void RunEntrance(CancellationToken token)
+    {
+        var scroll = _vm.IsGrid ? GridScroll : ListScroll;
+        var itemClass = _vm.IsGrid ? "card" : "row";
+        var height = scroll.Bounds.Height;
+
+        var visible = scroll.GetVisualDescendants()
+            .OfType<Border>()
+            .Where(b => b.Classes.Contains(itemClass) && b.IsEffectivelyVisible)
+            .Select(b => (Item: b, Pos: b.TranslatePoint(default, scroll)))
+            .Where(x => x.Pos is { } p && p.Y < height && p.Y + x.Item.Bounds.Height > 0)
+            .OrderBy(x => Math.Round(x.Pos!.Value.Y))
+            .ThenBy(x => x.Pos!.Value.X)
+            .Select(x => x.Item)
+            .ToList();
+
+        for (var i = 0; i < visible.Count; i++)
+        {
+            _ = Motion.Reveal(visible[i], dy: 12, fromScale: 0.98, delayMs: Math.Min(i, 12) * 30, token: token);
+        }
+    }
+
+    private void OnPopupOpened(object? sender, EventArgs e)
+    {
+        if (sender is Popup { Child: Visual content })
+        {
+            _ = Motion.Reveal(content, dy: -6, fromScale: 0.98, durationMs: 160);
+        }
+    }
+
+    private void Star_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Visual star)
+        {
+            Motion.Pop(star);
+        }
+    }
 
     /// <summary>
     /// With "Minimize to tray" on, closing hides the window instead of exiting — the app keeps

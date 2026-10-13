@@ -598,6 +598,19 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    public bool ReduceMotion
+    {
+        get => _main.ReduceMotion;
+        set
+        {
+            if (_main.ReduceMotion != value)
+            {
+                _main.ReduceMotion = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     public bool CheckForPluginUpdatesOnStartup
     {
         get => _main.CheckForPluginUpdatesOnStartup;

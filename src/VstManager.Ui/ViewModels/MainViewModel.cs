@@ -155,6 +155,8 @@ public partial class MainViewModel : ObservableObject
         _layout = Enum.TryParse<LayoutMode>(settings.LayoutMode, out var lm) ? lm : LayoutMode.Grid;
         _density = Enum.TryParse<ViewDensity>(settings.ViewDensity, out var vd) ? vd : ViewDensity.Default;
         _isSidebarCollapsed = settings.SidebarCollapsed;
+        _reduceMotion = settings.ReduceMotion;
+        Motion.Reduced = _reduceMotion;
         _sort = Enum.TryParse<SortOption>(settings.SortOption, out var so) ? so : SortOption.Name;
         _sortDescending = settings.SortDescending;
         _cloudSyncEnabled = settings.CloudSyncEnabled;
@@ -366,6 +368,17 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void ToggleSidebar() => IsSidebarCollapsed = !IsSidebarCollapsed;
+
+    /// <summary>Settings → Appearance: fades only, no slides, lifts or pops.</summary>
+    [ObservableProperty]
+    private bool _reduceMotion;
+
+    partial void OnReduceMotionChanged(bool value)
+    {
+        Motion.Reduced = value;
+        _library.ReduceMotion = value;
+        SaveLibrary();
+    }
 
     [ObservableProperty]
     private bool _isScanning;
@@ -2077,6 +2090,13 @@ public partial class MainViewModel : ObservableObject
 
         SettingsRequested?.Invoke(this, settings);
     }
+
+    /// <summary>Raised when About should open; it binds the same view model as Settings.</summary>
+    public event EventHandler<SettingsViewModel>? AboutRequested;
+
+    [RelayCommand]
+    private void OpenAbout() =>
+        AboutRequested?.Invoke(this, new SettingsViewModel(this, _libraryStore, _pluginTags, _library));
 
     [RelayCommand]
     private void OpenDetails(PluginCardViewModel? card)

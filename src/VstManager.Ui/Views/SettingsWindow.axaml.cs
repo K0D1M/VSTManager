@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -213,34 +212,6 @@ public partial class SettingsWindow : Window
         if (GetTopLevel(this)?.Clipboard is { } clipboard)
         {
             await clipboard.SetTextAsync(_vm.CloudDeviceId);
-        }
-    }
-
-    // ---- about ----------------------------------------------------------------
-
-    /// <summary>No Skip here: choosing Settings → Update means the user wants it now.</summary>
-    private async void UpdateNow_Click(object? sender, RoutedEventArgs e) =>
-        await UpdateAvailableWindow.ShowAsync(this, _vm.Main, offerSkip: false);
-
-    private void AuthorLink_Click(object? sender, PointerPressedEventArgs e) => OpenUrl("https://github.com/K0D1M");
-
-    private void RepoLink_Click(object? sender, PointerPressedEventArgs e) =>
-        OpenUrl("https://github.com/K0D1M/VSTManager");
-
-    /// <summary>
-    /// Same portable open-in-browser pattern already used for KVR product pages
-    /// (MatchPickerWindow.axaml.cs's ViewPage_Click) — UseShellExecute lets the OS resolve the
-    /// default browser on both Windows and macOS rather than hardcoding one.
-    /// </summary>
-    private static void OpenUrl(string url)
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
-        {
-            // No browser, or a URL the shell refuses — not worth interrupting Settings over.
         }
     }
 }
