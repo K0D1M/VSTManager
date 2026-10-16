@@ -122,6 +122,7 @@ public partial class MainViewModel : ObservableObject
     private readonly SwitchableCloudProvider _cloudProvider;
     private readonly MegaS4SyncProvider _megaProvider;
     private readonly GoogleDriveSyncProvider _driveProvider = new();
+    private readonly DropboxSyncProvider _dropboxProvider = new();
     private readonly Task _driveSessionRestored;
     private readonly CloudSyncService _cloudSync;
 
@@ -179,12 +180,11 @@ public partial class MainViewModel : ObservableObject
         }
 
         _megaProvider = new MegaS4SyncProvider(settings.CloudDeviceId);
-        _isGoogleDriveSelected = settings.CloudProvider == "GoogleDrive";
-        _cloudProvider = new SwitchableCloudProvider(
-            _isGoogleDriveSelected ? _driveProvider : _megaProvider);
+        _cloudProviderName = settings.CloudProvider is "GoogleDrive" or "Dropbox" ? settings.CloudProvider : "Mega";
+        _cloudProvider = new SwitchableCloudProvider(ProviderFor(_cloudProviderName));
 
-        // Silent: reuses a saved refresh token, never opens a browser at startup. The first
-        // sync awaits this so it doesn't run against a not-yet-restored Drive session.
+        // Silent: reuses saved refresh tokens, never opens a browser at startup. The first
+        // sync awaits this so it doesn't run against a not-yet-restored Drive/Dropbox session.
         _driveSessionRestored = RestoreDriveSessionAsync();
         _cloudSync = new CloudSyncService(
             _cloudProvider,
@@ -724,8 +724,6 @@ public partial class MainViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(SelectionAnchor));
-        OnPropertyChanged(nameof(RefreshMetadataButtonLabel));
-        OnPropertyChanged(nameof(RefreshMetadataButtonTooltip));
     }
 
     partial void OnIsScanningChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
@@ -949,21 +947,24 @@ public partial class MainViewModel : ObservableObject
     private void MarkUnclassified(PluginCardViewModel? card) => SetTag(card, PluginTag.Unclassified);
 
     [RelayCommand]
-    private void MarkAllLegit() => SetTagForVisibleInstalled(PluginTag.Legit);
+    private void MarkAllLegit(CategorySectionViewModel? section) => SetTagForSection(section, PluginTag.Legit);
 
     [RelayCommand]
-    private void MarkAllCracked() => SetTagForVisibleInstalled(PluginTag.Cracked);
+    private void MarkAllCracked(CategorySectionViewModel? section) => SetTagForSection(section, PluginTag.Cracked);
 
     /// <summary>
-    /// Sets a tag across every currently-visible, installed plugin — the toolbar's bulk "Mark
-    /// All" action, distinct from the context menu's "Mark Legit/Cracked" which only ever acts on
-    /// the clicked card (or its selection). Scoped to what MatchesFilters leaves on screen, same
-    /// convention as the rest of the toolbar's bulk actions, so an active search/filter is never
-    /// reached past.
+    /// The section header's "Mark all in …": tags every installed plugin currently shown in that
+    /// one section. A section only ever holds what MatchesFilters left on screen, so an active
+    /// search or filter is never reached past.
     /// </summary>
-    private void SetTagForVisibleInstalled(PluginTag tag)
+    private void SetTagForSection(CategorySectionViewModel? section, PluginTag tag)
     {
-        var targets = _all.Where(c => c.IsInstalled && MatchesFilters(c)).ToList();
+        if (section is null)
+        {
+            return;
+        }
+
+        var targets = section.Plugins.Where(c => c.IsInstalled).ToList();
         if (targets.Count == 0)
         {
             return;
@@ -1125,30 +1126,17 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// True while any card is selected — the toolbar button reads this to decide its own label
-    /// ("Check Updates for Selected" vs. "Refresh All Metadata") and, via
-    /// <see cref="RefreshAllMetadataAsync"/>, its actual target set. Not the same test as
-    /// <see cref="ResolveTargets"/>'s "clicked card is part of a multi-select" — this button has
-    /// no clicked card of its own, so any selection at all (even a single card) narrows it.
+    /// The section header's "Check updates for …": re-reads installed versions and looks up the
+    /// latest release for the installed plugins in that section. The confirmation lives in
+    /// code-behind (this project's pattern), so by the time this runs the user agreed to the wait.
     /// </summary>
-    public string RefreshMetadataButtonLabel => HasSelection ? "Check Updates for Selected" : "Refresh All Metadata";
-
-    public string RefreshMetadataButtonTooltip => HasSelection
-        ? "Re-checks installed versions and looks up the latest release for the selected plugins"
-        : "Re-checks installed versions and looks up the latest release for every installed plugin";
-
-    /// <summary>
-    /// The toolbar's refresh button — every installed plugin in the library, unless one or more
-    /// are selected, in which case only those (see <see cref="RefreshMetadataButtonLabel"/> for
-    /// the matching label switch). The confirmation dialog lives in code-behind (this project's
-    /// established pattern; see MainWindow.axaml.cs), so by the time this runs the user has
-    /// already agreed to the wait.
-    /// </summary>
-    public async Task RefreshAllMetadataAsync()
+    public async Task RefreshSectionMetadataAsync(CategorySectionViewModel section)
     {
-        var targets = (HasSelection ? _all.Where(c => c.IsSelected) : _all)
-            .Where(c => c.IsInstalled)
-            .ToList();
+        var targets = section.Plugins.Where(c => c.IsInstalled).ToList();
+        if (targets.Count == 0)
+        {
+            return;
+        }
 
         BusyMessage = "Looking up plugin info online…";
         IsScanning = true;
@@ -1602,13 +1590,15 @@ public partial class MainViewModel : ObservableObject
 
     /// <summary>
     /// Selects everything between two cards inclusive, replacing the current selection. Ranges
-    /// run over <see cref="Plugins"/> rather than the unfiltered list, so a Shift-click spans
-    /// what the user can actually see rather than sweeping in hidden or filtered-out plugins.
+    /// run in on-screen order — section by section (Settings → Categories order), skipping
+    /// collapsed sections — not over <see cref="Plugins"/>, whose sort ignores the section
+    /// grouping and would sweep in plugins from other sections between the two clicked cards.
     /// </summary>
     public void SelectRange(PluginCardViewModel anchor, PluginCardViewModel target)
     {
-        var from = Plugins.IndexOf(anchor);
-        var to = Plugins.IndexOf(target);
+        var shown = Sections.Where(s => s.IsExpanded).SelectMany(s => s.Plugins).ToList();
+        var from = shown.IndexOf(anchor);
+        var to = shown.IndexOf(target);
 
         // The anchor can have been filtered away since it was set; fall back to a plain click.
         if (from < 0 || to < 0)
@@ -1629,7 +1619,7 @@ public partial class MainViewModel : ObservableObject
 
         for (var i = from; i <= to; i++)
         {
-            Plugins[i].IsSelected = true;
+            shown[i].IsSelected = true;
         }
     }
 
@@ -1756,8 +1746,8 @@ public partial class MainViewModel : ObservableObject
         if (!_cloudProvider.IsConfigured)
         {
             CloudState = CloudSyncState.NotConfigured;
-            CloudStatusMessage = IsGoogleDriveSelected && _driveProvider.HasClient
-                ? "Sign in to Google Drive in Settings → Cloud."
+            CloudStatusMessage = IsDropboxSelected ? "Sign in to Dropbox in Settings → Cloud."
+                : IsGoogleDriveSelected && _driveProvider.HasClient ? "Sign in to Google Drive in Settings → Cloud."
                 : "The cloud service isn't set up in this build yet.";
             return;
         }
@@ -1767,16 +1757,37 @@ public partial class MainViewModel : ObservableObject
 
     public Task UploadToCloudAsync() => _cloudSync.ForceUploadAsync();
 
-    // ---- cloud provider: MEGA or Google Drive ----
+    // ---- cloud provider: MEGA, Google Drive or Dropbox ----
 
+    /// <summary>"Mega", "GoogleDrive" or "Dropbox" — the value stored in library.json.</summary>
     [ObservableProperty]
-    private bool _isGoogleDriveSelected;
+    private string _cloudProviderName;
 
+    // Two-way bools for the Settings segment (RadioButton + programmatic select needs this shape).
     public bool IsMegaSelected
     {
-        get => !IsGoogleDriveSelected;
-        set { if (value) { IsGoogleDriveSelected = false; } }
+        get => CloudProviderName == "Mega";
+        set { if (value) { CloudProviderName = "Mega"; } }
     }
+
+    public bool IsGoogleDriveSelected
+    {
+        get => CloudProviderName == "GoogleDrive";
+        set { if (value) { CloudProviderName = "GoogleDrive"; } }
+    }
+
+    public bool IsDropboxSelected
+    {
+        get => CloudProviderName == "Dropbox";
+        set { if (value) { CloudProviderName = "Dropbox"; } }
+    }
+
+    private ICloudSyncProvider ProviderFor(string name) => name switch
+    {
+        "GoogleDrive" => _driveProvider,
+        "Dropbox" => _dropboxProvider,
+        _ => _megaProvider
+    };
 
     public bool GoogleDriveAvailable => _driveProvider.HasClient;
 
@@ -1789,15 +1800,17 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isGoogleSigningIn;
 
-    partial void OnIsGoogleDriveSelectedChanged(bool value)
+    partial void OnCloudProviderNameChanged(string value)
     {
-        _cloudProvider.Current = value ? _driveProvider : _megaProvider;
-        _library.CloudProvider = value ? "GoogleDrive" : "Mega";
+        _cloudProvider.Current = ProviderFor(value);
+        _library.CloudProvider = value;
         // A different remote: the last-sync time belongs to the old one and would skew the
         // upload/download/conflict decision on the first sync against the new one.
         _library.LastCloudSyncAt = null;
         _libraryStore.Save(_library);
         OnPropertyChanged(nameof(IsMegaSelected));
+        OnPropertyChanged(nameof(IsGoogleDriveSelected));
+        OnPropertyChanged(nameof(IsDropboxSelected));
 
         if (CloudSyncEnabled)
         {
@@ -1816,7 +1829,9 @@ public partial class MainViewModel : ObservableObject
             Debug.WriteLine($"Google Drive session restore failed: {ex.Message}");
         }
 
+        await _dropboxProvider.RestoreSessionAsync();
         Dispatcher.UIThread.Post(RaiseGoogleAccountChanged);
+        Dispatcher.UIThread.Post(RaiseDropboxAccountChanged);
     }
 
     private void RaiseGoogleAccountChanged()
@@ -1863,6 +1878,63 @@ public partial class MainViewModel : ObservableObject
         }
 
         RaiseGoogleAccountChanged();
+    }
+
+    // ---- Dropbox account ----
+
+    public bool IsDropboxSignedIn => _dropboxProvider.IsSignedIn;
+
+    public string DropboxAccountText => _dropboxProvider.IsSignedIn
+        ? $"Signed in as {_dropboxProvider.SignedInEmail ?? "your Dropbox account"}"
+        : "Not signed in";
+
+    [ObservableProperty]
+    private bool _isDropboxSigningIn;
+
+    private void RaiseDropboxAccountChanged()
+    {
+        OnPropertyChanged(nameof(IsDropboxSignedIn));
+        OnPropertyChanged(nameof(DropboxAccountText));
+    }
+
+    [RelayCommand]
+    private async Task SignInDropboxAsync()
+    {
+        IsDropboxSigningIn = true;
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+            await _dropboxProvider.SignInAsync(timeout.Token);
+            CloudStatusMessage = "Signed in to Dropbox.";
+            if (CloudSyncEnabled && IsDropboxSelected)
+            {
+                _ = SyncCloudNowCommand.ExecuteAsync(null);
+            }
+        }
+        catch (Exception ex)
+        {
+            CloudStatusMessage = ex is OperationCanceledException
+                ? "Dropbox sign-in was cancelled or timed out."
+                : $"Dropbox sign-in failed: {ex.Message}";
+        }
+        finally
+        {
+            IsDropboxSigningIn = false;
+            RaiseDropboxAccountChanged();
+        }
+    }
+
+    [RelayCommand]
+    private async Task SignOutDropboxAsync()
+    {
+        await _dropboxProvider.SignOutAsync();
+        if (IsDropboxSelected)
+        {
+            CloudState = CloudSyncState.NotConfigured;
+            CloudStatusMessage = "Signed out of Dropbox.";
+        }
+
+        RaiseDropboxAccountChanged();
     }
 
     public Task RestoreFromCloudAsync() => _cloudSync.ForceDownloadAsync();

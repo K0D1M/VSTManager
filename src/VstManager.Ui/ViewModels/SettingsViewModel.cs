@@ -322,6 +322,19 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _newCategoryIcon = "❔";
 
+    /// <summary>
+    /// Emoji only: anything else typed or pasted is dropped, and of several emoji the last one
+    /// wins — so typing a new emoji over the old one simply replaces it.
+    /// </summary>
+    partial void OnNewCategoryIconChanged(string value)
+    {
+        var emoji = Services.EmojiText.LastEmoji(value);
+        if (emoji != value)
+        {
+            NewCategoryIcon = emoji;
+        }
+    }
+
     [ObservableProperty]
     private string? _categoryStatus;
 

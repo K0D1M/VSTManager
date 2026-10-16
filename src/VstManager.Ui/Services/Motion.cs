@@ -54,6 +54,30 @@ public static class Motion
         return animation.RunAsync(target, token);
     }
 
+    /// <summary>The reverse of <see cref="Reveal"/>: fades out while drifting by a small offset.</summary>
+    public static Task Conceal(Visual target, double dy = -8, int durationMs = 180, CancellationToken token = default)
+    {
+        var start = new KeyFrame { Cue = new Cue(0) };
+        var end = new KeyFrame { Cue = new Cue(1) };
+        start.Setters.Add(new Setter(Visual.OpacityProperty, 1d));
+        end.Setters.Add(new Setter(Visual.OpacityProperty, 0d));
+
+        if (!Reduced)
+        {
+            start.Setters.Add(TransformSetter(TransformOperations.Identity));
+            end.Setters.Add(TransformSetter(Transform(0, dy, 1)));
+        }
+
+        var animation = new Animation
+        {
+            Duration = TimeSpan.FromMilliseconds(Reduced ? Math.Min(durationMs, 150) : durationMs),
+            Easing = new CubicEaseIn()
+        };
+        animation.Children.Add(start);
+        animation.Children.Add(end);
+        return animation.RunAsync(target, token);
+    }
+
     /// <summary>A quick scale bump, for the favourite star.</summary>
     public static void Pop(Visual target)
     {

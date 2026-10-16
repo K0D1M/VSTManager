@@ -320,6 +320,16 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Selection bar → Move to Category: files every selected plugin in the picked category.</summary>
+    private void MoveSelectionToCategory_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: CategoryDefinition category })
+        {
+            MoveToCategoryButton.Flyout?.Hide();
+            _vm.SetCategory(_vm.SelectionAnchor, category);
+        }
+    }
+
     private void OnPopupOpened(object? sender, EventArgs e)
     {
         if (sender is Popup { Child: Visual content })
@@ -671,24 +681,23 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// The toolbar's "Refresh All Metadata" — re-detects installed versions and re-queries KVR
-    /// for every installed plugin, matching the WPF app's confirm-then-run flow. The confirmation
-    /// lives here rather than in the view model, this project's established pattern for anything
-    /// destructive-adjacent (see Uninstall_Click above).
+    /// A section header's "Check updates for …": re-detects installed versions and re-queries
+    /// KVR for that section's installed plugins, after the same confirm the old toolbar button had.
     /// </summary>
-    private async void RefreshAllMetadata_Click(object? sender, RoutedEventArgs e)
+    private async void CheckSectionUpdates_Click(object? sender, RoutedEventArgs e)
     {
-        // Same selection-aware scope RefreshAllMetadataAsync itself uses — the dialog title
-        // should say what's actually about to happen rather than always claiming "all".
-        var title = _vm.HasSelection ? "Check Updates for Selected" : "Refresh All Metadata";
+        if (sender is not MenuItem { DataContext: CategorySectionViewModel section })
+        {
+            return;
+        }
 
-        if (!await ConfirmDialog.ShowAsync(this, title,
+        if (!await ConfirmDialog.ShowAsync(this, $"Check Updates for {section.Title}",
                 "This action will take some time. Continue?", "Continue"))
         {
             return;
         }
 
-        await _vm.RefreshAllMetadataAsync();
+        await _vm.RefreshSectionMetadataAsync(section);
     }
 
     /// <summary>
@@ -1024,7 +1033,7 @@ public partial class MainWindow : Window
     // uses for the row-snap wheel step.
 
     private readonly record struct SectionHeaderInfo(
-        ToggleButton Header, ItemsControl Items, CategorySectionViewModel Section);
+        Control Header, ItemsControl Items, CategorySectionViewModel Section);
 
     /// <summary>Sections are generated from a template now, so their header/items controls are
     /// found in each realized container rather than referenced by name.</summary>
@@ -1037,8 +1046,11 @@ public partial class MainWindow : Window
                 continue;
             }
 
+            // The header is the Expander's own header strip (its template's ExpanderHeader
+            // toggle), not the whole Expander, whose bounds include the cards below it.
             var descendants = container.GetVisualDescendants().ToList();
-            var header = descendants.OfType<ToggleButton>().FirstOrDefault(t => t.Classes.Contains("sectionHeaderReal"));
+            var header = descendants.OfType<Expander>().FirstOrDefault(x => x.Classes.Contains("section"))
+                ?.GetVisualDescendants().OfType<ToggleButton>().FirstOrDefault(t => t.Name == "ExpanderHeader");
             var items = descendants.OfType<ItemsControl>().FirstOrDefault(i => i.Classes.Contains("sectionItems"));
 
             if (header is not null && items is not null)
@@ -1090,36 +1102,15 @@ public partial class MainWindow : Window
 
         if (stuck is not { } section2)
         {
-            StickyHeader.IsVisible = false;
+            StickyHost.IsVisible = false;
+            StickyHost.DataContext = null;
             return;
         }
 
-        StickyHeaderIcon.Text = section2.Section.Icon;
-        StickyHeaderText.Text = section2.Section.Title;
-        StickyHeaderCount.Text = $"({section2.Section.Count})";
-        // IsChecked mirrors the real header's own expanded state, so the overlay shows the
-        // correct chevron/pressed look immediately rather than only after the user clicks it once.
-        StickyHeader.IsChecked = section2.Section.IsExpanded;
-        StickyHeader.IsVisible = true;
-    }
-
-    /// <summary>
-    /// Forwards to whichever section is currently stuck under the overlay — there is no bound
-    /// Command here (unlike the real per-section headers) because which section that is changes
-    /// as the user scrolls, so it has to be resolved at click time from _stuckSection rather than
-    /// fixed in the markup.
-    /// </summary>
-    private void StickyHeader_Click(object? sender, RoutedEventArgs e)
-    {
-        if (_stuckSection is { } section)
-        {
-            // ToggleButton already flips its own IsChecked before Click fires; overwritten here
-            // with the actual new view-model state (rather than trusting that automatic flip) so
-            // the two can never end up disagreeing.
-            var next = !section.Section.IsExpanded;
-            section.Section.IsExpanded = next;
-            StickyHeader.IsChecked = next;
-        }
+        // Bound to the stuck section itself: title, count, chevron, toggling and the header menu
+        // all act on that section, the same as its real header.
+        StickyHost.DataContext = section2.Section;
+        StickyHost.IsVisible = true;
     }
 
     private CancellationTokenSource? _zoomIndicatorCts;

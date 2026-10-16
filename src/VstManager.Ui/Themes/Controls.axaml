@@ -349,9 +349,28 @@
 
     <!-- Section collapse/expand headers (Instruments/Effects/Unclassified): full-width, left
          aligned, so the whole header row is clickable rather than just the chevron text. -->
-    <Style Selector="ToggleButton.sectionHeaderToggle">
+    <!-- Library section (Instrument, Effect, …): Fluent's own Expander. The header keeps the
+         native template and chevron, as a rounded strip; the content area is made flat and
+         unpadded sideways so the card grid lines up exactly as it did before (the startup
+         width fitting in MainWindow counts on that). -->
+    <Style Selector="Expander.section">
         <Setter Property="HorizontalAlignment" Value="Stretch" />
-        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Expander.section /template/ ToggleButton#ExpanderHeader">
+        <Setter Property="MinHeight" Value="46" />
+        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush2}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
+    </Style>
+    <Style Selector="Expander.section:expanded /template/ ToggleButton#ExpanderHeader">
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
+    </Style>
+    <Style Selector="Expander.section /template/ Border#ExpanderContent">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0,12,0,0" />
     </Style>
 
     <!-- Fluent has its own "accent" button class that paints the template with the OS accent
