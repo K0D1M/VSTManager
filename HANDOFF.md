@@ -1,6 +1,6 @@
 # VST Manager — Handoff
 
-_Last updated: 2026-10-12. Version in csproj: **1.8.2**. Repo: `K0D1M/VSTManager` (public)._
+_Last updated: 2026-10-12. Version in csproj: **1.8.3**. Repo: `K0D1M/VSTManager` (public)._
 
 VST Manager scans the user's audio plugins (VST2, VST3, AAX, CLAP, AU), groups the copies of
 each plugin into one card, looks up newer versions online (KVR), and lets the user tag,

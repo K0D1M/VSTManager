@@ -6,7 +6,7 @@ bundle, which macOS Gatekeeper will quarantine on first launch until it is signe
 clears the attribute.
 
 Usage (from the repo root, with published binary):
-    python build/make-app.py --rid osx-arm64 --version 1.8.2 --publish-dir <path>
+    python build/make-app.py --rid osx-arm64 --version 1.8.3 --publish-dir <path>
 
 Usage (from the repo root, building from source):
     python build/make-app.py                 # osx-arm64, Release, reads version from csproj
