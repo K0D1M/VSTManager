@@ -260,12 +260,44 @@
                             </ItemsControl>
                         </Border>
 
-                        <StackPanel Spacing="2">
+                        <!-- A bundle: each plugin keeps its own version, listed here with a way
+                             to open that plugin on its own or take it out of the bundle. -->
+                        <StackPanel Spacing="2" IsVisible="{Binding Plugin.IsBundle}">
+                            <TextBlock Classes="sectionHeader" Text="{Binding Plugin.SummaryLine, StringFormat='Instances · {0}'}" />
+                            <TextBlock Classes="subtitle" TextWrapping="Wrap"
+                                       Text="Category, tags, Legit/Cracked, favourite and hidden apply to every plugin in the bundle. Versions and updates are per plugin." />
+                        </StackPanel>
+                        <Border Classes="section" IsVisible="{Binding Plugin.IsBundle}">
+                            <ItemsControl ItemsSource="{Binding BundleMembers}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:PluginCardViewModel">
+                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,3">
+                                            <StackPanel Grid.Column="0" Spacing="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Classes="meta" Text="{Binding SummaryLine}" />
+                                            </StackPanel>
+                                            <Border Grid.Column="1" Classes="chip status outdated" VerticalAlignment="Center"
+                                                    Margin="8,0" IsVisible="{Binding ShowOutdatedBadge}"
+                                                    ToolTip.Tip="{Binding UpdateTooltip}">
+                                                <TextBlock Text="{Binding LatestVersion, StringFormat='v{0}'}" />
+                                            </Border>
+                                            <Button Grid.Column="2" Classes="ghost" Content="Open" Padding="10,4"
+                                                    Click="OpenInstance_Click" ToolTip.Tip="Open this plugin's own details" />
+                                            <Button Grid.Column="3" Classes="ghost" Content="Split out" Padding="10,4"
+                                                    Click="SplitInstance_Click" ToolTip.Tip="Show this plugin as its own card again" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+
+                        <StackPanel Spacing="2" IsVisible="{Binding !Plugin.IsBundle}">
                             <TextBlock Classes="sectionHeader" Text="Version" />
                             <TextBlock Classes="subtitle"
                                        Text="An OUTDATED badge appears when the latest release is newer than what you have installed." />
                         </StackPanel>
-                        <Border Classes="section">
+                        <Border Classes="section" IsVisible="{Binding !Plugin.IsBundle}">
                             <StackPanel Spacing="10">
                                 <Grid ColumnDefinitions="*,12,*">
                                     <StackPanel Grid.Column="0">

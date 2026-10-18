@@ -17,6 +17,12 @@ public class LibraryData
 
     /// <summary>Avalonia-only: keep fades but drop slides, lifts and pops.</summary>
     public bool ReduceMotion { get; set; }
+
+    /// <summary>Avalonia-only: bundles the user made by hand ("Merge into Bundle").</summary>
+    public List<PluginBundleMerge> BundleMerges { get; set; } = new();
+
+    /// <summary>Avalonia-only: plugins (by BaseName) split out of an automatic bundle.</summary>
+    public List<string> BundleExclusions { get; set; } = new();
     public string CloudProvider { get; set; } = "Mega";
     public bool HasSeenLogoInstructions { get; set; }
 

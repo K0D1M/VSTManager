@@ -128,6 +128,9 @@ public partial class PluginCardViewModel : ObservableObject
     public bool IsCracked => Tag == PluginTagSummary.Cracked;
 #endif
 
+    /// <summary>True for a product bundle card (see BundleCardViewModel).</summary>
+    public virtual bool IsBundle => false;
+
     /// <summary>Menu label, so one item covers both directions rather than showing a dead "Hide".</summary>
     public string HideMenuLabel => IsHidden ? "Unhide" : "Hide";
 
@@ -148,12 +151,12 @@ public partial class PluginCardViewModel : ObservableObject
     public string Initial => string.IsNullOrWhiteSpace(Name) ? "?" : Name[..1].ToUpperInvariant();
 
     /// <summary>"v1.2.3 · VST3", or just the formats when no version is known.</summary>
-    public string SummaryLine => string.IsNullOrWhiteSpace(CurrentVersion)
+    public virtual string SummaryLine => string.IsNullOrWhiteSpace(CurrentVersion)
         ? Formats
         : $"v{CurrentVersion.TrimStart('v', 'V')} · {Formats}";
 
     /// <summary>Spells the update out, since the badge alone doesn't say what's available.</summary>
-    public string? UpdateTooltip => IsOutdated
+    public virtual string? UpdateTooltip => IsOutdated
         ? $"Installed v{CurrentVersion?.TrimStart('v', 'V')} · latest v{LatestVersion?.TrimStart('v', 'V')}"
         : null;
 
@@ -172,7 +175,7 @@ public partial class PluginCardViewModel : ObservableObject
         .Max();
 
     /// <summary>Re-reads everything derived from the underlying item after it changed.</summary>
-    public void RefreshFromItem()
+    public virtual void RefreshFromItem()
     {
 #if !NO_LICENSE_STATUS
         Tag = _item.TagSummary;

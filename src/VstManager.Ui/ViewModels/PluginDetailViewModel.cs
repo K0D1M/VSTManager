@@ -20,6 +20,9 @@ public partial class PluginDetailViewModel : ObservableObject
 
     public PluginEditFormViewModel Form { get; }
 
+    /// <summary>The plugins inside, when this window shows a bundle; empty otherwise.</summary>
+    public IReadOnlyList<PluginCardViewModel> BundleMembers => (Plugin as BundleCardViewModel)?.Members ?? [];
+
     public IReadOnlyList<TagPickerItemViewModel> TagItems { get; }
 
     public ObservableCollection<CategoryDefinition> AvailableCategories => _main.AvailableCategories;

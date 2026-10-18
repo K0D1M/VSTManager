@@ -58,6 +58,34 @@ public partial class PluginDetailWindow : Window
 
     private void Cancel_Click(object? sender, RoutedEventArgs e) => Close();
 
+    /// <summary>Instances → Open: one plugin of the bundle in its own detail window.</summary>
+    private void OpenInstance_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: PluginCardViewModel member })
+        {
+            Motion.RevealOnOpen(new PluginDetailWindow(_main, member)).ShowDialog(this);
+        }
+    }
+
+    /// <summary>
+    /// Instances → Split out. The bundle card is rebuilt without that plugin, so this window
+    /// (showing the old bundle) closes rather than go on editing something no longer on screen.
+    /// </summary>
+    private async void SplitInstance_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Control { DataContext: PluginCardViewModel member } || _vm.Plugin is not BundleCardViewModel bundle)
+        {
+            return;
+        }
+
+        if (await ConfirmDialog.ShowAsync(this, "Split out",
+                $"Show \"{member.Name}\" as its own card instead of inside \"{bundle.Name}\"?", "Split out"))
+        {
+            _main.SplitFromBundle(bundle, member);
+            Close();
+        }
+    }
+
     private void CategoryChip_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is Control { DataContext: CategoryDefinition category })

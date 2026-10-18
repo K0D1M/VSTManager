@@ -127,6 +127,13 @@ public partial class MainViewModel : ObservableObject
     private readonly CloudSyncService _cloudSync;
 
     private readonly List<PluginCardViewModel> _all = new();
+
+    /// <summary>What the library shows: <see cref="_all"/> with each product bundle's members
+    /// replaced by one <see cref="BundleCardViewModel"/>. Selection, filtering, sections and view
+    /// counts work on this; per-plugin work (updates, logos, tags) stays on <see cref="_all"/>.</summary>
+    private readonly List<PluginCardViewModel> _display = new();
+
+    private readonly List<BundleCardViewModel> _bundles = new();
     private LibraryData _library = new();
 
     public MainViewModel()
@@ -600,10 +607,13 @@ public partial class MainViewModel : ObservableObject
     /// commands take a single card and expand it to the full selection themselves, so the bar
     /// reuses them unchanged rather than needing bulk-only duplicates.
     /// </summary>
-    public PluginCardViewModel? SelectionAnchor => _all.FirstOrDefault(c => c.IsSelected);
+    public PluginCardViewModel? SelectionAnchor => _display.FirstOrDefault(c => c.IsSelected);
+
+    /// <summary>"Merge into Bundle" needs at least two cards selected.</summary>
+    public bool CanMergeSelection => SelectedCount >= 2;
 
     /// <summary>True when filters are hiding something, so the UI can offer a way out.</summary>
-    public bool IsFiltered => Plugins.Count != _all.Count;
+    public bool IsFiltered => Plugins.Count != _display.Count;
 
     public bool IsEmpty => !IsScanning && Plugins.Count == 0;
 
@@ -724,6 +734,7 @@ public partial class MainViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(SelectionAnchor));
+        OnPropertyChanged(nameof(CanMergeSelection));
     }
 
     partial void OnIsScanningChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
@@ -846,6 +857,7 @@ public partial class MainViewModel : ObservableObject
                 _all.Add(card);
             }
 
+            RebuildDisplay();
             ApplyFilters();
             _ = LoadLogosAsync();
 
@@ -860,7 +872,7 @@ public partial class MainViewModel : ObservableObject
             // which resets every scan — persists until SetCategory actually clears it, which is
             // what makes "Later" (which saves nothing) correctly keep re-prompting on every
             // future scan instead of the plugin quietly aging out of being "new".
-            var needsInfo = _all
+            var needsInfo = _display
                 .Where(c => c.NeedsCategoryReview)
                 .ToList();
 
@@ -1582,7 +1594,7 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Collapses the selection to one card — a plain click.</summary>
     public void SelectOnly(PluginCardViewModel card)
     {
-        foreach (var other in _all.Where(c => c.IsSelected && !ReferenceEquals(c, card)))
+        foreach (var other in _display.Where(c => c.IsSelected && !ReferenceEquals(c, card)))
         {
             other.IsSelected = false;
         }
@@ -1614,7 +1626,7 @@ public partial class MainViewModel : ObservableObject
             (from, to) = (to, from);
         }
 
-        foreach (var card in _all.Where(c => c.IsSelected))
+        foreach (var card in _display.Where(c => c.IsSelected))
         {
             card.IsSelected = false;
         }
@@ -1628,7 +1640,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ClearSelection()
     {
-        foreach (var card in _all.Where(c => c.IsSelected))
+        foreach (var card in _display.Where(c => c.IsSelected))
         {
             card.IsSelected = false;
         }
@@ -1657,9 +1669,16 @@ public partial class MainViewModel : ObservableObject
             return [];
         }
 
-        return clicked.IsSelected && SelectedCount > 1
-            ? _all.Where(c => c.IsSelected).ToList()
+        var picked = clicked.IsSelected && SelectedCount > 1
+            ? _display.Where(c => c.IsSelected).ToList()
             : [clicked];
+
+        // A bundle acts on every plugin inside it — that is what makes favourite, hide, status,
+        // category, tags and folders shared across the bundle without any bundle-specific code.
+        return picked
+            .SelectMany(c => c is BundleCardViewModel bundle ? bundle.Members : [c])
+            .Distinct()
+            .ToList();
     }
 
     // ---- first-run classification -------------------------------------------
@@ -2232,7 +2251,7 @@ public partial class MainViewModel : ObservableObject
 
         _manualMetadataOverrides.SetOverride(card.BaseName, normalizedName, normalizedVendor);
 
-        foreach (var other in _all.Where(c => string.Equals(c.BaseName, card.BaseName, StringComparison.OrdinalIgnoreCase)))
+        foreach (var other in _all.Concat(_bundles).Where(c => string.Equals(c.BaseName, card.BaseName, StringComparison.OrdinalIgnoreCase)))
         {
             other.ApplyMetadataOverride(normalizedName, normalizedVendor);
         }
@@ -2542,7 +2561,7 @@ public partial class MainViewModel : ObservableObject
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                foreach (var other in _all.Where(c =>
+                foreach (var other in _all.Concat(_bundles).Where(c =>
                              string.Equals(c.BaseName, baseName, StringComparison.OrdinalIgnoreCase)))
                 {
                     var previous = other.Logo;
@@ -2743,7 +2762,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (e.PropertyName == nameof(PluginCardViewModel.IsSelected))
         {
-            SelectedCount = _all.Count(c => c.IsSelected);
+            SelectedCount = _display.Count(c => c.IsSelected);
         }
     }
 
@@ -2889,9 +2908,157 @@ public partial class MainViewModel : ObservableObject
 
     private void SaveLibrary() => _libraryStore.Save(_library);
 
+    // ---- product bundles -----------------------------------------------------
+
+    /// <summary>
+    /// Regroups <see cref="_all"/> into what the library shows: automatic bundles (same vendor,
+    /// same first word, 5+ plugins) and hand-made ones, minus anything split out — see
+    /// PluginBundleGrouper. A bundle keeps a renamed name through the manual-metadata override
+    /// keyed by its bundle key, like any plugin's.
+    /// </summary>
+    private void RebuildDisplay()
+    {
+        foreach (var old in _bundles)
+        {
+            old.PropertyChanged -= OnCardPropertyChanged;
+            old.Detach();
+        }
+        _bundles.Clear();
+
+        var cardFor = _all.ToDictionary(c => c.Item);
+        var bundled = new HashSet<PluginCardViewModel>();
+        foreach (var group in PluginBundleGrouper.Group(_all.Select(c => c.Item).ToList(),
+                     _library.BundleMerges, _library.BundleExclusions))
+        {
+            var members = group.Members.Select(i => cardFor[i]).ToList();
+            var bundle = new BundleCardViewModel(group, members) { IsNew = members.Any(m => m.IsNew) };
+            if (_manualMetadataOverrides.GetOverride(group.Key) is { } rename)
+            {
+                bundle.ApplyMetadataOverride(rename.Name, rename.Vendor);
+            }
+
+            bundle.PropertyChanged += OnCardPropertyChanged;
+            _bundles.Add(bundle);
+            bundled.UnionWith(members);
+        }
+
+        foreach (var member in bundled.Where(m => m.IsSelected))
+        {
+            member.IsSelected = false;
+        }
+
+        _display.Clear();
+        _display.AddRange(_all.Where(c => !bundled.Contains(c)));
+        _display.AddRange(_bundles);
+        SelectedCount = _display.Count(c => c.IsSelected);
+    }
+
+    /// <summary>Context menu on a multi-selection: put the selected cards in one bundle.</summary>
+    [RelayCommand]
+    private void MergeSelectionIntoBundle()
+    {
+        var picked = _display.Where(c => c.IsSelected).ToList();
+        if (picked.Count < 2)
+        {
+            return;
+        }
+
+        var members = picked
+            .SelectMany(c => c is BundleCardViewModel b ? b.Members : [c])
+            .Select(c => c.BaseName)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        // A plugin lives in one hand-made bundle at a time.
+        foreach (var merge in _library.BundleMerges)
+        {
+            merge.Members.RemoveAll(m => members.Contains(m, StringComparer.OrdinalIgnoreCase));
+        }
+        _library.BundleMerges.RemoveAll(m => m.Members.Count < 2);
+
+        var names = picked.SelectMany(c => c is BundleCardViewModel b ? b.Members : [c]).Select(c => c.Name).ToList();
+        _library.BundleMerges.Add(new PluginBundleMerge
+        {
+            Key = "bundle:manual:" + Guid.NewGuid().ToString("N")[..8],
+            Name = CommonWordPrefix(names) ?? picked[0].Name,
+            Members = members
+        });
+
+        SaveLibrary();
+        RebuildDisplay();
+        ApplyFilters();
+    }
+
+    /// <summary>Bundle card's context menu: show its plugins as separate cards again.</summary>
+    [RelayCommand]
+    private void SplitBundle(PluginCardViewModel? card)
+    {
+        if (card is not BundleCardViewModel bundle)
+        {
+            return;
+        }
+
+        if (bundle.IsManual)
+        {
+            _library.BundleMerges.RemoveAll(m => string.Equals(m.Key, bundle.BaseName, StringComparison.OrdinalIgnoreCase));
+        }
+        else
+        {
+            _library.BundleExclusions.AddRange(bundle.Members.Select(m => m.BaseName)
+                .Where(b => !_library.BundleExclusions.Contains(b, StringComparer.OrdinalIgnoreCase)));
+        }
+
+        SaveLibrary();
+        RebuildDisplay();
+        ApplyFilters();
+    }
+
+    /// <summary>Detail window → Instances → Split out: one plugin leaves its bundle.</summary>
+    public void SplitFromBundle(BundleCardViewModel bundle, PluginCardViewModel member)
+    {
+        if (bundle.IsManual)
+        {
+            foreach (var merge in _library.BundleMerges.Where(m => string.Equals(m.Key, bundle.BaseName, StringComparison.OrdinalIgnoreCase)))
+            {
+                merge.Members.RemoveAll(m => string.Equals(m, member.BaseName, StringComparison.OrdinalIgnoreCase));
+            }
+            _library.BundleMerges.RemoveAll(m => m.Members.Count < 2);
+        }
+        else if (!_library.BundleExclusions.Contains(member.BaseName, StringComparer.OrdinalIgnoreCase))
+        {
+            _library.BundleExclusions.Add(member.BaseName);
+        }
+
+        SaveLibrary();
+        RebuildDisplay();
+        ApplyFilters();
+    }
+
+    /// <summary>The bundle card currently holding <paramref name="member"/>, if any.</summary>
+    public BundleCardViewModel? BundleOf(PluginCardViewModel member) =>
+        _bundles.FirstOrDefault(b => b.Members.Contains(member));
+
+    /// <summary>"SWAM Violin 3", "SWAM Cello 3" → "SWAM"; null when the names share no word.</summary>
+    private static string? CommonWordPrefix(IReadOnlyList<string> names)
+    {
+        var split = names.Select(n => n.Split(' ', StringSplitOptions.RemoveEmptyEntries)).ToList();
+        var common = new List<string>();
+        for (var i = 0; split.All(w => w.Length > i) && split.All(w => string.Equals(w[i], split[0][i], StringComparison.OrdinalIgnoreCase)); i++)
+        {
+            common.Add(split[0][i]);
+        }
+        return common.Count > 0 ? string.Join(' ', common) : null;
+    }
+
     private void ApplyFilters()
     {
-        var filtered = _all.Where(MatchesFilters);
+        // Bundles are aggregates of their members, which actions update directly.
+        foreach (var bundle in _bundles)
+        {
+            bundle.RefreshFromItem();
+        }
+
+        var filtered = _display.Where(MatchesFilters);
 
         // Every sort falls back to name, so plugins sharing a vendor or type keep a stable,
         // predictable order rather than shuffling between rebuilds.
@@ -2926,10 +3093,10 @@ public partial class MainViewModel : ObservableObject
 
         RebuildSections(ordered);
 
-        ViewCountAll = _all.Count(c => c.IsInstalled && !c.IsHidden);
-        ViewCountFavourites = _all.Count(c => c.IsFavorite && !c.IsHidden);
-        ViewCountUpdates = _all.Count(c => c.IsInstalled && c.IsOutdated && !c.IsHidden);
-        ViewCountHidden = _all.Count(c => c.IsHidden);
+        ViewCountAll = _display.Count(c => c.IsInstalled && !c.IsHidden);
+        ViewCountFavourites = _display.Count(c => c.IsFavorite && !c.IsHidden);
+        ViewCountUpdates = _display.Count(c => c.IsInstalled && c.IsOutdated && !c.IsHidden);
+        ViewCountHidden = _display.Count(c => c.IsHidden);
 
         UpdateStatusLine();
         OnPropertyChanged(nameof(IsFiltered));
@@ -2957,7 +3124,7 @@ public partial class MainViewModel : ObservableObject
             && (!FavoritesOnly || p.IsFavorite)
             && (!OutdatedOnly || p.IsOutdated)
             && (SelectedFolderId is null
-                || string.Equals(_pluginFolders.GetFolderId(p.BaseName), SelectedFolderId, StringComparison.OrdinalIgnoreCase))
+                || string.Equals(FolderIdOf(p), SelectedFolderId, StringComparison.OrdinalIgnoreCase))
 #if !NO_LICENSE_STATUS
             && (Mode switch
             {
@@ -2987,8 +3154,15 @@ public partial class MainViewModel : ObservableObject
                 || SelectedTagFilterIds.All(id => p.TagDefinitions.Any(t => string.Equals(t.Id, id, StringComparison.OrdinalIgnoreCase))))
             && (search.Length == 0
                 || p.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
-                || (p.Vendor?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false));
+                || (p.Vendor?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (p is BundleCardViewModel bundle
+                    && bundle.Members.Any(m => m.Name.Contains(search, StringComparison.OrdinalIgnoreCase))));
     }
+
+    /// <summary>Folder a card is filed in; a bundle counts as filed where any member is.</summary>
+    private string? FolderIdOf(PluginCardViewModel card) => card is BundleCardViewModel bundle
+        ? bundle.Members.Select(m => _pluginFolders.GetFolderId(m.BaseName)).FirstOrDefault(id => id is not null)
+        : _pluginFolders.GetFolderId(card.BaseName);
 
     // ---- folders -------------------------------------------------------------
 
@@ -3027,7 +3201,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         HasFolders = _library.Folders.Count > 0;
-        UnfiledCount = Plugins.Count(p => _pluginFolders.GetFolderId(p.BaseName) is null);
+        UnfiledCount = Plugins.Count(p => FolderIdOf(p) is null);
 
         // SelectedFolder's lookup depends on the collection just rebuilt above, so a viewer
         // bound to it (the "Showing: X" header) needs telling even though SelectedFolderId
@@ -3068,7 +3242,7 @@ public partial class MainViewModel : ObservableObject
         // ordered list ApplyFilters just produced, so this is consistent with the main view by
         // construction rather than needing its own filter pass.
         foreach (var plugin in Plugins.Where(p =>
-                     string.Equals(_pluginFolders.GetFolderId(p.BaseName), folder.Id, StringComparison.OrdinalIgnoreCase)))
+                     string.Equals(FolderIdOf(p), folder.Id, StringComparison.OrdinalIgnoreCase)))
         {
             node.Plugins.Add(plugin);
         }
@@ -3250,7 +3424,7 @@ public partial class MainViewModel : ObservableObject
         // them to the same total is what made this read "131 shown of 98 installed".
         var parts = new List<string>();
 
-        if (Plugins.Count != _all.Count)
+        if (Plugins.Count != _display.Count)
         {
             parts.Add($"{Plugins.Count} shown");
         }

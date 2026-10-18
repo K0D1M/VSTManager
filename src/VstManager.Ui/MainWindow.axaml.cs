@@ -394,6 +394,27 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// Called when VST Manager is launched again while already running: comes back from the tray,
+    /// un-minimizes, and takes focus. The brief Topmost flip is what makes Windows actually raise
+    /// it above the window the user was in, instead of only flashing the taskbar button.
+    /// </summary>
+    public void BringToFront()
+    {
+        if (!IsVisible)
+        {
+            RestoreFromTray();
+        }
+        else if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        Topmost = true;
+        Activate();
+        Topmost = false;
+    }
+
+    /// <summary>
     /// Quits immediately regardless of "Minimize to tray" — same _isExiting bypass the tray's own
     /// Exit uses (see OnMainWindowClosing), so a user who wants out doesn't have to know that
     /// setting exists or dig it out of the tray icon to actually close the app.

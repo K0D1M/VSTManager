@@ -20,6 +20,9 @@ public partial class App : Application
     private const string SingleInstanceMutexName = "VstManager-SingleInstance-8D7A4B52-EF7E-422B-9E36-C30CFDB13802";
 #endif
 
+    /// <summary>A relaunch connects here to ask the running instance to show itself.</summary>
+    private static string ActivationPipeName => SingleInstanceMutexName.Replace("SingleInstance", "Activate");
+
     private Mutex? _singleInstanceMutex;
 
     // OnExit-equivalent cleanup runs on both the winning and the losing path here too (see
@@ -49,9 +52,33 @@ public partial class App : Application
 
             if (!createdNew)
             {
-                _ = ShowAlreadyRunningThenExit(desktop);
+                // Hand over to the running instance (it shows its window, even from the tray);
+                // the message is only for when nothing answers, e.g. the WPF app is the one running.
+                if (Services.SingleInstance.TryActivateRunningInstance(ActivationPipeName))
+                {
+                    desktop.Shutdown();
+                }
+                else
+                {
+                    _ = ShowAlreadyRunningThenExit(desktop);
+                }
                 return;
             }
+
+            Services.SingleInstance.StartListening(ActivationPipeName, () =>
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    switch (desktop.MainWindow)
+                    {
+                        case MainWindow main:
+                            main.BringToFront();
+                            break;
+                        case { } window:   // first run: the Welcome window
+                            window.WindowState = WindowState.Normal;
+                            window.Activate();
+                            break;
+                    }
+                }));
 
             desktop.Exit += (_, _) =>
             {

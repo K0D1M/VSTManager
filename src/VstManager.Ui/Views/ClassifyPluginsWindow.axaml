@@ -27,10 +27,10 @@
             <TextBlock Classes="sectionHeader" Text="Give these plugins a category" />
             <!--#if LICENSE_STATUS-->
             <TextBlock Classes="subtitle" TextWrapping="Wrap"
-                       Text="Pick a category and mark each copy Legit or Cracked. A plugin with everything set is saved and leaves the list on its own; Save keeps the rest (only the category is required)." />
+                       Text="Pick a category and mark each copy Legit or Cracked. Once every plugin is set you'll be asked to apply the changes." />
             <!--#else-->
             <TextBlock Classes="subtitle" TextWrapping="Wrap"
-                       Text="Pick a category for each plugin below. A plugin is saved and leaves the list as soon as it has one." />
+                       Text="Pick a category for each plugin below. Once every plugin has one you'll be asked to apply the changes." />
             <!--#endif-->
         </StackPanel>
 
@@ -110,14 +110,11 @@
             </ItemsControl>
         </ScrollViewer>
 
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="0,16,0,0">
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,16,0,0">
             <TextBlock Grid.Column="0" Classes="meta" VerticalAlignment="Center" TextWrapping="Wrap"
-                       Text="You can change any of this later from a plugin's detail window. Later leaves the category unset — you'll be asked again next scan." />
-            <Button Grid.Column="1" Classes="ghost" Content="Later" Padding="18,8" Margin="0,0,8,0"
-                    Click="Later_Click" />
-            <Button x:Name="SaveButton" Grid.Column="2" Classes="accent" Content="Save" Padding="22,8"
-                    Click="Save_Click"
-                    ToolTip.Tip="Pick a category for every plugin above to enable Save" />
+                       Text="You can change any of this later from a plugin's detail window. Plugins you don't finish come back after the next scan." />
+            <Button Grid.Column="1" Classes="ghost" Content="Close" Padding="18,8" Margin="12,0,0,0"
+                    Click="Close_Click" />
         </Grid>
     </Grid>
 </Window>

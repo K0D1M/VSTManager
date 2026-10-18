@@ -11,12 +11,14 @@ public partial class ConfirmDialog : Window
     }
 
     /// <summary>Yes/No question. Resolves false when dismissed with the window's close button.</summary>
-    public static Task<bool> ShowAsync(Window owner, string title, string message, string yesLabel = "Yes")
+    public static Task<bool> ShowAsync(Window owner, string title, string message, string yesLabel = "Yes",
+                                       string noLabel = "Cancel")
     {
         var dialog = new ConfirmDialog { Title = title };
         dialog.TitleText.Text = title;
         dialog.MessageText.Text = message;
         dialog.YesButton.Content = yesLabel;
+        dialog.NoButton.Content = noLabel;
         return dialog.ShowDialog<bool>(owner);
     }
 

@@ -116,6 +116,26 @@
                 </MenuItem.Icon>
             </MenuItem>
 
+            <Separator />
+
+            <MenuItem Classes="pluginMenuItem" Header="Merge into Bundle"
+                      ToolTip.Tip="Show the selected plugins as one card"
+                      IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).CanMergeSelection}"
+                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).MergeSelectionIntoBundleCommand}">
+                <MenuItem.Icon>
+                    <Path Classes="tabIcon" Width="18" Height="18" Data="{StaticResource IconPlus}" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Classes="pluginMenuItem" Header="Split Bundle"
+                      ToolTip.Tip="Show the plugins in this bundle as separate cards again"
+                      IsVisible="{Binding IsBundle}"
+                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SplitBundleCommand}"
+                      CommandParameter="{Binding}">
+                <MenuItem.Icon>
+                    <Path Classes="tabIcon" Width="18" Height="18" Data="{StaticResource IconClear}" />
+                </MenuItem.Icon>
+            </MenuItem>
+
             <Separator IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).HasFolders}" />
 
             <!-- A Click handler opening its own small picker window, not a nested submenu: this

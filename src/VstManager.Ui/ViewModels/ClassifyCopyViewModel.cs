@@ -14,8 +14,17 @@ public partial class ClassifyPluginViewModel : ObservableObject
     public ClassifyPluginViewModel(PluginCardViewModel plugin)
     {
         Plugin = plugin;
-        Copies = plugin.Installs.Select(i => new ClassifyCopyViewModel(i)).ToList();
+        // A bundle lists only its newly found plugins' files — not every file of all 38 SWAM
+        // instruments — while the category picked here still applies to the whole bundle.
+        Copies = (plugin is BundleCardViewModel bundle
+                ? bundle.Members.Where(m => m.NeedsCategoryReview).SelectMany(m => m.Installs)
+                : plugin.Installs)
+            .Select(i => new ClassifyCopyViewModel(i))
+            .ToList();
         _selectedCategoryId = plugin.CategoryId;
+        Name = plugin is BundleCardViewModel b
+            ? $"{plugin.Name} — {b.Members.Count(m => m.NeedsCategoryReview)} new"
+            : plugin.Name;
 
         foreach (var copy in Copies)
         {
@@ -33,7 +42,7 @@ public partial class ClassifyPluginViewModel : ObservableObject
     public bool IsComplete => HasCategorySelected && Copies.All(c => c.SelectedTag != PluginTag.Unclassified);
 #endif
 
-    public string Name => Plugin.Name;
+    public string Name { get; }
 
     public string? Vendor => Plugin.Vendor;
 
