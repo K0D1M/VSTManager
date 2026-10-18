@@ -411,8 +411,8 @@
                                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                                            IsVisible="{Binding !IsPreset}" />
                                             </Border>
-                                            <TextBlock Grid.Column="1" Text="{Binding Icon}" FontSize="14"
-                                                       VerticalAlignment="Center" Margin="0,0,10,0" />
+                                            <li:CategoryIcon Grid.Column="1" CategoryId="{Binding Id}" Emoji="{Binding Icon}" IconSize="18"
+                                                             Margin="0,0,10,0" />
                                             <TextBlock Grid.Column="2" Text="{Binding Name}" VerticalAlignment="Center"
                                                        Foreground="{DynamicResource TextPrimaryBrush}" />
                                             <Border Grid.Column="3" Classes="chip" VerticalAlignment="Center"

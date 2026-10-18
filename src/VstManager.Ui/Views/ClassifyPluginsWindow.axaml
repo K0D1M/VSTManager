@@ -2,6 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:VstManager.Ui.ViewModels"
         xmlns:model="using:VstManager.Core.Models"
+        xmlns:li="using:VstManager.Ui.Views"
+        xmlns:conv="using:VstManager.Ui.Converters"
         x:Class="VstManager.Ui.Views.ClassifyPluginsWindow"
         Title="New Plugins Found"
         Width="640" Height="640"
@@ -25,10 +27,10 @@
             <TextBlock Classes="sectionHeader" Text="Give these plugins a category" />
             <!--#if LICENSE_STATUS-->
             <TextBlock Classes="subtitle" TextWrapping="Wrap"
-                       Text="A category is required for each plugin below. Plugins with more than one copy can also be marked Legit or Cracked per copy — anything left unmarked there stays unclassified." />
+                       Text="Pick a category and mark each copy Legit or Cracked. A plugin with everything set is saved and leaves the list on its own; Save keeps the rest (only the category is required)." />
             <!--#else-->
             <TextBlock Classes="subtitle" TextWrapping="Wrap"
-                       Text="A category is required for each plugin below." />
+                       Text="Pick a category for each plugin below. A plugin is saved and leaves the list as soon as it has one." />
             <!--#endif-->
         </StackPanel>
 
@@ -36,7 +38,7 @@
             <ItemsControl x:Name="PluginList">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:ClassifyPluginViewModel">
-                        <Border Classes="section" Margin="0,0,0,10">
+                        <Border Classes="section classifyCard" Margin="0,0,0,10">
                             <StackPanel Spacing="10">
                                 <StackPanel Spacing="1">
                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14"
@@ -57,13 +59,19 @@
                                                  Click handler — the inner DataContext here is the category,
                                                  same "carry both values" reason SetCategory isn't a plain
                                                  Command. -->
-                                            <Button Classes="ghost"
+                                            <Button Classes="ghost categoryChip"
                                                     Tag="{Binding $parent[ItemsControl].Tag}"
                                                     Padding="8,4" FontSize="12"
                                                     Click="CategoryChip_Click">
-                                                <StackPanel Orientation="Horizontal" Spacing="5">
-                                                    <TextBlock Text="{Binding Icon}" />
-                                                    <TextBlock Text="{Binding Name}" />
+                                                <Classes.selected>
+                                                    <MultiBinding Converter="{x:Static conv:EqualityMultiConverter.Instance}">
+                                                        <Binding Path="Id" />
+                                                        <Binding Path="$parent[ItemsControl].((vm:ClassifyPluginViewModel)Tag).SelectedCategoryId" />
+                                                    </MultiBinding>
+                                                </Classes.selected>
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <li:CategoryIcon CategoryId="{Binding Id}" Emoji="{Binding Icon}" IconSize="14" />
+                                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
                                                 </StackPanel>
                                             </Button>
                                         </DataTemplate>
@@ -85,9 +93,9 @@
                                                 <!--#if LICENSE_STATUS-->
                                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6"
                                                             Margin="10,0,0,0">
-                                                    <ToggleButton Classes="filterToggle" Content="Legit"
+                                                    <ToggleButton Classes="filterToggle legit" Content="Legit"
                                                                   IsChecked="{Binding IsLegit}" />
-                                                    <ToggleButton Classes="filterToggle" Content="Cracked"
+                                                    <ToggleButton Classes="filterToggle cracked" Content="Cracked"
                                                                   IsChecked="{Binding IsCracked}" />
                                                 </StackPanel>
                                                 <!--#endif-->

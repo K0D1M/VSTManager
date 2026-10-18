@@ -255,6 +255,30 @@
         <Setter Property="TextElement.Foreground" Value="#FFFFFFFF" />
     </Style>
 
+    <!--#if LICENSE_STATUS-->
+    <!-- Legit / Cracked toggles light up in their own status colours, not the accent. -->
+    <Style Selector="ToggleButton.filterToggle.legit:checked /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource LegitBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource LegitBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.filterToggle.cracked:checked /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
+    </Style>
+    <!--#endif-->
+
+    <!-- Category chip (new-plugin window, plugin detail window): the picked one is tinted with
+         the accent so the choice is visible. -->
+    <Style Selector="Button.categoryChip">
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.categoryChip.selected /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentTintBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
     <!-- Container that groups segmented radio buttons. -->
     <Style Selector="Border.segmentGroup">
         <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />

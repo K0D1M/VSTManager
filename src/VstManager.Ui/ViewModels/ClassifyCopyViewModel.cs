@@ -16,7 +16,22 @@ public partial class ClassifyPluginViewModel : ObservableObject
         Plugin = plugin;
         Copies = plugin.Installs.Select(i => new ClassifyCopyViewModel(i)).ToList();
         _selectedCategoryId = plugin.CategoryId;
+
+        foreach (var copy in Copies)
+        {
+            copy.PropertyChanged += (_, _) => OnPropertyChanged(nameof(IsComplete));
+        }
     }
+
+    /// <summary>
+    /// Everything answered: a category, and (with license status) every copy marked Legit or
+    /// Cracked. The window saves a complete plugin and lets it leave the list on its own.
+    /// </summary>
+#if NO_LICENSE_STATUS
+    public bool IsComplete => HasCategorySelected;
+#else
+    public bool IsComplete => HasCategorySelected && Copies.All(c => c.SelectedTag != PluginTag.Unclassified);
+#endif
 
     public string Name => Plugin.Name;
 
@@ -29,7 +44,11 @@ public partial class ClassifyPluginViewModel : ObservableObject
 
     public bool HasCategorySelected => SelectedCategoryId is not null;
 
-    partial void OnSelectedCategoryIdChanged(string? value) => OnPropertyChanged(nameof(HasCategorySelected));
+    partial void OnSelectedCategoryIdChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasCategorySelected));
+        OnPropertyChanged(nameof(IsComplete));
+    }
 }
 
 /// <summary>

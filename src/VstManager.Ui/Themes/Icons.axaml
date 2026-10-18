@@ -36,6 +36,13 @@
     <StreamGeometry x:Key="IconAboutFill">F1 M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z M11 11h2v6h-2zm0-4h2v2h-2z</StreamGeometry>
     <!-- Dropbox's open-box mark (24-unit viewBox), drawn in Dropbox blue in Settings → Cloud. -->
     <StreamGeometry x:Key="DropboxGlyph">M6 1.807 0 5.629l6 3.822 6.001-3.822L6 1.807zM18 1.807l-6 3.822 6 3.822 6-3.822-6-3.822zM0 13.274l6 3.822 6.001-3.822L6 9.452l-6 3.822zM18 9.452l-6 3.822 6 3.822 6-3.822-6-3.822zM6 18.371l6.001 3.822 6-3.822-6-3.822L6 18.371z</StreamGeometry>
+    <!-- Built-in category icons (chosen on the "Category Icons" canvas): line art on the 24-unit
+         grid, drawn by Views/CategoryIcon. The piano's black keys are a separate filled part. -->
+    <StreamGeometry x:Key="CategoryInstrumentStroke">M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z M7.5 13v6 M12 13v6 M16.5 13v6</StreamGeometry>
+    <StreamGeometry x:Key="CategoryInstrumentFill">M6.25 5h2.5v7.2a.8.8 0 0 1-.8.8h-.9a.8.8 0 0 1-.8-.8z M10.75 5h2.5v7.2a.8.8 0 0 1-.8.8h-.9a.8.8 0 0 1-.8-.8z M15.25 5h2.5v7.2a.8.8 0 0 1-.8.8h-.9a.8.8 0 0 1-.8-.8z</StreamGeometry>
+    <!-- A knob: 270° scale arc open at the bottom (reads as a dial, not a sun, even at 14 px),
+         the knob body, and a pointer out to its rim at about one o'clock. -->
+    <StreamGeometry x:Key="CategoryEffectStroke">M5.64 18.36A9 9 0 1 1 18.36 18.36 M12 7a5 5 0 1 1 0 10a5 5 0 1 1 0-10z M12 12l2.6-2.6</StreamGeometry>
     <StreamGeometry x:Key="SettingsIconData">F1 M18 22a2 2 0 0 0 2-2v-5l-5 4v-3H8v-2h7v-3l5 4V8l-6-6H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12zM13 4l5 5h-5V4z</StreamGeometry>
 
     <StreamGeometry x:Key="IconGeneral">M12,15.5 A3.5,3.5 0 1 1 12,8.5 A3.5,3.5 0 1 1 12,15.5 M12,2.5 L12,5 M12,19 L12,21.5 M4.2,4.2 L6,6 M18,18 L19.8,19.8 M2.5,12 L5,12 M19,12 L21.5,12 M4.2,19.8 L6,18 M18,6 L19.8,4.2</StreamGeometry>

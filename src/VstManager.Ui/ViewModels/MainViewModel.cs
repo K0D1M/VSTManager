@@ -1048,7 +1048,9 @@ public partial class MainViewModel : ObservableObject
     /// from code-behind (a chip Click handler with both values already in hand) rather than a
     /// single CommandParameter binding.
     /// </summary>
-    public void SetCategory(PluginCardViewModel? card, CategoryDefinition? category)
+    /// <param name="expandSelection">False for callers that act on exactly one plugin (the
+    /// new-plugin window), so a multi-selection in the main window can't widen their choice.</param>
+    public void SetCategory(PluginCardViewModel? card, CategoryDefinition? category, bool expandSelection = true)
     {
         if (card is null || card.Installs.Count == 0 || category is null)
         {
@@ -1062,7 +1064,7 @@ public partial class MainViewModel : ObservableObject
             _ => (PluginKind?)null
         };
 
-        var targets = ResolveTargets(card);
+        var targets = expandSelection ? ResolveTargets(card) : [card];
         var stored = _library.Plugins.ToDictionary(p => p.Path, StringComparer.OrdinalIgnoreCase);
 
         foreach (var target in targets)

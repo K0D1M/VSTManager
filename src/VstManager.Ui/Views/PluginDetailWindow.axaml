@@ -208,13 +208,19 @@
                                     <DataTemplate x:DataType="model:CategoryDefinition">
                                         <!-- Click, not Command: setting Form.SelectedCategoryId is staged, applied
                                              only on Save, the same as every other field in this window. -->
-                                        <Button Classes="ghost"
+                                        <Button Classes="ghost categoryChip"
                                                 Padding="8,4" FontSize="12"
                                                 Click="CategoryChip_Click"
                                                 IsEnabled="{Binding $parent[ItemsControl].((vm:PluginDetailViewModel)DataContext).Plugin.IsInstalled}">
+                                            <Classes.selected>
+                                                <MultiBinding Converter="{x:Static conv:EqualityMultiConverter.Instance}">
+                                                    <Binding Path="Id" />
+                                                    <Binding Path="$parent[ItemsControl].((vm:PluginDetailViewModel)DataContext).Form.SelectedCategoryId" />
+                                                </MultiBinding>
+                                            </Classes.selected>
                                             <StackPanel Orientation="Horizontal" Spacing="5">
-                                                <TextBlock Text="{Binding Icon}" />
-                                                <TextBlock Text="{Binding Name}" />
+                                                <li:CategoryIcon CategoryId="{Binding Id}" Emoji="{Binding Icon}" IconSize="14" />
+                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
                                             </StackPanel>
                                         </Button>
                                     </DataTemplate>
